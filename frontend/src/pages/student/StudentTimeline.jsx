@@ -14,6 +14,7 @@ import {
   SectionCard, 
   StatusBadge 
 } from '../../components/common/PremiumComponents';
+import { toast } from 'sonner';
 import { cn } from '../../utils/utils';
 
 const StudentTimeline = () => {
@@ -31,7 +32,10 @@ const StudentTimeline = () => {
         title="Project Timeline" 
         description="Track your project milestones and upcoming critical deadlines."
         actions={
-          <button className="bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-black shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+          <button 
+            onClick={() => toast.info('Calendar view coming soon!')}
+            className="bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-2xl flex items-center gap-2 font-black shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+          >
             <Calendar size={20} />
             View Calendar
           </button>

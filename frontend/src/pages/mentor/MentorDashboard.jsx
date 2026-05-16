@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { mockProjects } from '../../data/mockData';
 import { 
   PageHeader, 
@@ -34,6 +36,7 @@ import {
 } from 'recharts';
 
 const MentorDashboard = () => {
+  const navigate = useNavigate();
   const stats = [
     { label: 'Managed Projects', value: '12', icon: Users, color: 'blue', trend: 'up', trendValue: '2' },
     { label: 'Pending Reviews', value: '5', icon: Clock, color: 'amber', trend: 'down', trendValue: '3' },
@@ -55,11 +58,17 @@ const MentorDashboard = () => {
         description="Monitor assigned project pipelines and provide critical feedback."
         actions={
           <div className="flex items-center gap-3">
-             <button className="hidden sm:flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-black rounded-2xl hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+             <button 
+               onClick={() => toast.success('Broadcast module coming soon!')}
+               className="hidden sm:flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-black rounded-2xl hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+             >
                 <Mail size={18} />
                 Broadcast Msg
              </button>
-             <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">
+             <button 
+               onClick={() => navigate('/mentor/schedule')}
+               className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95"
+             >
                 <Calendar size={18} />
                 Sync Schedule
              </button>
@@ -117,7 +126,11 @@ const MentorDashboard = () => {
                 { title: 'Schema Verification', team: 'Health AI', time: '5h ago', priority: 'Medium' },
                 { title: 'Testing Log Review', team: 'Eco Track', time: 'Yesterday', priority: 'Low' },
               ].map((item, i) => (
-                <div key={i} className="p-4 rounded-2xl border border-slate-50 hover:border-blue-100 hover:bg-blue-50/30 transition-all group relative cursor-pointer">
+                <div 
+                  key={i} 
+                  onClick={() => navigate('/mentor/review-requests')}
+                  className="p-4 rounded-2xl border border-slate-50 hover:border-blue-100 hover:bg-blue-50/30 transition-all group relative cursor-pointer"
+                >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -134,7 +147,10 @@ const MentorDashboard = () => {
                 </div>
               ))}
             </div>
-            <button className="w-full mt-6 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-xs font-black text-slate-400 hover:border-blue-200 hover:text-blue-600 hover:bg-blue-50/50 transition-all">
+            <button 
+              onClick={() => navigate('/mentor/review-requests')}
+              className="w-full mt-6 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-xs font-black text-slate-400 hover:border-blue-200 hover:text-blue-600 hover:bg-blue-50/50 transition-all"
+            >
               View Entire Backlog
             </button>
           </SectionCard>

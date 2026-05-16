@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { mockProjects } from '../../data/mockData';
 import { 
   PageHeader, 
@@ -31,6 +33,7 @@ import {
 } from 'recharts';
 
 const StudentDashboard = () => {
+  const navigate = useNavigate();
   const chartData = [
     { name: 'Mon', tasks: 4 },
     { name: 'Tue', tasks: 7 },
@@ -53,7 +56,10 @@ const StudentDashboard = () => {
         title="Welcome back, Piyush!" 
         description="Here is what's happening with your projects today."
         actions={
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-black shadow-xl shadow-blue-600/20 transition-all active:scale-95">
+          <button 
+            onClick={() => navigate('/student/projects')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-black shadow-xl shadow-blue-600/20 transition-all active:scale-95"
+          >
             <Plus size={20} />
             Launch Project
           </button>
@@ -125,7 +131,10 @@ const StudentDashboard = () => {
               </div>
               <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
                 <StatusBadge status={mockProjects[0].status} variant="info" />
-                <button className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline">
+                <button 
+                  onClick={() => navigate('/student/kanban')}
+                  className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline"
+                >
                   View Board <ArrowUpRight size={14} />
                 </button>
               </div>

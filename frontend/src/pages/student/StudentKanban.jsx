@@ -33,8 +33,10 @@ import {
 } from 'lucide-react';
 import { 
   PageHeader, 
-  StatusBadge 
+  StatusBadge,
+  Modal 
 } from '../../components/common/PremiumComponents';
+import { toast } from 'sonner';
 import { cn } from '../../utils/utils';
 
 const initialTasks = [
@@ -126,11 +128,31 @@ const SortableTask = ({ task, id }) => {
 const StudentKanban = () => {
   const [tasks, setTasks] = useState(initialTasks);
   const [activeId, setActiveId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', status: 'Requirements', priority: 'Medium' });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  const handleAddTask = () => {
+    if (!newTask.title) {
+      toast.error('Please enter a task title');
+      return;
+    }
+    const task = {
+      ...newTask,
+      id: 't' + Date.now(),
+      members: ['P'],
+      comments: 0,
+      attachments: 0
+    };
+    setTasks([...tasks, task]);
+    setIsModalOpen(false);
+    setNewTask({ title: '', status: 'Requirements', priority: 'Medium' });
+    toast.success('Task added to ' + newTask.status);
+  };
 
   const handleDragStart = (event) => {
     setActiveId(event.active.id);
@@ -159,7 +181,10 @@ const StudentKanban = () => {
                 <button className="p-2 text-blue-600 bg-slate-50 rounded-lg"><Layout size={18} /></button>
                 <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg"><Clock size={18} /></button>
              </div>
-             <button className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-black shadow-lg shadow-slate-900/10 transition-all">
+             <button 
+               onClick={() => setIsModalOpen(true)}
+               className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-black shadow-lg shadow-slate-900/10 transition-all active:scale-95"
+             >
                 <Plus size={18} />
                 New Task
              </button>
@@ -253,6 +278,54 @@ const StudentKanban = () => {
           </DndContext>
         </div>
       </div>
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        title="Create New Task"
+        footer={
+          <>
+            <button onClick={() => setIsModalOpen(false)} className="px-8 py-3 font-bold text-slate-600 hover:bg-slate-200 rounded-2xl transition-all active:scale-95">Discard</button>
+            <button onClick={handleAddTask} className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95">Create Task</button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Task Title</label>
+            <input 
+              type="text" 
+              value={newTask.title}
+              onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" 
+              placeholder="e.g. Design Login Screen" 
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Stage</label>
+              <select 
+                value={newTask.status}
+                onChange={(e) => setNewTask({...newTask, status: e.target.value})}
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium"
+              >
+                {stages.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Priority</label>
+              <select 
+                value={newTask.priority}
+                onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
+                className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium"
+              >
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

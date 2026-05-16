@@ -16,11 +16,14 @@ import {
   ArrowUpRight,
   MoreVertical,
   LayoutGrid,
-  List as ListIcon
+  List as ListIcon,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { Modal } from '../../components/common/PremiumComponents';
 
-const ProjectCard = ({ project }) => (
+const ProjectCard = ({ project, onNavigate }) => (
   <SectionCard className="group relative">
     <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
       <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
@@ -62,10 +65,16 @@ const ProjectCard = ({ project }) => (
     <ProgressCard label="Completion Progress" value={project.progress} color="blue" />
 
     <div className="grid grid-cols-2 gap-4 mt-8">
-      <button className="py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-black rounded-xl text-xs transition-all active:scale-[0.98]">
+      <button 
+        onClick={() => onNavigate('/student/kanban')}
+        className="py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-black rounded-xl text-xs transition-all active:scale-[0.98]"
+      >
         View Kanban
       </button>
-      <button className="py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-xs shadow-lg shadow-blue-600/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+      <button 
+        onClick={() => toast.info('Detailed view coming soon!')}
+        className="py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-xs shadow-lg shadow-blue-600/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+      >
         Details <ArrowUpRight size={14} />
       </button>
     </div>
@@ -75,6 +84,7 @@ const ProjectCard = ({ project }) => (
 const StudentProjects = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -112,52 +122,43 @@ const StudentProjects = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {mockProjects.map(project => (
-          <ProjectCard key={project.id} project={project} />
+          <ProjectCard key={project.id} project={project} onNavigate={navigate} />
         ))}
       </div>
 
-      {/* Modal Upgrade (Brief Implementation) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Launch New Project</h2>
-                <p className="text-slate-500 text-sm font-medium">Define your project parameters and team.</p>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-600 active:scale-90">
-                <Plus className="rotate-45" size={24} />
-              </button>
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        title="Launch New Project"
+        footer={
+          <>
+            <button onClick={() => setIsModalOpen(false)} className="px-8 py-3 font-bold text-slate-600 hover:bg-slate-200 rounded-2xl transition-all active:scale-95">Discard</button>
+            <button onClick={() => { setIsModalOpen(false); toast.success('Project pipeline initialized successfully!'); }} className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95">Initialize Project</button>
+          </>
+        }
+      >
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Project Title</label>
+              <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" placeholder="e.g. AI Content Generator" />
             </div>
-            <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Project Title</label>
-                  <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" placeholder="e.g. AI Content Generator" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Category</label>
-                  <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium">
-                    <option>Mini Project</option>
-                    <option>Major Project</option>
-                    <option>Hackathon Project</option>
-                    <option>Final Year Project</option>
-                  </select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Detailed Description</label>
-                <textarea rows="4" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" placeholder="What problems are you solving?"></textarea>
-              </div>
-            </div>
-            <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-4">
-              <button onClick={() => setIsModalOpen(false)} className="px-8 py-3 font-bold text-slate-600 hover:bg-slate-200 rounded-2xl transition-all active:scale-95">Discard</button>
-              <button onClick={() => { setIsModalOpen(false); toast.success('Project pipeline initialized successfully!'); }} className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95">Initialize Project</button>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Category</label>
+              <select className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium">
+                <option>Mini Project</option>
+                <option>Major Project</option>
+                <option>Hackathon Project</option>
+                <option>Final Year Project</option>
+              </select>
             </div>
           </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Detailed Description</label>
+            <textarea rows="4" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" placeholder="What problems are you solving?"></textarea>
+          </div>
         </div>
-      )}
-    </div>
+      </Modal>
   );
 };
 

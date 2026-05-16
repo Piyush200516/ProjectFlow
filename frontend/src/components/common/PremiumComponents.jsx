@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 import { cn } from '../../utils/utils';
 
 // Page Header Component
@@ -114,3 +115,28 @@ export const ProgressCard = ({ label, value, color = 'blue', showValue = true })
     </div>
   </div>
 );
+// Premium Modal Component
+export const Modal = ({ isOpen, onClose, title, children, footer }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <h3 className="text-xl font-black text-slate-900 tracking-tight">{title}</h3>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="px-8 py-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
+          {children}
+        </div>
+        {footer && (
+          <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-3">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
