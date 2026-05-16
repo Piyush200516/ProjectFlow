@@ -23,3 +23,7 @@ coverage/
 
 # Local history
 .history/
+
+# Exclude legacy/backup folders
+next-app/
+frontend_backup/
