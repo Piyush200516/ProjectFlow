@@ -7,7 +7,9 @@ import Login from './pages/auth/Login';
 import StudentDashboard from './pages/student/StudentDashboard';
 import StudentProjects from './pages/student/StudentProjects';
 import StudentKanban from './pages/student/StudentKanban';
+import StudentTimeline from './pages/student/StudentTimeline';
 import StudentScore from './pages/student/StudentScore';
+import StudentSettings from './pages/student/StudentSettings';
 import MentorDashboard from './pages/mentor/MentorDashboard';
 import HodDashboard from './pages/hod/HodDashboard';
 import CdcDashboard from './pages/cdc/CdcDashboard';
@@ -45,7 +47,9 @@ function App() {
                 <Route path="dashboard" element={<StudentDashboard />} />
                 <Route path="projects" element={<StudentProjects />} />
                 <Route path="kanban" element={<StudentKanban />} />
+                <Route path="timeline" element={<StudentTimeline />} />
                 <Route path="student-score" element={<StudentScore />} />
+                <Route path="settings" element={<StudentSettings />} />
                 <Route path="*" element={<Navigate to="dashboard" replace />} />
               </Routes>
             </ProtectedRoute>
