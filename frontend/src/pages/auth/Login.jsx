@@ -20,7 +20,8 @@ const Login = () => {
       await new Promise(resolve => setTimeout(resolve, 1200));
       login(email, password, role);
       toast.success('Welcome back, ' + email.split('@')[0] + '!');
-      navigate(`/${role}/dashboard`);
+      // Use explicit absolute paths
+      navigate(`/${role}/dashboard`, { replace: true });
     } catch (error) {
       toast.error('Invalid credentials. Please try again.');
     } finally {

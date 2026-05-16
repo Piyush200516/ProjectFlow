@@ -16,6 +16,7 @@ import {
   X,
   User,
   ChevronRight,
+  ChevronDown,
   HelpCircle,
   Rocket,
   Lightbulb,
@@ -146,7 +147,7 @@ const DashboardLayout = ({ children }) => {
             <SidebarItem 
               key={item.href}
               {...item}
-              active={location.pathname === item.href}
+              active={location.pathname === item.href || (item.href !== '/' && location.pathname.startsWith(item.href))}
               collapsed={isCollapsed}
             />
           ))}
