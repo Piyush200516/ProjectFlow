@@ -1,31 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #2563eb;
-  --color-secondary: #64748b;
-  --color-accent: #f59e0b;
-  --color-background: #f8fafc;
-  --color-foreground: #0f172a;
+  --color-primary: #000000;
+  --color-brand: #2563eb;
+  --color-border: #e2e8f0;
+  --color-muted: #64748b;
   
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
-  --radius-3xl: 1.5rem;
+  --radius-minimal: 0.5rem;
+  --radius-standard: 0.75rem;
+  --radius-large: 1.25rem;
   
-  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.15);
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-minimal: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 @layer base {
   body {
-    @apply bg-[#f8fafc] text-slate-900;
+    @apply bg-white text-slate-900;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
 @layer components {
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
   }
   
   .custom-scrollbar::-webkit-scrollbar-track {
@@ -33,55 +32,25 @@
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+    @apply bg-slate-200 rounded-full hover:bg-slate-300;
   }
 
-  .glass-card {
-    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-premium;
+  .minimal-card {
+    @apply bg-white border border-slate-200 shadow-subtle hover:shadow-minimal transition-all duration-200;
   }
 
-  .premium-button {
-    @apply relative overflow-hidden transition-all duration-300 active:scale-[0.98];
-  }
-
-  .premium-button::after {
-    content: '';
-    @apply absolute inset-0 bg-white/20 translate-y-full transition-transform duration-300;
-  }
-
-  .premium-button:hover::after {
-    @apply translate-y-0;
+  .action-button {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 active:scale-95;
   }
 }
 
-/* Custom Animations */
-@keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+/* Page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
 }
-
-.animate-float {
-  animation: float 4s ease-in-out infinite;
-}
-
-.hero-gradient {
-  background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.05), transparent),
-              radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.05), transparent);
-}
-
-.shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite linear;
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-/* Kanban specific styles */
-.kanban-column {
-  min-height: calc(100vh - 250px);
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
 }

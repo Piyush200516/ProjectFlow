@@ -45,72 +45,71 @@ const StudentDashboard = () => {
   ];
 
   const activities = [
-    { icon: FileCode, title: 'Code Review Approved', description: 'Dr. Smith approved your PR for the NLP module.', time: '2h ago', type: 'success' },
-    { icon: Layout, title: 'UI Mockups Updated', description: 'Rahul uploaded new high-fidelity mockups.', time: '5h ago', type: 'info' },
-    { icon: TestTube, title: 'Testing Milestone', description: 'Requirement analysis stage is 100% complete.', time: 'Yesterday', type: 'warning' },
+    { icon: FileCode, title: 'Code Review Approved', description: 'NLP module pull request merged.', time: '2h ago', type: 'success' },
+    { icon: Layout, title: 'UI Mockups Updated', description: 'Rahul uploaded new Figma links.', time: '5h ago', type: 'info' },
+    { icon: TestTube, title: 'Testing Milestone', description: 'Requirement analysis is complete.', time: 'Yesterday', type: 'warning' },
   ];
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <PageHeader 
-        title="Welcome back, Piyush!" 
-        description="Here is what's happening with your projects today."
+        title="Dashboard" 
+        description="Monitor your academic project progress and feedback."
         actions={
           <button 
             onClick={() => navigate('/student/projects')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-black shadow-xl shadow-blue-600/20 transition-all active:scale-95"
+            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all active:scale-95"
           >
-            <Plus size={20} />
-            Launch Project
+            <Plus size={16} />
+            New Project
           </button>
         }
       />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Briefcase} label="Active Projects" value={mockProjects.length} trend="up" trendValue="12%" color="blue" />
-        <StatCard icon={CheckCircle2} label="Tasks Completed" value="48" trend="up" trendValue="8" color="green" />
-        <StatCard icon={Clock} label="Upcoming Deadlines" value="3" color="amber" />
-        <StatCard icon={AlertCircle} label="Mentor Feedback" value="2" trend="down" trendValue="1" color="indigo" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Briefcase} label="Active" value={mockProjects.length} trend="up" trendValue="12%" color="blue" />
+        <StatCard icon={CheckCircle2} label="Completed" value="48" trend="up" trendValue="8" color="green" />
+        <StatCard icon={Clock} label="Deadlines" value="3" color="amber" />
+        <StatCard icon={AlertCircle} label="Feedback" value="2" trend="down" trendValue="1" color="indigo" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Analytics Card */}
         <SectionCard 
-          title="Productivity Over Time" 
-          subtitle="Tasks completed in the last 7 days"
+          title="Activity" 
+          subtitle="Total tasks completed recently"
           className="lg:col-span-2"
           headerActions={
-            <div className="flex bg-slate-100 p-1 rounded-xl">
-              <button className="px-3 py-1.5 bg-white text-xs font-bold rounded-lg shadow-sm">Tasks</button>
-              <button className="px-3 py-1.5 text-xs font-bold text-slate-500">Commits</button>
+            <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200/60">
+              <button className="px-3 py-1 bg-white text-xs font-semibold rounded shadow-sm border border-slate-100">Tasks</button>
+              <button className="px-3 py-1 text-xs font-semibold text-slate-500">Commits</button>
             </div>
           }
         >
-          <div className="h-[350px] w-full">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorTasks" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#0f172a" stopOpacity={0.05}/>
+                    <stop offset="95%" stopColor="#0f172a" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} dy={15} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 500}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 500}} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
-                  itemStyle={{ fontWeight: 800, color: '#1e293b' }}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  itemStyle={{ fontWeight: 600, fontSize: '12px', color: '#0f172a' }}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="tasks" 
-                  stroke="#2563eb" 
-                  strokeWidth={4} 
+                  stroke="#0f172a" 
+                  strokeWidth={2} 
                   fillOpacity={1} 
                   fill="url(#colorTasks)" 
-                  animationDuration={2000}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -118,24 +117,24 @@ const StudentDashboard = () => {
         </SectionCard>
 
         {/* Right Sidebar: Activity & Recent Projects */}
-        <div className="space-y-8">
-          <SectionCard title="Recent Activity" subtitle="Updates from your team and mentors">
+        <div className="space-y-6">
+          <SectionCard title="Team Updates" subtitle="Recent comments and changes">
             <ActivityTimeline activities={activities} />
           </SectionCard>
 
-          <SectionCard title="Project Progress" subtitle="Status of your top project">
-            <div className="space-y-6">
+          <SectionCard title="Featured Project" subtitle="Main active goal">
+            <div className="space-y-5">
               <div>
-                <h4 className="text-sm font-bold text-slate-900 mb-4">{mockProjects[0].title}</h4>
-                <ProgressCard label="Overall Completion" value={mockProjects[0].progress} color="blue" />
+                <h4 className="text-xs font-semibold text-slate-900 mb-3 uppercase tracking-wider">{mockProjects[0].title}</h4>
+                <ProgressCard label="Completion" value={mockProjects[0].progress} color="blue" />
               </div>
               <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
                 <StatusBadge status={mockProjects[0].status} variant="info" />
                 <button 
                   onClick={() => navigate('/student/kanban')}
-                  className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline"
+                  className="text-xs font-semibold text-slate-900 flex items-center gap-1 hover:underline underline-offset-4"
                 >
-                  View Board <ArrowUpRight size={14} />
+                  View Board <ArrowUpRight size={12} />
                 </button>
               </div>
             </div>

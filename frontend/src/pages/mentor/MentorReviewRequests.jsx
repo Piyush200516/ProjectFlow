@@ -14,6 +14,7 @@ import {
   StatusBadge 
 } from '../../components/common/PremiumComponents';
 import { toast } from 'sonner';
+import { cn } from '../../utils/utils';
 
 const MentorReviewRequests = () => {
   const [requests, setRequests] = useState([

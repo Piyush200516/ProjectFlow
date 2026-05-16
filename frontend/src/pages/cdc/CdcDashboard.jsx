@@ -33,10 +33,13 @@ import {
   PageHeader, 
   StatCard, 
   SectionCard, 
-  StatusBadge 
+  StatusBadge,
+  Modal 
 } from '../../components/common/PremiumComponents';
+import { toast } from 'sonner';
 
 const CdcDashboard = () => {
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
   const startupData = [
     { month: 'Jan', count: 4, funding: 20 },
     { month: 'Feb', count: 7, funding: 45 },
@@ -63,7 +66,10 @@ const CdcDashboard = () => {
             <button className="hidden sm:flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-black rounded-2xl hover:bg-slate-50 transition-all shadow-sm active:scale-95">
               Innovation Fund
             </button>
-            <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95"
+            >
               <Rocket size={20} />
               Launch Hackathon
             </button>
@@ -179,6 +185,34 @@ const CdcDashboard = () => {
            ))}
         </div>
       </SectionCard>
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        title="Launch New Hackathon"
+        footer={
+          <>
+            <button onClick={() => setIsModalOpen(false)} className="px-8 py-3 font-bold text-slate-600 hover:bg-slate-200 rounded-2xl transition-all active:scale-95">Cancel</button>
+            <button onClick={() => { setIsModalOpen(false); toast.success('Hackathon live! Inviting all project teams...'); }} className="px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95">Start Event</button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Hackathon Title</label>
+            <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" placeholder="e.g. Smart India 2026" />
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Event Date</label>
+              <input type="date" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Prize Pool</label>
+              <input type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium" placeholder="$50,000" />
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

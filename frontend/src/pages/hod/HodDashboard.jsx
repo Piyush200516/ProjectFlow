@@ -35,6 +35,8 @@ import {
   SectionCard, 
   StatusBadge 
 } from '../../components/common/PremiumComponents';
+import { toast } from 'sonner';
+import { cn } from '../../utils/utils';
 
 const HodDashboard = () => {
   const deptStats = [
@@ -71,7 +73,10 @@ const HodDashboard = () => {
                 <Search size={18} />
                 Global Search
              </button>
-             <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">
+             <button 
+               onClick={() => toast.success('Quarterly audit report generated and downloaded.')}
+               className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95"
+             >
                 <FileDown size={18} />
                 Export Quarterly Audit
              </button>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, Link } from 'react-router-dom';
+import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'sonner';
 
@@ -30,12 +30,21 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import DashboardLayout from './layouts/DashboardLayout';
 
 const Unauthorized = () => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-50">
-    <div className="text-center p-12 bg-white rounded-3xl shadow-xl border border-slate-200">
-      <h1 className="text-4xl font-black text-rose-600 mb-4">403</h1>
-      <p className="text-xl font-bold text-slate-800 mb-6">Unauthorized Access</p>
-      <p className="text-slate-500 mb-8">You do not have permission to view this portal.</p>
-      <Navigate to="/login" replace />
+  <div className="min-h-screen flex items-center justify-center bg-white p-6">
+    <div className="w-full max-w-[400px] text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-50 rounded-full text-rose-500 mb-2">
+        <ShieldCheck size={32} />
+      </div>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Access Denied</h1>
+        <p className="text-sm text-slate-500">You don't have permission to view this workspace.</p>
+      </div>
+      <div className="pt-4">
+        <Link to="/login" className="text-sm font-semibold text-slate-900 hover:underline underline-offset-4 flex items-center justify-center gap-2">
+          <ArrowLeft size={16} />
+          Return to Sign In
+        </Link>
+      </div>
     </div>
   </div>
 );
@@ -44,7 +53,7 @@ const Unauthorized = () => (
 const ProtectedRoute = ({ allowedRoles }) => {
   const { user, loading } = useAuth();
   
-  if (loading) return null; // Or a loading spinner
+  if (loading) return null;
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -69,6 +78,7 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/register" element={<Navigate to="/login" replace />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           
