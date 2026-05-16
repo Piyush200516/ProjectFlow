@@ -106,6 +106,12 @@ const DashboardLayout = ({ children }) => {
 
   const currentMenu = menuItems[user?.role || 'student'] || [];
 
+  const handleLogout = () => {
+    const role = user?.role || 'student';
+    logout();
+    toast.success('Logged out successfully');
+  };
+
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar Overlay */}
@@ -153,7 +159,7 @@ const DashboardLayout = ({ children }) => {
         <div className="p-3 border-t border-slate-100">
           <SidebarItem icon={Settings} label="Settings" href={`/${user?.role || 'student'}/settings`} active={location.pathname.includes('/settings')} collapsed={isCollapsed} />
           <button 
-            onClick={logout}
+            onClick={handleLogout}
             className={cn(
               "flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-all duration-200 mt-1",
               isCollapsed && "justify-center"

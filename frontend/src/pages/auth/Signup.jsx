@@ -97,7 +97,7 @@ const Signup = () => {
 
           <div className="pt-6 border-t border-slate-100 flex items-center justify-center gap-2">
             <p className="text-xs text-slate-500">Already have an account?</p>
-            <Link to="/login" className="text-xs font-semibold text-slate-900 hover:underline underline-offset-4">Sign in</Link>
+            <Link to="/auth/student/login" className="text-xs font-semibold text-slate-900 hover:underline underline-offset-4">Sign in</Link>
           </div>
         </div>
       </div>

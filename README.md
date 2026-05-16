@@ -1,4 +1,4 @@
-# ðŸš€ ProjectFlow Edu
+ÿþ# ðŸš€ ProjectFlow Edu
 
 <div align="center">
   <img src="https://img.shields.io/badge/Version-1.0.0--Beta-blue?style=for-the-badge&logo=rocket" alt="Version" />
@@ -115,7 +115,7 @@ ProjectFlow Edu provides tailored experiences for four distinct user roles:
 ### Backend
 - **Runtime**: Node.js
 - **Framework**: Express.js
-- **Database**: MySQL (Relational Data) + Redis (Queue/Cache)
+- **Database**: MySQL (Relational Data+ Redis (Queue/Cache)
 - **Real-time**: Socket.io
 - **Job Processing**: BullMQ
 - **AI**: Google Gemini API / OpenAI API

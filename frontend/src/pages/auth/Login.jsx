@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Github, Mail, Lock, Loader2, Rocket, ShieldCheck, Zap, Briefcase, User } from 'lucide-react';
+import { LogIn, Mail, Lock, Loader2, Rocket, ShieldCheck, Zap, Briefcase, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../../utils/utils';
 
-const Login = () => {
+const Login = ({ role = 'student', title = 'Sign In' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('student');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -28,13 +27,6 @@ const Login = () => {
     }
   };
 
-  const roleConfigs = {
-    student: { icon: Rocket, label: 'Student' },
-    mentor: { icon: User, label: 'Mentor' },
-    hod: { icon: ShieldCheck, label: 'HOD' },
-    cdc: { icon: Briefcase, label: 'CDC' },
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6">
       <div className="w-full max-w-[400px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -42,30 +34,11 @@ const Login = () => {
           <div className="inline-flex items-center justify-center w-12 h-12 bg-slate-900 rounded-xl text-white mb-4">
             <span className="text-xl font-bold">P</span>
           </div>
-          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Sign In</h1>
-          <p className="text-sm text-slate-500">Access the ProjectFlow Edu workspace</p>
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">{title}</h1>
+          <p className="text-sm text-slate-500">Access the ProjectFlow Edu {role} workspace</p>
         </div>
 
         <div className="space-y-6">
-          <div className="flex p-1 bg-slate-50 rounded-lg border border-slate-200/60">
-            {Object.entries(roleConfigs).map(([id, cfg]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setRole(id)}
-                className={cn(
-                  "flex-1 flex flex-col items-center justify-center py-2 rounded-md transition-all",
-                  role === id 
-                    ? "bg-white text-slate-900 shadow-sm border border-slate-200" 
-                    : "text-slate-500 hover:text-slate-700"
-                )}
-              >
-                <cfg.icon size={16} className="mb-1" />
-                <span className="text-[10px] font-semibold uppercase tracking-tight">{cfg.label}</span>
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-4">
               <div className="space-y-2">
@@ -83,7 +56,9 @@ const Login = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between ml-1">
                   <label className="text-xs font-semibold text-slate-900">Password</label>
-                  <Link to="/forgot-password" px-1 className="text-xs font-medium text-slate-500 hover:text-slate-900">Forgot?</Link>
+                  {role === 'student' && (
+                    <Link to="/auth/student/forgot-password" px-1 className="text-xs font-medium text-slate-500 hover:text-slate-900">Forgot?</Link>
+                  )}
                 </div>
                 <input
                   type="password"
@@ -112,7 +87,7 @@ const Login = () => {
           {role === 'student' && (
             <div className="pt-6 border-t border-slate-100 flex items-center justify-center gap-2">
               <p className="text-xs text-slate-500">Need an account?</p>
-              <Link to="/signup" className="text-xs font-semibold text-slate-900 hover:underline underline-offset-4">Create account</Link>
+              <Link to="/auth/student/register" className="text-xs font-semibold text-slate-900 hover:underline underline-offset-4">Create account</Link>
             </div>
           )}
         </div>

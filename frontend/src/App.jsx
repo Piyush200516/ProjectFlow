@@ -29,25 +29,30 @@ import Signup from './pages/auth/Signup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import DashboardLayout from './layouts/DashboardLayout';
 
-const Unauthorized = () => (
-  <div className="min-h-screen flex items-center justify-center bg-white p-6">
-    <div className="w-full max-w-[400px] text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-50 rounded-full text-rose-500 mb-2">
-        <ShieldCheck size={32} />
-      </div>
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Access Denied</h1>
-        <p className="text-sm text-slate-500">You don't have permission to view this workspace.</p>
-      </div>
-      <div className="pt-4">
-        <Link to="/login" className="text-sm font-semibold text-slate-900 hover:underline underline-offset-4 flex items-center justify-center gap-2">
-          <ArrowLeft size={16} />
-          Return to Sign In
-        </Link>
+const Unauthorized = () => {
+  const { user } = useAuth();
+  const loginPath = user ? `/auth/${user.role}/login` : '/auth/student/login';
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white p-6">
+      <div className="w-full max-w-[400px] text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-50 rounded-full text-rose-500 mb-2">
+          <ShieldCheck size={32} />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Access Denied</h1>
+          <p className="text-sm text-slate-500">You don't have permission to view this workspace.</p>
+        </div>
+        <div className="pt-4">
+          <Link to={loginPath} className="text-sm font-semibold text-slate-900 hover:underline underline-offset-4 flex items-center justify-center gap-2">
+            <ArrowLeft size={16} />
+            Return to Sign In
+          </Link>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Improved Protected Route Component
 const ProtectedRoute = ({ allowedRoles }) => {
@@ -56,7 +61,8 @@ const ProtectedRoute = ({ allowedRoles }) => {
   if (loading) return null;
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const role = allowedRoles && allowedRoles.length > 0 ? allowedRoles[0] : 'student';
+    return <Navigate to={`/auth/${role}/login`} replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -75,12 +81,27 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/register" element={<Navigate to="/login" replace />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
+          {/* Public / Generic Routes */}
           <Route path="/unauthorized" element={<Unauthorized />} />
+          
+          {/* Student Auth Routes */}
+          <Route path="/auth/student/login" element={<Login role="student" title="Student Sign In" />} />
+          <Route path="/auth/student/register" element={<Signup />} />
+          <Route path="/auth/student/forgot-password" element={<ForgotPassword />} />
+
+          {/* Mentor Auth Routes */}
+          <Route path="/auth/mentor/login" element={<Login role="mentor" title="Mentor Sign In" />} />
+
+          {/* HOD Auth Routes */}
+          <Route path="/auth/hod/login" element={<Login role="hod" title="HOD Sign In" />} />
+
+          {/* CDC Auth Routes */}
+          <Route path="/auth/cdc/login" element={<Login role="cdc" title="CDC Sign In" />} />
+
+          {/* Legacy Redirects */}
+          <Route path="/login" element={<Navigate to="/auth/student/login" replace />} />
+          <Route path="/signup" element={<Navigate to="/auth/student/register" replace />} />
+          <Route path="/forgot-password" element={<Navigate to="/auth/student/forgot-password" replace />} />
           
           {/* Protected Portal Routes */}
             <Route path="/student" element={<ProtectedRoute allowedRoles={['student']} />}>
