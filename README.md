@@ -1,223 +1,191 @@
-# ProjectFlow Edu 🚀
+# 🚀 ProjectFlow Edu
 
-> **AI-Powered Jira-Inspired Academic Project Lifecycle Management SaaS Platform**
+<div align="center">
+  <img src="https://img.shields.io/badge/Version-1.0.0--Beta-blue?style=for-the-badge&logo=rocket" alt="Version" />
+  <img src="https://img.shields.io/badge/UI/UX-Minimalist--SaaS-slate?style=for-the-badge&logo=figma" alt="Design" />
+  <img src="https://img.shields.io/badge/Frontend-React--Vite-61DAFB?style=for-the-badge&logo=react" alt="Frontend" />
+  <img src="https://img.shields.io/badge/Backend-Node.js--Express-339933?style=for-the-badge&logo=node.js" alt="Backend" />
+  <img src="https://img.shields.io/badge/Database-MySQL-4479A1?style=for-the-badge&logo=mysql" alt="Database" />
+</div>
 
-[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
-[![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io/)
+<br />
 
-ProjectFlow Edu is a comprehensive, production-ready SaaS platform designed to bridge the gap between academic project requirements and industry-standard project management. Inspired by high-performance tools like **Linear**, **Notion**, and **Jira**, it provides a streamlined, role-based ecosystem for students, mentors, HODs, and CDC/Innovation cells to collaborate on academic innovations.
+<div align="center">
+  <h3>The Intelligent Operating System for Academic Innovation</h3>
+  <p>ProjectFlow Edu is an AI-powered, Jira-inspired lifecycle management platform designed specifically for the unique workflows of schools, colleges, and innovation cells.</p>
+</div>
 
 ---
 
-## 📌 Table of Contents
+## 📖 Table of Contents
 
-- [Problem Statement](#-problem-statement)
+- [Overview](#-overview)
 - [Why ProjectFlow Edu?](#-why-projectflow-edu)
-- [Project Architecture](#-project-architecture)
+- [System Architecture](#-system-architecture)
+- [Key Portals](#-key-portals)
 - [Core Features](#-core-features)
-  - [Student Portal](#student-portal)
-  - [Mentor Portal](#mentor-portal)
-  - [HOD Portal](#hod-portal)
-  - [CDC Portal](#cdc-portal)
-- [Role-Based Access Control (RBAC)](#-role-based-access-control-rbac)
-- [UI/UX Philosophy](#-uiux-philosophy)
-- [SDLC Workflow](#-sdlc-workflow)
 - [Tech Stack](#-tech-stack)
-- [Database Design](#-database-design)
-- [Installation Guide](#-installation-guide)
-- [Future Roadmap](#-future-roadmap)
+- [Getting Started](#-getting-started)
+- [Development Workflow](#-development-workflow)
+- [AI & Real-time Integration](#-ai--real-time-integration)
+- [Security](#-security)
+- [Roadmap](#-roadmap)
 - [License](#-license)
 
 ---
 
-## ⚠️ Problem Statement
+## 🌟 Overview
 
-Traditional project management tools like **Jira, Trello, and Asana** are engineered for professional software teams and enterprise environments. They lack the native workflows required by the academic ecosystem:
-- **No integrated evaluation systems** for mentors and faculty.
-- **Complexity barrier** for students new to agile methodologies.
-- **Lack of administrative oversight** for HODs and innovation cells.
-- **Manual documentation tracking** often disconnected from task progress.
+**ProjectFlow Edu** is more than just a project tracker. It is a comprehensive ecosystem that bridges the gap between academic projects and startup incubation. By integrating **SDLC tracking**, **AI-driven task generation**, and **hierarchical approval workflows**, it empowers students and institutions to turn academic milestones into real-world innovation.
 
----
-
-## 💡 Why ProjectFlow Edu?
-
-ProjectFlow Edu solves these problems by providing a tailored environment where **academic compliance meets agile efficiency**.
-- **Integrated Evaluations**: Built-in scorecards and feedback loops.
-- **SaaS Minimalism**: A clean, high-contrast UI that reduces cognitive load.
-- **End-to-End Tracking**: From "Problem Statement" to "Incubation/Startup" phase.
-- **AI-Enhanced Workflows**: Automated project breakdowns and documentation outlines.
+### 🎯 Mission
+To streamline the chaotic process of academic project management and provide data-driven insights into student performance and innovation potential.
 
 ---
 
-## 🏗️ Project Architecture
+## ⚡ Why ProjectFlow Edu?
 
-The platform follows a modern microservices-ready monolithic architecture, ensuring real-time performance and data integrity.
+Professional tools like **Jira** or **Asana** are built for corporate engineering teams. They fail in academia because:
+- **Hierarchical Gaps**: They lack built-in HOD → Mentor → Student approval flows.
+- **Academic Context**: They don't understand specific academic projects (Mini, Major, Final Year).
+- **Innovation Transition**: They aren't built to transition a college project into a startup incubation pipeline.
 
-```ascii
-[ User Interfaces (Student, Mentor, HOD, CDC) ]
-       |
-       ↓
-[ API Gateway / Express Backend ] <---- [ Socket.io Real-time Bus ]
-       |                   |
-       |                   +---- [ BullMQ Background Tasks ]
-       ↓                               |
-[ MySQL Database ] <----------------- [ Redis Cache/Queue ]
-       |
-       +---- [ Gemini/OpenAI API ]
+**ProjectFlow Edu** solves this by speaking the language of academia.
+
+---
+
+## 🏗 System Architecture
+
+### High-Level Design
+```text
+      ┌──────────────────────────┐
+      │      React Frontend      │ (Vite + Tailwind v4 + Shadcn)
+      └────────────┬─────────────┘
+                   │
+         (REST API / WebSockets)
+                   │
+      ┌────────────▼─────────────┐
+      │    Express.js Backend    │ (Node.js + JWT Auth)
+      └────────────┬─────────────┘
+                   │
+     ┌─────────────┴─────────────┬─────────────┐
+     │           MySQL           │    Redis    │ (Caching / BullMQ)
+     └─────────────┬─────────────┴─────────────┘
+                   │
+     ┌─────────────┴─────────────┐
+     │    AI & Third-Party APIs  │ (Gemini / OpenAI / Razorpay)
+     └───────────────────────────┘
 ```
 
 ---
 
-## ✨ Core Features
+## 🏛 Key Portals
 
-### Student Portal
-- **Dashboard**: High-level overview of active projects, upcoming deadlines, and performance metrics.
-- **SDLC Kanban**: A specialized board with academic stages (Requirement -> Design -> Testing -> Complete).
-- **Milestone Timeline**: Visual tracking of project progress against college deadlines.
-- **Documentation Hub**: Centralized repository for SRS, project reports, and presentation slides.
-- **Feedback Loop**: Request and view real-time evaluations from assigned mentors.
+ProjectFlow Edu provides tailored experiences for four distinct user roles:
 
-### Mentor Portal
-- **Evaluation Hub**: Unified interface to review multiple student teams simultaneously.
-- **Student Progress**: Real-time monitoring of Kanban activity and task velocity.
-- **Meeting Scheduler**: Automated scheduling for project reviews and guidance sessions.
-- **Feedback System**: Provide granular feedback on specific project milestones.
-
-### HOD Portal
-- **Department Analytics**: Visualize project trends, success rates, and mentor workloads across the department.
-- **Approval Workflow**: Review and approve project titles and problem statements.
-- **Mentor Mapping**: Assign faculty mentors to student teams based on domain expertise.
-
-### CDC / Innovation Cell Portal
-- **Startup Tracking**: Monitor high-potential projects transitioning into startups.
-- **Hackathon Management**: Create and manage institutional or regional innovation challenges.
-- **Industry Collaboration**: Track interactions between student teams and industry partners.
-
----
-
-## 🔐 Role-Based Access Control (RBAC)
-
-| Role | Access Level | Primary Actions |
-| :--- | :--- | :--- |
-| **Student** | Workspace User | Create Projects, Update Kanban, Upload Docs |
-| **Mentor** | Evaluator | Review Submissions, Provide Scores, Schedule Meetings |
-| **HOD** | Dept. Admin | Approve Projects, Manage Mentors, View Reports |
-| **CDC** | Innovation Admin | Track Startups, Manage Hackathons, Industry Links |
-| **Admin** | System Admin | User Management, System Configuration, Logs |
-
----
-
-## 🎨 UI/UX Philosophy
-
-Our design system is built on the principle of **"Productive Minimalism."**
-- **High Contrast**: Pure white backgrounds with slate-900 typography for maximum readability.
-- **Linear Inspiration**: Border-based separation and subtle shadows for a clean, professional SaaS look.
-- **Information Density**: Optimized for complex academic data without feeling cluttered.
-- **Responsive Mastery**: Fully functional across desktop, tablet, and mobile browsers.
-
----
-
-## 📂 Folder Structure
-
-```
-ProjectFlow/
-├── backend/                # Express.js Server
-│   ├── src/
-│   │   ├── controllers/    # Business Logic
-│   │   ├── routes/         # API Endpoints
-│   │   ├── middleware/     # Auth & RBAC
-│   │   ├── models/         # Database Schemas
-│   │   └── server.js       # Entry Point
-│   └── package.json
-├── frontend/               # React Vite Application
-│   ├── src/
-│   │   ├── components/     # UI Components (shadcn/ui)
-│   │   ├── pages/          # Portal Views
-│   │   ├── layouts/        # Dashboard Frameworks
-│   │   ├── context/        # Auth & Global State
-│   │   └── index.css       # Design System Tokens
-│   └── package.json
-├── database/               # SQL Scripts
-│   └── schema.sql          # Core Table Structures
-└── README.md
-```
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technologies |
+| Portal | Primary Focus |
 | :--- | :--- |
-| **Frontend** | React.js, Vite, Tailwind CSS v4, Lucide, Recharts, DnD Kit |
-| **Backend** | Node.js, Express.js, JWT, Socket.io, BullMQ |
-| **Database** | MySQL (Persistence), Redis (Caching/Queues) |
-| **AI Layer** | Google Gemini / OpenAI (Project Analysis) |
-| **DevOps** | Vercel (Frontend), Render/Railway (Backend), MySQL Managed |
+| **Student** | Project execution, Kanban management, documentation, and feedback loops. |
+| **Mentor** | Evaluation, milestone tracking, and providing actionable feedback. |
+| **HOD** | Departmental oversight, project approvals, and high-level analytics. |
+| **CDC** | Innovation cell management, startups, hackathons, and industry collaboration. |
 
 ---
 
-## 💾 Database Design
+## 🛠 Core Features
 
-The schema is optimized for complex relationships between students, faculty, and administrative oversight.
-- **Users**: Core authentication and role identification.
-- **Projects**: Central entity for all academic innovations.
-- **Tasks**: Granular action items within the SDLC Kanban.
-- **Evaluations**: Academic scoring and qualitative feedback logs.
-- **Startups/Hackathons**: CDC-specific entities for innovation tracking.
-
----
-
-## 🚀 Installation Guide
-
-### Prerequisites
-- Node.js (v18+)
-- MySQL (v8.0+)
-- Redis (Optional for background tasks)
-
-### Backend Setup
-1. Navigate to the backend directory: `cd backend`
-2. Install dependencies: `npm install`
-3. Configure `.env` file (see [Environment Variables](#environment-variables)).
-4. Start development server: `npm run dev`
-
-### Frontend Setup
-1. Navigate to the frontend directory: `cd frontend`
-2. Install dependencies: `npm install`
-3. Start Vite server: `npm run dev`
-
-### Database Setup
-1. Create a new MySQL database: `CREATE DATABASE projectflow_edu;`
-2. Import the schema: `mysql -u root -p projectflow_edu < database/schema.sql`
+- **SDLC Engine**: Track projects across 8 specialized stages from Requirement Analysis to Deployment.
+- **AI Task Pilot**: Automatically generate detailed SDLC task breakdowns based on project abstracts.
+- **Agile Workflow**: High-contrast Kanban boards optimized for team collaboration.
+- **Innovation Hub**: Dedicated CDC tools for managing hackathons and startup incubation.
+- **Real-time Sync**: Live notifications and project activity streams via Socket.io.
+- **Analytics Dashboards**: Visual performance metrics using Recharts.
 
 ---
 
-## 🛣️ Future Roadmap
+## 💻 Tech Stack
 
-- [ ] **Payments**: Razorpay integration for fee management and hackathon registrations.
-- [ ] **Mobile App**: Dedicated Flutter/React Native app for instant notifications.
-- [ ] **Cloud Storage**: AWS S3/Google Cloud Storage integration for document archiving.
-- [ ] **Multi-Tenant SaaS**: Support for multiple colleges under a single deployment.
+### Frontend
+- **Framework**: React.js 18 (Vite)
+- **Styling**: Tailwind CSS v4
+- **UI Components**: shadcn/ui + Lucide Icons
+- **State/Routing**: React Router DOM + Context API
+- **Charts**: Recharts
+
+### Backend
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Database**: MySQL (Relational Data) + Redis (Queue/Cache)
+- **Real-time**: Socket.io
+- **Job Processing**: BullMQ
+- **AI**: Google Gemini API / OpenAI API
+
+---
+
+## 🚀 Getting Started
+
+### 1. Repository Setup
+```bash
+git clone https://github.com/Piyush200516/ProjectFlow.git
+cd ProjectFlow
+```
+
+### 2. Environment Configuration
+Check the `.env.example` files in both `frontend` and `backend` directories and create your own `.env` files.
+
+### 3. Database Initialization
+Import the schema into your MySQL instance:
+```bash
+mysql -u root -p < database/projectflow_edu_schema.sql
+```
+
+### 4. Installation & Start
+**Backend:**
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 🛡 Security
+
+ProjectFlow Edu prioritizes data integrity and user security:
+- **JWT Authentication**: Secure, stateless session management.
+- **Granular RBAC**: Role-Based Access Control enforced at the middleware level.
+- **Safety Headers**: Implementation of Helmet and CORS security protocols.
+- **Rate Limiting**: Protection against brute-force and DDoS attempts.
+
+---
+
+## 🗺 Roadmap
+
+- [ ] **Payments**: Razorpay integration for innovation cell funding.
+- [ ] **Cloud Storage**: AWS S3 integration for large project artifacts.
+- [ ] **AI-Docs**: Automated documentation generation for final year projects.
+- [ ] **Mobile Port**: Dedicated React Native companion app for mentors.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ---
 
-## 👨‍💻 Author
-
-**Piyush Mishra**
-- GitHub: [@Piyush200516](https://github.com/Piyush200516)
-- Email: [piyushmishra21052003@gmail.com](mailto:piyushmishra21052003@gmail.com)
-
----
-*Built with ❤️ for the Academic Innovation Ecosystem.*
+<div align="center">
+  <p>Developed with ❤️ by <b>Piyush Mishra</b></p>
+  <p>
+    <a href="https://github.com/Piyush200516"><b>GitHub</b></a> •
+    <a href="https://linkedin.com/in/piyushmishra21052003"><b>LinkedIn</b></a>
+  </p>
+  <p><i>Empowering the next generation of innovators.</i></p>
+</div>

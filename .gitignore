@@ -1,29 +1,41 @@
 # Dependencies
 node_modules/
-
-# Environment
-.env
-.env.local
+frontend/node_modules/
+backend/node_modules/
 
 # Production
 dist/
 build/
+frontend/dist/
+backend/dist/
 .vercel/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Testing
 coverage/
 
-# Logs
-*.log
-
 # IDEs
-.DS_Store
 .idea/
 .vscode/settings.json
+.DS_Store
+*.swp
+*.swo
 
-# Local history
+# Local History
 .history/
 
-# Exclude legacy/backup folders
-next-app/
+# Backups
 frontend_backup/
+next-app/
