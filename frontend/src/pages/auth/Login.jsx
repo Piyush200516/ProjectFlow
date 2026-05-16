@@ -16,12 +16,11 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      login(email, password, role);
+      await login(email, password, role);
       toast.success('Welcome back!');
       navigate(`/${role}/dashboard`, { replace: true });
     } catch (error) {
-      toast.error('Invalid credentials');
+      toast.error(error.message || 'Invalid credentials');
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +56,7 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
                 <div className="flex items-center justify-between ml-1">
                   <label className="text-xs font-semibold text-slate-900">Password</label>
                   {role === 'student' && (
-                    <Link to="/auth/student/forgot-password" px-1 className="text-xs font-medium text-slate-500 hover:text-slate-900">Forgot?</Link>
+                    <Link to="/auth/student/forgot-password" className="text-xs font-medium text-slate-500 hover:text-slate-900 px-1">Forgot?</Link>
                   )}
                 </div>
                 <input

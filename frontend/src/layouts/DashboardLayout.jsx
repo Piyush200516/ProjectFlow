@@ -205,11 +205,11 @@ const DashboardLayout = ({ children }) => {
             <div className="h-4 w-px bg-slate-200 mx-1"></div>
             
             <button 
-              onClick={() => toast.success(`Profile: ${user?.name}`)}
+              onClick={() => toast.success(`Profile: ${user?.full_name}`)}
               className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-slate-50 rounded-lg transition-all"
             >
               <div className="w-7 h-7 bg-slate-900 rounded-md flex items-center justify-center text-white text-xs font-bold">
-                {user?.name?.[0]?.toUpperCase() || 'P'}
+                {user?.full_name?.[0]?.toUpperCase() || 'P'}
               </div>
               <ChevronDown size={14} className="text-slate-400" />
             </button>

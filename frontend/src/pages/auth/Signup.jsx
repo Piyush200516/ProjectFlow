@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, Hash, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -12,16 +13,17 @@ const Signup = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signup } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Account created successfully! Please sign in.');
-      navigate('/login');
+      await signup(formData.email, formData.password, formData.name, 'student', formData.rollNumber);
+      toast.success('Account created! Welcome to ProjectFlow.');
+      navigate('/student/dashboard', { replace: true });
     } catch (error) {
-      toast.error('Signup failed. Please try again.');
+      toast.error(error.response?.data?.message || error.message || 'Signup failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

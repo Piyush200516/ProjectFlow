@@ -1,19 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Rocket, 
-  Lightbulb, 
+  ShieldCheck, 
   Handshake, 
-  Globe,
-  TrendingUp,
-  FileText,
-  ShieldCheck,
   Zap,
-  Target,
-  Users,
+  Loader2,
+  TrendingUp,
   Plus,
-  ArrowUpRight,
-  Search,
-  Filter
+  Search
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -33,19 +27,45 @@ import {
   PageHeader, 
   StatCard, 
   SectionCard, 
-  StatusBadge,
   Modal 
 } from '../../components/common/PremiumComponents';
+import api from '../../lib/api';
 import { toast } from 'sonner';
 
 const CdcDashboard = () => {
-  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { data } = await api.get('/cdc/dashboard');
+        setStats(data);
+      } catch (error) {
+        console.error('Failed to fetch CDC stats:', error);
+        toast.error('Failed to load innovation dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   const startupData = [
-    { month: 'Jan', count: 4, funding: 20 },
-    { month: 'Feb', count: 7, funding: 45 },
-    { month: 'Mar', count: 6, funding: 30 },
-    { month: 'Apr', count: 12, funding: 80 },
-    { month: 'May', count: 18, funding: 120 },
+    { month: 'Jan', count: 4 },
+    { month: 'Feb', count: 7 },
+    { month: 'Mar', count: 6 },
+    { month: 'Apr', count: 12 },
+    { month: 'May', count: 18 },
   ];
 
   const distributionData = [
@@ -78,16 +98,16 @@ const CdcDashboard = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Rocket} label="Active Startups" value="24" trend="up" trendValue="4" color="blue" />
-        <StatCard icon={ShieldCheck} label="IPR/Patents" value="8" trend="up" trendValue="2" color="green" />
-        <StatCard icon={Handshake} label="Industry Partners" value="15" color="indigo" />
-        <StatCard icon={Zap} label="Innovation Value" value="$2.4M" trend="up" trendValue="15%" color="amber" />
+        <StatCard icon={Rocket} label="Active Startups" value={stats?.activeStartups || '0'} color="blue" />
+        <StatCard icon={ShieldCheck} label="IPR/Patents" value={stats?.patents || '0'} color="green" />
+        <StatCard icon={Handshake} label="Industry Partners" value={stats?.industryPartners || '0'} color="indigo" />
+        <StatCard icon={Zap} label="Innovation Value" value={stats?.innovationValue || '$0'} color="amber" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <SectionCard 
           title="Startup Incubation Growth" 
-          subtitle="Number of incubated teams and total funding ($k)"
+          subtitle="Number of incubated teams across semesters"
           className="lg:col-span-2"
         >
           <div className="h-[350px] w-full mt-4">
@@ -105,7 +125,7 @@ const CdcDashboard = () => {
                 <Tooltip 
                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
                 />
-                <Area type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={4} fillOpacity={1} fill="url(#colorInc)" animationDuration={2000} />
+                <Area type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={4} fillOpacity={1} fill="url(#colorInc)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -149,42 +169,6 @@ const CdcDashboard = () => {
         </SectionCard>
       </div>
 
-      <SectionCard 
-        title="Featured Innovation Spotlights" 
-        subtitle="Top performing research projects with commercial potential"
-        headerActions={<button className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline">View Showcase</button>}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-           {[
-             { name: 'Quantum Shield v2', field: 'Cyber Security', rating: '9.8', team: 'Vault Team' },
-             { name: 'Agri-Sense IoT', field: 'IoT & Agri', rating: '9.5', team: 'Green Hub' },
-             { name: 'Bio-Logix AI', field: 'HealthTech', rating: '9.2', team: 'Med Cell' },
-           ].map((item, i) => (
-             <div key={i} className="group cursor-pointer">
-                <div className="relative aspect-video rounded-3xl overflow-hidden mb-4 bg-slate-900 shadow-xl shadow-slate-200/50">
-                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent group-hover:scale-110 transition-transform duration-700"></div>
-                   <div className="absolute top-4 left-4">
-                      <span className="px-2 py-1 bg-white/20 backdrop-blur-md text-white text-[10px] font-black rounded-lg uppercase tracking-widest">Featured</span>
-                   </div>
-                   <div className="absolute bottom-4 left-4 right-4 text-white">
-                      <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest mb-1">{item.field}</p>
-                      <h4 className="text-lg font-black tracking-tight">{item.name}</h4>
-                   </div>
-                </div>
-                <div className="flex items-center justify-between px-1">
-                   <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-[8px] font-black text-slate-600">{item.team[0]}</div>
-                      <span className="text-xs font-bold text-slate-500">{item.team}</span>
-                   </div>
-                   <div className="flex items-center gap-1">
-                      <TrendingUp size={14} className="text-emerald-500" />
-                      <span className="text-sm font-black text-slate-800">{item.rating}</span>
-                   </div>
-                </div>
-             </div>
-           ))}
-        </div>
-      </SectionCard>
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}

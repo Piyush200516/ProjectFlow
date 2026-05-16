@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { mockProjects } from '../../data/mockData';
 import { 
   PageHeader, 
   StatCard, 
@@ -21,7 +20,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Search,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -32,15 +32,47 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import api from '../../lib/api';
 import { cn } from '../../utils/utils';
 
 const MentorDashboard = () => {
   const navigate = useNavigate();
-  const stats = [
-    { label: 'Assigned', value: '12', icon: Users, color: 'blue', trend: 'up', trendValue: '2' },
-    { label: 'Pending', value: '5', icon: Clock, color: 'amber', trend: 'down', trendValue: '3' },
-    { label: 'Completed', value: '28', icon: CheckCircle, color: 'green', trend: 'up', trendValue: '12%' },
-    { label: 'Feedback', value: '8', icon: MessageCircle, color: 'indigo' },
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [statsRes, reviewsRes] = await Promise.all([
+          api.get('/mentor/dashboard'),
+          api.get('/mentor/reviews')
+        ]);
+        setStats(statsRes.data);
+        setReviews(reviewsRes.data);
+      } catch (error) {
+        console.error('Failed to fetch mentor dashboard:', error);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  const statCards = [
+    { label: 'Assigned', value: stats?.assigned || '0', icon: Users, color: 'blue' },
+    { label: 'Pending', value: stats?.pending || '0', icon: Clock, color: 'amber' },
+    { label: 'Completed', value: stats?.completed || '0', icon: CheckCircle, color: 'green' },
+    { label: 'Feedback', value: stats?.feedback || '0', icon: MessageCircle, color: 'indigo' },
   ];
 
   const submissionData = [
@@ -69,7 +101,7 @@ const MentorDashboard = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
+        {statCards.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
       </div>
@@ -112,13 +144,9 @@ const MentorDashboard = () => {
         <div className="space-y-6">
           <SectionCard title="Review Queue" subtitle="Pending approvals">
             <div className="space-y-3">
-              {[
-                { title: 'UI Mockups Approval', team: 'Quantum', time: '2h ago', priority: 'High' },
-                { title: 'Schema Verification', team: 'Health AI', time: '5h ago', priority: 'Medium' },
-                { title: 'Testing Log Review', team: 'Eco Track', time: 'Yesterday', priority: 'Low' },
-              ].map((item, i) => (
+              {reviews.length > 0 ? reviews.map((item, i) => (
                 <div 
-                  key={i} 
+                  key={item.id} 
                   onClick={() => navigate('/mentor/review-requests')}
                   className="p-3 rounded-lg border border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 transition-all group relative cursor-pointer"
                 >
@@ -131,12 +159,14 @@ const MentorDashboard = () => {
                          )}></span>
                          <h4 className="text-xs font-semibold text-slate-900 tracking-tight">{item.title}</h4>
                       </div>
-                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{item.team} • {item.time}</p>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{item.team_name || 'Team'} • {new Date(item.updated_at).toLocaleDateString()}</p>
                     </div>
                     <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-900 transition-all group-hover:translate-x-0.5" />
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-6 text-slate-400 text-xs font-bold">No pending reviews</div>
+              )}
             </div>
           </SectionCard>
 

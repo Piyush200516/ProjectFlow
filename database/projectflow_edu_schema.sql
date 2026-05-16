@@ -328,26 +328,26 @@ INSERT INTO sdlc_stages (name, sequence_order, color_code) VALUES
 
 -- Seed Admin User
 INSERT INTO users (email, password_hash, role, full_name) 
-VALUES ('admin@projectflow.edu', 'hashed_pass_here', 'admin', 'System Administrator');
+VALUES ('admin@projectflow.edu', '$2b$10$ON/35qvuSXlWMZcQZO.Nr.K.9DHwWrBHwR8eJ3b9gDoeGzXtOgq6y', 'admin', 'System Administrator');
 
 -- Seed Mentor (Faculty)
 INSERT INTO users (email, password_hash, role, full_name) 
-VALUES ('mentor@college.edu', 'hashed_pass_here', 'mentor', 'Dr. Rajesh Kumar');
+VALUES ('mentor@college.edu', '$2b$10$ON/35qvuSXlWMZcQZO.Nr.K.9DHwWrBHwR8eJ3b9gDoeGzXtOgq6y', 'mentor', 'Dr. Rajesh Kumar');
 INSERT INTO mentors (user_id, department_id, designation, specialization) 
 VALUES (LAST_INSERT_ID(), 1, 'Associate Professor', 'Cloud Computing');
 
 -- Seed Student
 INSERT INTO users (email, password_hash, role, full_name) 
-VALUES ('student@college.edu', 'hashed_pass_here', 'student', 'Piyush Mishra');
+VALUES ('student@college.edu', '$2b$10$ON/35qvuSXlWMZcQZO.Nr.K.9DHwWrBHwR8eJ3b9gDoeGzXtOgq6y', 'student', 'Piyush Mishra');
 INSERT INTO students (user_id, roll_number, branch_id, semester, academic_year) 
 VALUES (LAST_INSERT_ID(), 'CS2021001', 1, 6, '2023-24');
 
 -- Seed HOD
 INSERT INTO users (email, password_hash, role, full_name) 
-VALUES ('hod@college.edu', 'hashed_pass_here', 'hod', 'Dr. S. K. Singh');
+VALUES ('hod@college.edu', '$2b$10$ON/35qvuSXlWMZcQZO.Nr.K.9DHwWrBHwR8eJ3b9gDoeGzXtOgq6y', 'hod', 'Dr. S. K. Singh');
 INSERT INTO mentors (user_id, department_id, designation) 
 VALUES (LAST_INSERT_ID(), 1, 'Head of Department');
 
 -- Seed CDC User
 INSERT INTO users (email, password_hash, role, full_name) 
-VALUES ('cdc@college.edu', 'hashed_pass_here', 'cdc', 'Amit Sharma');
+VALUES ('cdc@college.edu', '$2b$10$ON/35qvuSXlWMZcQZO.Nr.K.9DHwWrBHwR8eJ3b9gDoeGzXtOgq6y', 'cdc', 'Amit Sharma');

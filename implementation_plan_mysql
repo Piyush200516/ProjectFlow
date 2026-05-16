@@ -1,0 +1,83 @@
+# Migration from Firebase to MySQL
+
+We need to completely remove Firebase from the frontend and connect the application to the provided Node.js + Express backend, using a MySQL database as the single source of truth.
+
+## User Review Required
+
+> [!WARNING]
+> This is a major architectural overhaul that touches both the frontend and backend. We are going to permanently remove Firebase and replace it with a self-hosted custom backend.
+
+> [!IMPORTANT]
+> The MySQL database needs to be running locally on port 3306 with credentials `root`/`root` and database name `projectflow_edu` as per your instructions.
+
+## Open Questions
+
+1. Are you currently running a MySQL server on your machine? If not, please start it so the backend can connect.
+2. The schema file uses `bcrypt` hashes (`hashed_pass_here`). During migration, I'll update the backend to generate real bcrypt hashes for new signups. For the seeded dummy users (like `hod@college.edu`), should I update their passwords to a known plain text password (e.g., `password123`) so you can log in as them?
+
+## Proposed Changes
+
+### Database Setup
+- Execute `database/projectflow_edu_schema.sql` into the local MySQL database.
+- Update the seeded users with a bcrypt hash of `password123` so we can log in with them.
+
+---
+
+### Backend (Node.js/Express)
+
+#### [MODIFY] backend/.env
+Add the provided DB credentials and JWT_SECRET.
+
+#### [NEW] backend/src/controllers/authController.js
+Implement JWT-based authentication (register, login, getMe) using `mysql2` pool.
+
+#### [NEW] backend/src/controllers/projectController.js
+Implement CRUD for projects referencing the `projects` table.
+
+#### [NEW] backend/src/controllers/taskController.js
+Implement CRUD for tasks referencing the `tasks` table.
+
+#### [NEW] backend/src/controllers/documentController.js
+Implement file metadata management. Use dummy local file paths for uploads.
+
+#### [MODIFY] backend/src/app.js
+Register new routes for tasks and documents. Add file upload middleware placeholder.
+
+---
+
+### Frontend (React)
+
+#### [DELETE] frontend/src/lib/firebase.js
+Completely remove Firebase initialization.
+
+#### [NEW] frontend/src/lib/api.js
+Create an Axios instance with an interceptor that automatically attaches the JWT token from `localStorage` to requests.
+
+#### [MODIFY] frontend/src/context/AuthContext.jsx
+Replace Firebase logic with API calls to `POST /api/auth/login`, `POST /api/auth/register`, and `GET /api/auth/me`. Store JWT token in `localStorage`.
+
+#### [MODIFY] frontend/src/pages/auth/Login.jsx & Signup.jsx
+Adapt to the new AuthContext API (removing Firebase specific error handling).
+
+#### [MODIFY] frontend/src/pages/student/StudentProjects.jsx & ProjectDetails.jsx
+Fetch and mutate projects via `api.get('/projects')` and `api.post('/projects')` instead of Firestore.
+
+#### [MODIFY] frontend/src/pages/student/StudentKanban.jsx
+Fetch and mutate tasks via `api.get('/tasks/project/:projectId')` instead of Firestore.
+
+#### [MODIFY] frontend/src/pages/student/StudentDocumentation.jsx
+Fetch and mutate documents via `api.get('/documents/project/:projectId')` instead of Firebase Storage.
+
+#### [MODIFY] frontend/.env & package.json
+Remove `VITE_FIREBASE_*` variables and `firebase` dependency. Add `VITE_API_URL=http://localhost:5000/api`.
+
+## Verification Plan
+
+### Automated Tests
+- Run backend and verify it connects to MySQL.
+- Run frontend and verify it connects to the backend API without CORS errors.
+
+### Manual Verification
+- Sign up as a new student and verify insertion into `users` and `students` tables.
+- Log in as the seeded mentor/HOD and verify role-based redirects.
+- Create a project and task, verify they persist in MySQL.

@@ -36,6 +36,18 @@ io.on('connection', (socket) => {
   });
 });
 
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`❌ Error: Port ${PORT} is already in use.`);
+    console.error(`💡 Suggestion: Kill the process running on port ${PORT} or change PORT in .env`);
+    process.exit(1);
+  } else {
+    console.error('❌ Server error:', error);
+    process.exit(1);
+  }
+});
+
 server.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
 });

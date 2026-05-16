@@ -7,30 +7,55 @@ const generateToken = require('../utils/generateToken');
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
-  const { name, email, password, role = 'student' } = req.body;
+  const { full_name, email, password, roll_number } = req.body;
+
+  if (!full_name || !email || !password) {
+    return res.status(400).json({ message: 'Name, email, and password are required' });
+  }
 
   try {
-    const [existingUser] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
-    if (existingUser.length > 0) {
-      return res.status(400).json({ message: 'User already exists' });
+    console.log('Registration attempt for:', email);
+    const [existing] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (existing.length > 0) {
+      console.log('Email already exists:', email);
+      return res.status(400).json({ message: 'An account with this email already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('Hashing password...');
+    const password_hash = await bcrypt.hash(password, 10);
+
+    console.log('Inserting into users table...');
     const [result] = await db.execute(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-      [name, email, hashedPassword, role]
+      'INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [full_name, email, password_hash, 'student']
     );
 
     const userId = result.insertId;
+    console.log('User created with ID:', userId);
+
+    // Add student record (branch_id defaults to 1 if not provided)
+    console.log('Attempting to create student record for roll_number:', roll_number);
+    await db.execute(
+      'INSERT INTO students (user_id, roll_number, branch_id, semester, academic_year) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE user_id=user_id',
+      [userId, roll_number || `STU${userId}`, 1, 1, '2024-25']
+    ).then(() => console.log('Student record created successfully'))
+    .catch((err) => console.error('Student record creation failed (non-fatal):', err.message));
+
+    const token = generateToken(userId);
+    console.log('Registration successful, token generated');
+
     res.status(201).json({
-      id: userId,
-      name,
-      email,
-      role,
-      token: generateToken(userId)
+      success: true,
+      token,
+      user: { id: userId, full_name, email, role: 'student' }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Register error details:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during registration', 
+      error: error.message 
+    });
   }
 };
 
@@ -40,38 +65,57 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
+
   try {
-    const [users] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
+    const [users] = await db.execute(
+      'SELECT id, full_name, email, password_hash, role FROM users WHERE email = ?',
+      [email]
+    );
     const user = users[0];
 
-    if (user && (await bcrypt.compare(password, user.password))) {
-      res.json({
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const token = generateToken(user.id);
+
+    res.json({
+      token,
+      user: {
         id: user.id,
-        name: user.name,
+        full_name: user.full_name,
         email: user.email,
         role: user.role,
-        token: generateToken(user.id)
-      });
-    } else {
-      res.status(401).json({ message: 'Invalid email or password' });
-    }
+      }
+    });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// @desc    Get user profile
+// @desc    Get current user profile
 // @route   GET /api/auth/me
 // @access  Private
 exports.getMe = async (req, res) => {
   try {
-    const [users] = await db.execute('SELECT id, name, email, role FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await db.execute(
+      'SELECT id, full_name, email, role, created_at FROM users WHERE id = ?',
+      [req.user.id]
+    );
     const user = users[0];
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+    res.json({ user });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
