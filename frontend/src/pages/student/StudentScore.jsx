@@ -14,134 +14,178 @@ import {
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
-  PolarRadiusAxis
+  PolarRadiusAxis,
+  AreaChart,
+  Area
 } from 'recharts';
 import { 
   Trophy, 
   Target, 
   Award, 
   TrendingUp,
-  ChevronRight,
-  Download
+  Download,
+  Zap,
+  Star,
+  Shield,
+  FileText,
+  Rocket
 } from 'lucide-react';
+import { 
+  PageHeader, 
+  StatCard, 
+  SectionCard, 
+  ProgressCard 
+} from '../../components/common/PremiumComponents';
 
 const StudentScore = () => {
   const performanceData = [
     { subject: 'Innovation', A: 120, fullMark: 150 },
     { subject: 'Development', A: 98, fullMark: 150 },
-    { subject: 'Documentation', A: 86, fullMark: 150 },
-    { subject: 'Presentation', A: 99, fullMark: 150 },
+    { subject: 'Documentation', A: 135, fullMark: 150 },
+    { subject: 'Presentation', A: 110, fullMark: 150 },
     { subject: 'Collaboration', A: 85, fullMark: 150 },
   ];
 
   const taskCompletionData = [
-    { name: 'Completed', value: 400 },
-    { name: 'In Progress', value: 300 },
-    { name: 'Pending', value: 300 },
+    { name: 'Architecture', value: 400 },
+    { name: 'Logic', value: 300 },
+    { name: 'Frontend', value: 300 },
+    { name: 'DevOps', value: 200 },
   ];
 
-  const COLORS = ['#2563eb', '#8b5cf6', '#e2e8f0'];
+  const COLORS = ['#2563eb', '#8b5cf6', '#10b981', '#f59e0b'];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Student Performance Score</h1>
-          <p className="text-slate-500 mt-1">Holistic analysis of your academic project contributions.</p>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all">
-          <Download size={18} />
-          Export Report
-        </button>
+    <div className="space-y-10 animate-in fade-in duration-700">
+      <PageHeader 
+        title="Performance Analytics" 
+        description="Comprehensive evaluation of your project contributions and skills."
+        actions={
+          <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-black rounded-2xl hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+            <Download size={20} />
+            Download Transcript
+          </button>
+        }
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard icon={Trophy} label="Total Credits" value="840" trend="up" trendValue="150" color="blue" />
+        <StatCard icon={Target} label="Consistency" value="94%" trend="up" trendValue="2%" color="green" />
+        <StatCard icon={Star} label="Global Rank" value="#12" trend="up" trendValue="4" color="amber" />
+        <StatCard icon={Shield} label="Verified Skills" value="18" color="indigo" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Radar Chart for Skills */}
-        <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center">
-          <h3 className="text-lg font-bold text-slate-900 mb-6 w-full text-left">Skill Matrix</h3>
-          <div className="h-[300px] w-full">
+        <SectionCard 
+          title="Skill Matrix" 
+          subtitle="Multi-dimensional capability analysis"
+          className="lg:col-span-1"
+        >
+          <div className="h-[350px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={performanceData}>
                 <PolarGrid stroke="#e2e8f0" />
-                <PolarAngleAxis dataKey="subject" tick={{fill: '#64748b', fontSize: 12}} />
-                <PolarRadiusAxis angle={30} domain={[0, 150]} />
+                <PolarAngleAxis dataKey="subject" tick={{fill: '#64748b', fontSize: 11, fontWeight: 700}} />
+                <PolarRadiusAxis angle={30} domain={[0, 150]} axisLine={false} tick={false} />
                 <Radar
                   name="Piyush"
                   dataKey="A"
                   stroke="#2563eb"
                   fill="#2563eb"
-                  fillOpacity={0.5}
+                  fillOpacity={0.4}
+                  strokeWidth={3}
                 />
               </RadarChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 p-4 bg-blue-50 rounded-xl w-full text-center">
-            <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">Overall Ranking</p>
-            <p className="text-3xl font-extrabold text-blue-900 mt-1">A+</p>
+          <div className="mt-8 p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl w-full text-center shadow-xl shadow-blue-600/20">
+            <p className="text-[10px] text-white/60 font-black uppercase tracking-[0.2em]">Current Academic Tier</p>
+            <p className="text-4xl font-black text-white mt-1 tracking-tighter italic flex items-center justify-center gap-3">
+              <Award className="text-amber-400" size={32} />
+              PREMIER A+
+            </p>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Detailed Stats */}
         <div className="lg:col-span-2 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                  <Trophy size={24} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Total Credits</h4>
-                  <p className="text-sm text-slate-500">Earned from all projects</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <SectionCard title="Category Mastery" subtitle="Distribution of expertise">
+               <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={taskCompletionData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={65}
+                      outerRadius={90}
+                      paddingAngle={8}
+                      dataKey="value"
+                    >
+                      {taskCompletionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-              <p className="text-4xl font-black text-slate-900 tracking-tighter">840 <span className="text-lg font-normal text-slate-400">/ 1000</span></p>
-            </div>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                {taskCompletionData.map((entry, index) => (
+                  <div key={entry.name} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS[index]}}></div>
+                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider">{entry.name}</span>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
             
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 bg-green-50 text-green-600 rounded-xl">
-                  <Target size={24} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Consistency Score</h4>
-                  <p className="text-sm text-slate-500">Based on task completion</p>
-                </div>
+            <SectionCard title="Growth Milestones" subtitle="Project credit accumulation">
+              <div className="space-y-6 mt-4">
+                <ProgressCard label="Innovation Tier" value={85} color="blue" />
+                <ProgressCard label="Technical Depth" value={72} color="emerald" />
+                <ProgressCard label="Documentation" value={98} color="amber" />
+                <ProgressCard label="Leadership" value={64} color="blue" />
               </div>
-              <p className="text-4xl font-black text-slate-900 tracking-tighter">92%</p>
-            </div>
+              <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                 <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                       <Zap size={20} />
+                    </div>
+                    <div>
+                       <p className="text-xs font-black text-slate-800">Next Tier Unlock</p>
+                       <p className="text-[10px] font-bold text-slate-400">Earn 60 more credits to reach 'Platinum'</p>
+                    </div>
+                 </div>
+              </div>
+            </SectionCard>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Task Distribution</h3>
-            <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={taskCompletionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {taskCompletionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+          <SectionCard title="Recent Accomplishments" subtitle="Badges earned through project contributions">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+               {[
+                 { icon: Rocket, label: 'Fast Starter', color: 'blue' },
+                 { icon: Shield, label: 'Code Guard', color: 'green' },
+                 { icon: FileText, label: 'Scribe', color: 'amber' },
+                 { icon: Target, label: 'Sniper', color: 'indigo' },
+               ].map((badge, i) => (
+                 <div key={i} className="flex flex-col items-center p-4 rounded-2xl bg-white border border-slate-100 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5 transition-all group">
+                    <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform", 
+                      badge.color === 'blue' ? "bg-blue-50 text-blue-600" :
+                      badge.color === 'green' ? "bg-emerald-50 text-emerald-600" :
+                      badge.color === 'amber' ? "bg-amber-50 text-amber-600" : "bg-indigo-50 text-indigo-600"
+                    )}>
+                       <badge.icon size={24} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{badge.label}</span>
+                 </div>
+               ))}
             </div>
-            <div className="flex justify-center gap-8 mt-4">
-              {taskCompletionData.map((entry, index) => (
-                <div key={entry.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{backgroundColor: COLORS[index]}}></div>
-                  <span className="text-xs font-medium text-slate-600">{entry.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          </SectionCard>
         </div>
       </div>
     </div>

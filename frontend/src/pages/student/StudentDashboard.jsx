@@ -1,135 +1,136 @@
 import React from 'react';
 import { mockProjects } from '../../data/mockData';
 import { 
+  PageHeader, 
+  StatCard, 
+  SectionCard, 
+  StatusBadge, 
+  ProgressCard 
+} from '../../components/common/PremiumComponents';
+import { ActivityTimeline } from '../../components/common/DataDisplay';
+import { 
   Briefcase, 
   CheckCircle2, 
   Clock, 
   AlertCircle,
+  Plus,
   ArrowUpRight,
-  Plus
+  TrendingUp,
+  FileCode,
+  Layout,
+  TestTube
 } from 'lucide-react';
 import { 
-  BarChart, 
-  Bar, 
+  AreaChart, 
+  Area, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  AreaChart,
-  Area
+  ResponsiveContainer 
 } from 'recharts';
-
-const StatCard = ({ icon: Icon, label, value, trend, color }) => (
-  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300">
-    <div className="flex items-start justify-between">
-      <div className={`p-3 rounded-xl bg-${color}-50 text-${color}-600`}>
-        <Icon size={24} />
-      </div>
-      {trend && (
-        <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-          {trend}
-        </span>
-      )}
-    </div>
-    <div className="mt-4">
-      <h3 className="text-slate-500 text-sm font-medium">{label}</h3>
-      <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
-    </div>
-  </div>
-);
 
 const StudentDashboard = () => {
   const chartData = [
-    { name: 'Mon', value: 4 },
-    { name: 'Tue', value: 7 },
-    { name: 'Wed', value: 5 },
-    { name: 'Thu', value: 8 },
-    { name: 'Fri', value: 12 },
-    { name: 'Sat', value: 3 },
-    { name: 'Sun', value: 2 },
+    { name: 'Mon', tasks: 4 },
+    { name: 'Tue', tasks: 7 },
+    { name: 'Wed', tasks: 5 },
+    { name: 'Thu', tasks: 12 },
+    { name: 'Fri', tasks: 18 },
+    { name: 'Sat', tasks: 8 },
+    { name: 'Sun', tasks: 4 },
+  ];
+
+  const activities = [
+    { icon: FileCode, title: 'Code Review Approved', description: 'Dr. Smith approved your PR for the NLP module.', time: '2h ago', type: 'success' },
+    { icon: Layout, title: 'UI Mockups Updated', description: 'Rahul uploaded new high-fidelity mockups.', time: '5h ago', type: 'info' },
+    { icon: TestTube, title: 'Testing Milestone', description: 'Requirement analysis stage is 100% complete.', time: 'Yesterday', type: 'warning' },
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Student Dashboard</h1>
-          <p className="text-slate-500 mt-1">Overview of your project lifecycle and progress.</p>
-        </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-semibold shadow-lg shadow-blue-200 transition-all active:scale-95">
-          <Plus size={20} />
-          New Project
-        </button>
-      </div>
+    <div className="space-y-10 animate-in fade-in duration-700">
+      <PageHeader 
+        title="Welcome back, Piyush!" 
+        description="Here is what's happening with your projects today."
+        actions={
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-black shadow-xl shadow-blue-600/20 transition-all active:scale-95">
+            <Plus size={20} />
+            Launch Project
+          </button>
+        }
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Briefcase} label="Active Projects" value={mockProjects.length} trend="+12%" color="blue" />
-        <StatCard icon={CheckCircle2} label="Tasks Completed" value="24" trend="+5" color="green" />
+        <StatCard icon={Briefcase} label="Active Projects" value={mockProjects.length} trend="up" trendValue="12%" color="blue" />
+        <StatCard icon={CheckCircle2} label="Tasks Completed" value="48" trend="up" trendValue="8" color="green" />
         <StatCard icon={Clock} label="Upcoming Deadlines" value="3" color="amber" />
-        <StatCard icon={AlertCircle} label="Mentor Feedback" value="2" color="indigo" />
+        <StatCard icon={AlertCircle} label="Mentor Feedback" value="2" trend="down" trendValue="1" color="indigo" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Progress Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Task Activity</h3>
-            <select className="text-sm border-none bg-slate-50 rounded-lg focus:ring-0 outline-none px-3 py-1 text-slate-600">
-              <option>Last 7 Days</option>
-              <option>Last 30 Days</option>
-            </select>
-          </div>
-          <div className="h-[300px] w-full">
+        {/* Main Analytics Card */}
+        <SectionCard 
+          title="Productivity Over Time" 
+          subtitle="Tasks completed in the last 7 days"
+          className="lg:col-span-2"
+          headerActions={
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button className="px-3 py-1.5 bg-white text-xs font-bold rounded-lg shadow-sm">Tasks</button>
+              <button className="px-3 py-1.5 text-xs font-bold text-slate-500">Commits</button>
+            </div>
+          }
+        >
+          <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                  <linearGradient id="colorTasks" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15}/>
                     <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} dy={15} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
+                  itemStyle={{ fontWeight: 800, color: '#1e293b' }}
                 />
-                <Area type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                <Area 
+                  type="monotone" 
+                  dataKey="tasks" 
+                  stroke="#2563eb" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorTasks)" 
+                  animationDuration={2000}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </SectionCard>
 
-        {/* Project List / Quick Access */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 mb-6">Recent Projects</h3>
-          <div className="space-y-4">
-            {mockProjects.map(project => (
-              <div key={project.id} className="group p-4 rounded-xl border border-slate-50 hover:bg-slate-50 hover:border-slate-200 transition-all">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{project.title}</h4>
-                    <p className="text-xs text-slate-500 mt-1">{project.type}</p>
-                  </div>
-                  <ArrowUpRight size={18} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                </div>
-                <div className="mt-4 flex items-center gap-3">
-                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-blue-600 rounded-full" 
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-bold text-slate-600">{project.progress}%</span>
-                </div>
+        {/* Right Sidebar: Activity & Recent Projects */}
+        <div className="space-y-8">
+          <SectionCard title="Recent Activity" subtitle="Updates from your team and mentors">
+            <ActivityTimeline activities={activities} />
+          </SectionCard>
+
+          <SectionCard title="Project Progress" subtitle="Status of your top project">
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 mb-4">{mockProjects[0].title}</h4>
+                <ProgressCard label="Overall Completion" value={mockProjects[0].progress} color="blue" />
               </div>
-            ))}
-          </div>
-          <button className="w-full mt-6 py-2.5 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-xl transition-colors">
-            View All Projects
-          </button>
+              <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                <StatusBadge status={mockProjects[0].status} variant="info" />
+                <button className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:underline">
+                  View Board <ArrowUpRight size={14} />
+                </button>
+              </div>
+            </div>
+          </SectionCard>
         </div>
       </div>
     </div>
