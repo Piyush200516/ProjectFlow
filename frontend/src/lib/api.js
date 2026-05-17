@@ -6,7 +6,7 @@ const getBaseURL = () => {
   }
   // Bulletproof fallback for production Vercel environments
   if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    return 'https://projectflow-backend.onrender.com/api';
+    return 'https://projectflow-backend.vercel.app/api';
   }
   return 'http://localhost:5000/api';
 };
