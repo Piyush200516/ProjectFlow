@@ -69,6 +69,28 @@ schemaSql = schemaSql.replace(strictTasksTablePattern, apiCompatibleTasksTableSq
 schemaSql = schemaSql.replace('CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);', '');
 schemaSql = schemaSql.replace('CREATE INDEX idx_tasks_stage ON tasks(stage_id);', 'CREATE INDEX idx_tasks_created_by ON tasks(created_by);');
 
+// Transform projects table to be API-compatible with default values
+const strictProjectsTablePattern = /CREATE TABLE projects \([\s\S]*?\);/g;
+const apiCompatibleProjectsTableSql = `CREATE TABLE projects (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    type VARCHAR(50) DEFAULT 'Mini Project' CHECK (type IN ('Mini Project', 'Major Project', 'Hackathon Project', 'Final Year Project', 'Research Project')),
+    team_name VARCHAR(100) DEFAULT 'Team Alpha',
+    description TEXT,
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    status VARCHAR(20) DEFAULT 'Proposal' CHECK (status IN ('Proposal', 'In Progress', 'Review', 'Completed', 'On Hold', 'Rejected')),
+    progress_percent INT DEFAULT 0 CHECK (progress_percent BETWEEN 0 AND 100),
+    branch_id INT DEFAULT 1 REFERENCES branches(id) ON DELETE RESTRICT,
+    created_by INT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    mentor_id INT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);`;
+
+schemaSql = schemaSql.replace(strictProjectsTablePattern, apiCompatibleProjectsTableSql);
+schemaSql = schemaSql.replace(/project_type/g, 'type');
+
 // 5. Transform task seed data to map to actual Kanban stages and use the correct columns
 const strictTaskSeedPattern = /-- I\. Seed Tasks[\s\S]*?-- J\./;
 const apiCompatibleTaskSeedSql = `-- I. Seed Tasks (SDLC Kanban Board Columns mapping)

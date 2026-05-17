@@ -46,6 +46,18 @@ app.use('/api', limiter);
 // Serve uploaded files as static assets
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
+// Health check route
+app.get('/api/health', async (req, res) => {
+  const db = require('./config/db');
+  const isDbConnected = await db.checkConnection();
+  res.json({
+    status: 'OK',
+    timestamp: new Date(),
+    uptime: process.uptime(),
+    database: isDbConnected ? 'CONNECTED' : 'DISCONNECTED'
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);

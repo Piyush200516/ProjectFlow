@@ -149,14 +149,14 @@ COMMENT ON TABLE mentors IS 'Faculty mentor profile metadata';
 CREATE TABLE projects (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    project_type VARCHAR(50) NOT NULL CHECK (project_type IN ('Mini Project', 'Major Project', 'Hackathon Project', 'Final Year Project', 'Research Project')),
-    team_name VARCHAR(100) NOT NULL,
+    type VARCHAR(50) DEFAULT 'Mini Project' CHECK (type IN ('Mini Project', 'Major Project', 'Hackathon Project', 'Final Year Project', 'Research Project')),
+    team_name VARCHAR(100) DEFAULT 'Team Alpha',
     description TEXT,
-    start_date DATE NOT NULL,
+    start_date DATE DEFAULT CURRENT_DATE,
     end_date DATE,
     status VARCHAR(20) DEFAULT 'Proposal' CHECK (status IN ('Proposal', 'In Progress', 'Review', 'Completed', 'On Hold', 'Rejected')),
     progress_percent INT DEFAULT 0 CHECK (progress_percent BETWEEN 0 AND 100),
-    branch_id INT NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
+    branch_id INT DEFAULT 1 REFERENCES branches(id) ON DELETE RESTRICT,
     created_by INT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     mentor_id INT REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -663,7 +663,7 @@ INSERT INTO sdlc_stages (name, sequence_order, color_code) VALUES
 ('Final Documentation', 6, 'bg-emerald-50 text-emerald-700');
 
 -- F. Seed Active Projects (ByteCraft & AgriTech)
-INSERT INTO projects (title, project_type, team_name, description, start_date, end_date, status, progress_percent, branch_id, created_by, mentor_id) VALUES
+INSERT INTO projects (title, type, team_name, description, start_date, end_date, status, progress_percent, branch_id, created_by, mentor_id) VALUES
 ('ProjectFlow Edu Platform', 'Major Project', 'ByteCraft', 'SaaS academic project lifecycle management portal featuring Kanban workflows, document management, and CDC integration.', '2026-01-10', '2026-05-30', 'In Progress', 65, 1, 5, 3),
 ('AI-Powered Crop Disease Detection', 'Final Year Project', 'AgriTech AI', 'Deep learning model deployed on edge devices to help farmers detect leaf-based pathogens in real-time.', '2025-08-01', '2026-05-15', 'Review', 90, 1, 6, 2);
 
