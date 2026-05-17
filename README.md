@@ -159,34 +159,46 @@ ProjectFlow Edu embraces a microservice-inspired frontend topology to ensure mas
 - **Role Isolation**: Absolute security preventing unauthorized routing or data leaks between roles.
 - **Enterprise SaaS Readiness**: Built from day one to handle multi-tenant, large-scale university deployments.
 
-```mermaid
-graph TD
-    A[Auth App] -->|JWT| S(Shared API Gateway)
-    B[Student/Mentor App] --> S
-    C[HOD/CDC Admin App] --> S
-    S --> D{Backend Microservices}
-    D --> |Read/Write| E[(MySQL Database)]
+```text
+                  ┌──────────────────────────────┐
+                  │      College Firewall        │
+                  └──────────────┬───────────────┘
+                                 │
+                        [ Nginx Reverse Proxy ]
+                        (Port 80/443 SSL Edge)
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         ▼                       ▼                       ▼
+ ┌───────────────┐       ┌───────────────┐       ┌───────────────┐
+ │   Auth App    │       │ Student/Mentor│       │    HOD/CDC    │
+ │ (Port 3000)   │       │ (Port 3001)   │       │ (Port 3002)   │
+ └───────────────┘       └───────────────┘       └───────────────┘
+                                 │
+                   [ Central API Gateway ] (Port 5000)
+                                 │
+         ┌───────────────────────┴───────────────────────┐
+         ▼                                               ▼
+ ┌───────────────┐                               ┌───────────────┐
+ │   Express     │ ◄───[ Redis / BullMQ ]──────► │   Socket.io   │
+ │  API Service  │      (Background Jobs)        │  Server (5001)│
+ └───────┬───────┘                               └───────────────┘
+         │
+         ▼
+ ┌───────────────────────────────────────────────┐
+ │         MySQL Relational Database             │
+ └───────────────────────────────────────────────┘
 ```
 
-### 🌐 Microservice-Style Deployment Strategy
-
-Designed for future production-scale academic SaaS environments, ProjectFlow is fully cloud and Docker-ready.
-
-**Frontend:**
-- Auth Frontend Server
-- Student/Mentor Frontend Server
-- HOD/CDC Frontend Server
-
-**Backend Infrastructure:**
-- Node.js API Services
-- Dedicated JWT Auth Service
-- Document / Storage Service (Multer/S3)
-- Real-time Notification & Chat Services (Socket.io)
-
-**Infrastructure Edge:**
-- Nginx Reverse Proxy for routing traffic to respective micro-frontends.
-- Docker-ready containerized deployment patterns.
-- Cloud-agnostic (AWS/GCP) scalability.
+- **College Firewall**: Secures internal network access and filters incoming requests.
+- **Nginx Reverse Proxy**: Handles SSL certificates, request routing, and serves as the traffic edge.
+- **Auth App**: Manages all secure authentication, login/signup flows, and session validation.
+- **Student/Mentor App**: Orchestrates academic project lifecycle, Kanban activities, and student collaborations.
+- **HOD/CDC App**: Delivers executive dashboards for departmental tracking, template masteries, and innovation funnels.
+- **Central API Gateway**: Unifies access points, routing API calls securely from all three portals to their respective backend services.
+- **Express API Service**: Directs core business logic, permissions enforcement, and all relational MySQL operations.
+- **Redis / BullMQ**: Empowers background processing queues, daily milestone checks, and late penalty calculations.
+- **Socket.io Server**: Powers real-time internal team chats, live toast notifications, and instant activity timeline sync.
+- **MySQL Database**: Stores highly relational schemas for users, profiles, projects, tasks, documents, evaluations, final submissions, and approvals.
 
 ---
 
