@@ -158,11 +158,6 @@ const StudentTeamWorkspace = () => {
     (m) => m.user_id === currentUser.id && m.is_leader
   );
 
-  // Determine if the logged-in student is an active member of the project
-  const isTeamMember = workspaceData?.members?.some(
-    (m) => m.user_id === currentUser.id
-  );
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -257,22 +252,11 @@ const StudentTeamWorkspace = () => {
           <p className="text-sm text-slate-500 mt-1">Manage project groups, monitor members role-contributions, and track deliverable milestones.</p>
         </div>
         
-        <div className="flex items-center gap-3">
-          {workspaceData?.members?.length >= 5 && (
-            <span className="text-xs text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-lg">
-              Team is full. Maximum 5 members allowed.
-            </span>
-          )}
-          {isTeamMember && (
+        <div className="flex items-center gap-2">
+          {isTeamLeader && (
             <button 
               onClick={() => setShowInviteModal(true)}
-              disabled={workspaceData?.members?.length >= 5}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-1.5",
-                workspaceData?.members?.length >= 5
-                  ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
-                  : "bg-slate-900 hover:bg-slate-850 text-white"
-              )}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-white rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-1.5"
             >
               <Plus size={16} /> Add Member
             </button>

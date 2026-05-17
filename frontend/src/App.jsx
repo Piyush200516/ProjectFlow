@@ -90,6 +90,35 @@ const ProtectedRoute = ({ allowedRoles }) => {
   );
 };
 
+const deployPortal = import.meta.env.VITE_DEPLOY_PORTAL || 'all'; // 'all', 'auth', 'portal', 'admin'
+const AUTH_URL = import.meta.env.VITE_AUTH_URL || 'https://projectflow-auth.vercel.app';
+const PORTAL_URL = import.meta.env.VITE_PORTAL_URL || 'https://projectflow-portal.vercel.app';
+const ADMIN_URL = import.meta.env.VITE_ADMIN_URL || 'https://projectflow-admin.vercel.app';
+
+// Helper component to handle micro-frontend routing gates
+const MicroFrontendGate = ({ allowedPortal, children }) => {
+  const currentPath = window.location.pathname;
+
+  if (deployPortal !== 'all' && deployPortal !== allowedPortal) {
+    console.log(`[Micro-Frontend] Path "${currentPath}" not allowed on "${deployPortal}" portal. Redirecting...`);
+    
+    if (allowedPortal === 'auth') {
+      window.location.href = `${AUTH_URL}${currentPath}`;
+      return null;
+    }
+    if (allowedPortal === 'portal') {
+      window.location.href = `${PORTAL_URL}${currentPath}`;
+      return null;
+    }
+    if (allowedPortal === 'admin') {
+      window.location.href = `${ADMIN_URL}${currentPath}`;
+      return null;
+    }
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -99,18 +128,42 @@ function App() {
           <Route path="/unauthorized" element={<Unauthorized />} />
           
           {/* Student Auth Routes */}
-          <Route path="/auth/student/login" element={<Login role="student" title="Student Sign In" />} />
-          <Route path="/auth/student/register" element={<Signup />} />
-          <Route path="/auth/student/forgot-password" element={<ForgotPassword />} />
+          <Route path="/auth/student/login" element={
+            <MicroFrontendGate allowedPortal="auth">
+              <Login role="student" title="Student Sign In" />
+            </MicroFrontendGate>
+          } />
+          <Route path="/auth/student/register" element={
+            <MicroFrontendGate allowedPortal="auth">
+              <Signup />
+            </MicroFrontendGate>
+          } />
+          <Route path="/auth/student/forgot-password" element={
+            <MicroFrontendGate allowedPortal="auth">
+              <ForgotPassword />
+            </MicroFrontendGate>
+          } />
 
           {/* Mentor Auth Routes */}
-          <Route path="/auth/mentor/login" element={<Login role="mentor" title="Mentor Sign In" />} />
+          <Route path="/auth/mentor/login" element={
+            <MicroFrontendGate allowedPortal="auth">
+              <Login role="mentor" title="Mentor Sign In" />
+            </MicroFrontendGate>
+          } />
 
           {/* HOD Auth Routes */}
-          <Route path="/auth/hod/login" element={<Login role="hod" title="HOD Sign In" />} />
+          <Route path="/auth/hod/login" element={
+            <MicroFrontendGate allowedPortal="auth">
+              <Login role="hod" title="HOD Sign In" />
+            </MicroFrontendGate>
+          } />
 
           {/* CDC Auth Routes */}
-          <Route path="/auth/cdc/login" element={<Login role="cdc" title="CDC Sign In" />} />
+          <Route path="/auth/cdc/login" element={
+            <MicroFrontendGate allowedPortal="auth">
+              <Login role="cdc" title="CDC Sign In" />
+            </MicroFrontendGate>
+          } />
 
           {/* Legacy Redirects */}
           <Route path="/login" element={<Navigate to="/auth/student/login" replace />} />
@@ -118,27 +171,35 @@ function App() {
           <Route path="/forgot-password" element={<Navigate to="/auth/student/forgot-password" replace />} />
           
           {/* Protected Portal Routes */}
-            <Route path="/student" element={<ProtectedRoute allowedRoles={['student']} />}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<StudentDashboard />} />
-              <Route path="projects" element={<StudentProjects />} />
-              <Route path="projects/:id" element={<ProjectDetails />} />
-              <Route path="kanban" element={<StudentKanban />} />
-              <Route path="timeline" element={<StudentTimeline />} />
-              <Route path="documentation" element={<StudentDocumentation />} />
-              <Route path="mentor-feedback" element={<StudentFeedback />} />
-              <Route path="student-score" element={<StudentScore />} />
-              <Route path="settings" element={<StudentSettings />} />
-              <Route path="final-submission" element={<StudentFinalSubmission />} />
-              <Route path="contribution" element={<StudentContribution />} />
-              <Route path="activity" element={<StudentActivity />} />
-              <Route path="document-workspace" element={<StudentDocumentWorkspace />} />
-              <Route path="team-workspace" element={<StudentTeamWorkspace />} />
-              <Route path="calendar" element={<StudentCalendar />} />
-              <Route path="chat" element={<ProjectChat />} />
-            </Route>
+          <Route path="/student" element={
+            <MicroFrontendGate allowedPortal="portal">
+              <ProtectedRoute allowedRoles={['student']} />
+            </MicroFrontendGate>
+          }>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="projects" element={<StudentProjects />} />
+            <Route path="projects/:id" element={<ProjectDetails />} />
+            <Route path="kanban" element={<StudentKanban />} />
+            <Route path="timeline" element={<StudentTimeline />} />
+            <Route path="documentation" element={<StudentDocumentation />} />
+            <Route path="mentor-feedback" element={<StudentFeedback />} />
+            <Route path="student-score" element={<StudentScore />} />
+            <Route path="settings" element={<StudentSettings />} />
+            <Route path="final-submission" element={<StudentFinalSubmission />} />
+            <Route path="contribution" element={<StudentContribution />} />
+            <Route path="activity" element={<StudentActivity />} />
+            <Route path="document-workspace" element={<StudentDocumentWorkspace />} />
+            <Route path="team-workspace" element={<StudentTeamWorkspace />} />
+            <Route path="calendar" element={<StudentCalendar />} />
+            <Route path="chat" element={<ProjectChat />} />
+          </Route>
 
-          <Route path="/mentor" element={<ProtectedRoute allowedRoles={['mentor']} />}>
+          <Route path="/mentor" element={
+            <MicroFrontendGate allowedPortal="portal">
+              <ProtectedRoute allowedRoles={['mentor']} />
+            </MicroFrontendGate>
+          }>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<MentorDashboard />} />
             <Route path="projects" element={<MentorProjects />} />
@@ -152,7 +213,11 @@ function App() {
             <Route path="document-reviews" element={<MentorDocumentReviews />} />
           </Route>
 
-          <Route path="/hod" element={<ProtectedRoute allowedRoles={['hod']} />}>
+          <Route path="/hod" element={
+            <MicroFrontendGate allowedPortal="admin">
+              <ProtectedRoute allowedRoles={['hod']} />
+            </MicroFrontendGate>
+          }>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<HodDashboard />} />
             <Route path="projects" element={<HodProjects />} />
@@ -164,7 +229,11 @@ function App() {
             <Route path="settings" element={<MentorSettings />} /> 
           </Route>
 
-          <Route path="/cdc" element={<ProtectedRoute allowedRoles={['cdc']} />}>
+          <Route path="/cdc" element={
+            <MicroFrontendGate allowedPortal="admin">
+              <ProtectedRoute allowedRoles={['cdc']} />
+            </MicroFrontendGate>
+          }>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<CdcDashboard />} />
             <Route path="startups" element={<CdcStartups />} />

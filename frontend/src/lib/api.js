@@ -1,7 +1,18 @@
 import axios from 'axios';
 
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Bulletproof fallback for production Vercel environments
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    return 'https://projectflow-backend.onrender.com/api';
+  }
+  return 'http://localhost:5000/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: getBaseURL(),
 });
 
 // Attach JWT token from localStorage to every request
@@ -21,8 +32,13 @@ api.interceptors.response.use(
       // Clean auth state on auth failure
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // Redirect to login page (student portal as default)
-      window.location.href = '/auth/student/login';
+      
+      const AUTH_URL = 'https://projectflow-auth.vercel.app';
+      if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+        window.location.href = `${AUTH_URL}/auth/student/login`;
+      } else {
+        window.location.href = '/auth/student/login';
+      }
     }
     return Promise.reject(error);
   }

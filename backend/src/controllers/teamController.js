@@ -12,18 +12,18 @@ exports.inviteMember = async (req, res) => {
   }
 
   try {
-    // 1. Find if the inviter is an active member of an active project
+    // 1. Find the inviter's active project where they are the leader
     const [inviterProjects] = await db.execute(
-      `SELECT p.id, p.title, p.team_name, pm.is_leader 
+      `SELECT p.id, p.title, p.team_name 
        FROM projects p
        JOIN project_members pm ON p.id = pm.project_id
-       WHERE pm.student_id = ? AND p.status NOT IN ('Completed', 'Rejected')`,
+       WHERE pm.student_id = ? AND pm.is_leader = true AND p.status NOT IN ('Completed', 'Rejected')`,
       [inviterId]
     );
 
     if (inviterProjects.length === 0) {
       return res.status(400).json({ 
-        message: 'You must be an active member of a project to invite members.' 
+        message: 'You must be the team leader of an active project to invite members.' 
       });
     }
 

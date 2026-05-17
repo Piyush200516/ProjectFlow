@@ -17,8 +17,23 @@ const app = express();
 // Security Middlewares
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'https://projectflow-auth.vercel.app',
+  'https://projectflow-portal.vercel.app',
+  'https://projectflow-admin.vercel.app'
+];
+
 app.use(cors({
-  origin: true,
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
