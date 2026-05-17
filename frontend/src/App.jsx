@@ -243,8 +243,8 @@ function App() {
           </Route>
 
           {/* Default Redirect */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<Navigate to="/auth/student/login" replace />} />
+          <Route path="*" element={<Navigate to="/auth/student/login" replace />} />
         </Routes>
       </Router>
       <Toaster position="top-right" richColors />
