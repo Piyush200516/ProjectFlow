@@ -36,10 +36,10 @@ exports.register = async (req, res) => {
     // Add student record (branch_id defaults to 1 if not provided)
     console.log('Attempting to create student record for roll_number:', roll_number);
     await db.execute(
-      'INSERT INTO students (user_id, roll_number, branch_id, semester, academic_year) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE user_id=user_id',
+      'INSERT INTO students (user_id, roll_number, branch_id, semester, academic_year) VALUES (?, ?, ?, ?, ?) ON CONFLICT (user_id) DO NOTHING',
       [userId, roll_number || `STU${userId}`, 1, 1, '2024-25']
     ).then(() => console.log('Student record created successfully'))
-    .catch((err) => console.error('Student record creation failed (non-fatal):', err.message));
+    .catch((err) => console.error('Student record creation failed:', err.message));
 
     const token = generateToken(userId);
     console.log('Registration successful, token generated');

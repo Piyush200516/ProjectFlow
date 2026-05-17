@@ -10,6 +10,7 @@ const documentRoutes = require('./routes/documentRoutes');
 const mentorRoutes = require('./routes/mentorRoutes');
 const hodRoutes = require('./routes/hodRoutes');
 const cdcRoutes = require('./routes/cdcRoutes');
+const teamRoutes = require('./routes/teamRoutes');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/mentor', mentorRoutes);
 app.use('/api/hod', hodRoutes);
 app.use('/api/cdc', cdcRoutes);
+app.use('/api/team', teamRoutes);
 
 // Base route
 app.get('/', (req, res) => {
