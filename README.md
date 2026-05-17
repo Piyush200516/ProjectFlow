@@ -1,272 +1,172 @@
 <div align="center">
-  <img src="https://img.shields.io/badge/ProjectFlow-Edu-blue?style=for-the-badge&logo=rocket" alt="ProjectFlow Logo" />
-  <h1 align="center">ProjectFlow Edu</h1>
-  <p align="center">
-    <strong>AI-Powered Jira-Inspired Academic Project Lifecycle Management SaaS Platform</strong>
-  </p>
+  <img src="https://via.placeholder.com/150/0f172a/ffffff?text=PF" alt="ProjectFlow Logo" width="120" height="120">
   
-  <p align="center">
-    <a href="#license">
-      <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License" />
-    </a>
-    <a href="#status">
-      <img src="https://img.shields.io/badge/Status-Active-success.svg?style=flat-square" alt="Status" />
-    </a>
-    <a href="#tech-stack">
-      <img src="https://img.shields.io/badge/React-18-61DAFB.svg?style=flat-square&logo=react" alt="React" />
-    </a>
-    <a href="#tech-stack">
-      <img src="https://img.shields.io/badge/Node.js-18+-339933.svg?style=flat-square&logo=node.js" alt="Node" />
-    </a>
-    <a href="#tech-stack">
-      <img src="https://img.shields.io/badge/AI-Gemini_Powered-8A2BE2.svg?style=flat-square&logo=google-gemini" alt="AI Powered" />
-    </a>
-  </p>
+  # ProjectFlow Edu 🚀
+  
+  **The AI-Powered Academic Project Lifecycle Management Platform**
+
+  [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+  [![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+  [![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
+  [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+  [![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E)](https://vitejs.dev/)
+
+  *Transforming basic student projects into a professional, Jira-inspired Agile workflow.*
 </div>
 
-<br />
+---
 
-## 📖 Table of Contents
+## 📖 Project Overview
 
-- [Project Overview](#-project-overview)
-- [The Problem](#-the-problem)
-- [Why ProjectFlow Edu? (vs. Jira/Trello)](#-why-projectflow-edu-vs-jiratrello)
-- [Core Features](#-core-features)
-  - [Role-Based Portals](#role-based-portals)
-  - [SDLC Kanban Workflow](#sdlc-kanban-workflow)
-  - [AI & Real-Time Sync](#ai--real-time-sync)
-- [System Architecture](#-system-architecture)
-- [Role-Based Architecture](#-role-based-architecture)
-- [Tech Stack](#-tech-stack)
-- [Deep Dive: Features](#-deep-dive-features)
-  - [Frontend](#frontend-features)
-  - [Backend](#backend-features)
-  - [Database & Security](#database--security)
-- [Folder Structure](#-folder-structure)
-- [Getting Started](#-getting-started)
-- [Deployment Guide](#-deployment-guide)
-- [Screenshots](#-screenshots)
-- [Roadmap](#-roadmap)
-- [Contribution](#-contribution)
-- [License & Author](#-license--author)
+**ProjectFlow Edu** is a comprehensive, SaaS-grade platform designed for a **single-college deployment**. It bridges the gap between academic submissions and industry-standard agile workflows. By organizing the chaos of final-year projects, it provides a centralized hub where students collaborate, mentors evaluate, HODs oversee, and placement cells (CDC) scout top talent.
+
+### The Four Pillars of ProjectFlow:
+1. **👨‍🎓 Students**: Form teams, manage tasks via Kanban, collaborate on documents, and submit final repositories.
+2. **👨‍🏫 Mentors**: Track team progress, review code/documents, and evaluate contributions using a strict rubric.
+3. **🏛️ HOD (Head of Department)**: Maintain global oversight, track late submissions, and enforce department-wide templates.
+4. **🏢 CDC (Career Development Cell)**: Discover high-value, hackathon-ready projects and track startup incubation metrics.
 
 ---
 
-## 🌟 Project Overview
+## ✨ Core Features by Role
 
-**ProjectFlow Edu** is the intelligent operating system for academic innovation. Built with a modern, minimalist SaaS architecture, it bridges the massive gap between academic assignments and startup incubation. 
+### 👨‍🎓 Student Portal
+- **Team Collaboration**: Form teams (max 5 members) with defined roles (Leader, Frontend, Backend, etc.).
+- **SDLC Kanban Board**: Manage tasks through To Do, In Progress, Testing, and Done.
+- **Document Workspace**: Access mentor-assigned templates and submit reports in a distraction-free, full-screen editor placeholder.
+- **Final Submission Hub**: Submit GitHub repository links with automated validation and demo URLs.
+- **Contribution Tracking**: Real-time visibility into individual task completion and expected marks.
 
-Unlike generic issue trackers, ProjectFlow Edu strictly models the hierarchical academic workflow—integrating Students, Mentors, Head of Departments (HOD), and Career Development Cells (CDC)—while leveraging generative AI to automate documentation, task breakdowns, and performance analytics.
+### 👨‍🏫 Mentor Portal
+- **Project Review Hub**: Accept or reject incoming project proposals.
+- **Document Templates**: Distribute standard templates (SRS, Architecture, PPT) to assigned teams.
+- **Submission Reviews**: Track version history, approve documents, or return them with "Needs Work" remarks.
+- **Contribution Evaluation**: Score individual student performance using the standardized 100-mark rubric.
 
----
+### 🏛️ HOD Portal
+- **Department Analytics**: Visualize project distribution across tech domains (AI/ML, Web, IoT).
+- **Template Management**: Create standard departmental templates inherited by mentors.
+- **Submission Tracking**: Identify bottlenecks and filter teams by "Late Submissions".
+- **Mentor Oversight**: Track mentor performance and student ratings.
 
-## ⚠️ The Problem
-
-Academic projects (Mini, Major, Final Year, Hackathons) fail because institutions lack visibility.
-1. **Students** struggle with structured Software Development Life Cycles (SDLC) and documentation.
-2. **Mentors** are overwhelmed tracking multiple teams across scattered Google Sheets and WhatsApp groups.
-3. **HODs** lack department-wide analytics on innovation quality and project velocity.
-4. **CDCs** miss opportunities to incubate exceptional college projects into real-world startups.
-
----
-
-## 💡 Why ProjectFlow Edu? (vs. Jira/Trello)
-
-Why not just use Jira, Trello, or Asana? Because **corporate tools do not speak the language of academia.**
-
-| Feature | Corporate Tools (Jira) | ProjectFlow Edu |
-| :--- | :--- | :--- |
-| **Hierarchical Approvals** | Peer-to-Peer PR reviews | Strict Student ➝ Mentor ➝ HOD flow |
-| **Workflow Types** | Sprints, Epics, Bugs | Mini Projects, Final Year, Hackathons, Incubation |
-| **Evaluation Metrics** | Story points burned | Academic rubrics, attendance, documentation scores |
-| **AI Integration** | Code review & task summary | Generates full SDLC phases from project abstracts |
-| **Incubation Pipeline** | N/A | Direct pipeline from classroom to CDC Startup Hub |
+### 🏢 CDC Portal
+- **Innovation Tracking**: Monitor active academic startups and industry collaborations.
+- **Hackathon Visibility**: Identify "Hackathon-Ready" projects based on high mentor/innovation scores.
+- **Showcase Projects**: Direct access to top-tier student GitHub repositories and live demos.
 
 ---
 
-## 🔥 Core Features
+## 💎 Advanced SaaS Features
 
-### Role-Based Portals
-Four entirely isolated, secure portals tailored to specific academic personas:
-
-#### 🎓 Student Portal
-- **SDLC Engine:** Track projects across 8 specialized academic stages.
-- **AI Task Pilot:** Instantly break down abstracts into actionable Kanban tasks.
-- **Artifact Hub:** Upload and manage architectural diagrams and documentation.
-- **Feedback Loops:** Request and track mentor reviews in real-time.
-
-#### 👨‍🏫 Mentor Portal
-- **Evaluation Dashboard:** High-contrast grids tracking assigned team pipelines.
-- **Submission Velocity:** Monitor student code pushes and artifact uploads.
-- **Review Queue:** Approve or reject milestones with actionable feedback.
-
-#### 🏛️ HOD Portal
-- **Department Oversight:** Bird's-eye view of all projects across semesters.
-- **Analytics Engine:** Recharts-powered graphs showing success rates and tech-stack trends.
-- **Global Approvals:** Final sign-off on Major/Final Year Projects.
-
-#### 🚀 CDC Portal (Career & Innovation)
-- **Startup Incubation:** Elevate high-performing student projects into startup pipelines.
-- **Hackathon Manager:** Organize, fund, and track institutional hackathons.
-- **Industry Collaboration:** Connect student IP with industry sponsors.
+ProjectFlow goes beyond a standard CRUD app by implementing modern SaaS UI/UX paradigms:
+- 🔔 **Real-time Notification Center**: Grouped alerts (Today/Yesterday) with unread badging.
+- ⏱️ **Activity Timeline**: Centralized event tracking (e.g., "Task Moved to Testing", "Draft Uploaded").
+- 💬 **Internal Project Chat**: A dual-channel (Team & Mentor) chat interface, fully structured for real-time Socket.io integration.
+- 📅 **Calendar Planner**: Custom CSS-grid month/week planner for deadlines and syncs.
+- 📊 **Analytics Dashboards**: Interactive charts powered by `Recharts`.
+- 🔐 **Role-Based Access Control (RBAC)**: Strict route protection preventing cross-role data leaks.
 
 ---
 
-### SDLC Kanban Workflow
-A specialized drag-and-drop Kanban board (`@dnd-kit`) that strictly enforces the Software Development Life Cycle. Tasks move through:
-`Requirement Analysis` ➝ `System Design` ➝ `Implementation` ➝ `Testing` ➝ `Deployment` ➝ `Evaluation`
+## 🎯 Standardized Marks System (100 Marks Total)
+
+To ensure fair evaluation, the platform strictly enforces the following automated & manual rubric:
+
+| Criteria | Max Marks | Evaluator | Description |
+| :--- | :---: | :--- | :--- |
+| **Work Contribution** | 50 | Mentor (Manual) | Overall code quality, effort, and team participation. |
+| **Task Completion** | 20 | System (Auto) | Calculated dynamically via Kanban: `(Completed / Assigned) * 20` |
+| **Timeliness** | 15 | System (Auto) | Punctuality of phase submissions (5/5 to 1/5 scale converted to 15 points). |
+| **Documentation** | 10 | Mentor (Manual) | Quality of SRS, Architecture, and Final Reports. |
+| **GitHub Submission** | 5 | System (Auto) | Valid public repository link provided upon final submission. |
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Technical Architecture
 
-### High-Level Topology
-```text
-      ┌──────────────────────────┐
-      │     React Frontend       │ (Vite, Tailwind v4, Shadcn UI)
-      └────────────┬─────────────┘
-                   │
-         (REST API / WebSockets)
-                   │
-      ┌────────────▼─────────────┐
-      │   Express API Gateway    │ (Node.js, JWT, Rate Limiting)
-      └────────────┬─────────────┘
-                   │
-     ┌─────────────┴─────────────┬─────────────┐
-     │          MySQL            │    Redis    │ (Caching, BullMQ)
-     └─────────────┬─────────────┴─────────────┘
-                   │
-     ┌─────────────┴─────────────┐
-     │   AI & External APIs      │ (Google Gemini, OpenAI, Razorpay)
-     └───────────────────────────┘
-```
+### Tech Stack
+- **Frontend**: React 18, Vite, Tailwind CSS v4, shadcn/ui, Recharts, Lucide-React.
+- **Backend**: Node.js, Express.js.
+- **Database**: MySQL (Relational mappings for Users, Teams, Projects, Tasks, Submissions).
+- **Authentication**: JWT (JSON Web Tokens) with HttpOnly cookies.
+- **Storage/File Handling**: Multer (Prepared for local/S3 uploads).
+- **Real-time**: Socket.io (Architecture-ready).
+- **API Client**: Axios with centralized interceptors.
 
----
-
-## 🔐 Role-Based Architecture & Authentication Flow
-
-ProjectFlow Edu utilizes a strictly typed, isolated authentication architecture.
-1. **Isolated Entry Points:** `auth/student/login`, `auth/mentor/login`, etc.
-2. **Context Guard:** React Context API verifies JWTs in `localStorage`.
-3. **Route Protection:** Higher-Order Components (HOC) bounce unauthorized cross-portal access to a global `403 Access Denied` fallback.
-
-```text
-Student Login ───> Valid? ───> /student/* (Blocked from /mentor, /hod)
-Mentor Login  ───> Valid? ───> /mentor/*  (Blocked from /student, /hod)
-```
-
----
-
-## 💻 Tech Stack
-
-| Domain | Technologies |
-| :--- | :--- |
-| **Frontend Core** | React.js (v18), Vite, React Router v7 |
-| **Styling & UI** | Tailwind CSS v4, shadcn/ui, Lucide React, Framer Motion |
-| **Data Visualization**| Recharts |
-| **Backend Core** | Node.js, Express.js |
-| **Database** | MySQL (Relational), Redis (Caching & Message Brokering) |
-| **Real-time & Jobs** | Socket.io, BullMQ |
-| **AI Integration** | Google Gemini API, OpenAI API |
-| **Security** | JWT, bcryptjs, Helmet, CORS, Express Rate Limit |
-
----
-
-## 📂 Full Folder Structure
+### 📂 Folder Structure
 
 ```text
 ProjectFlow/
 ├── frontend/
 │   ├── src/
-│   │   ├── components/   # Reusable UI (Cards, Modals, Forms)
-│   │   ├── context/      # AuthContext, ThemeContext
-│   │   ├── layouts/      # DashboardLayout, Sidebar, Topbar
-│   │   ├── pages/        # Role-isolated views (auth/, student/, mentor/, etc.)
-│   │   ├── routes/       # AppRoutes and ProtectedRoute HOC
-│   │   ├── utils/        # Axios interceptors, formatting helpers
-│   │   └── App.jsx       # Root router
-│   ├── .env.example
-│   └── package.json
-│
+│   │   ├── components/      # Reusable UI (Buttons, Modals, StatCards)
+│   │   ├── context/         # React Context (AuthContext)
+│   │   ├── layouts/         # DashboardLayout, AuthLayout
+│   │   ├── lib/             # Axios instance setup
+│   │   ├── pages/           # Role-based views
+│   │   │   ├── auth/        # Login, Register
+│   │   │   ├── student/     # Kanban, Workspace, Chat, Calendar
+│   │   │   ├── mentor/      # Evaluations, Reviews
+│   │   │   ├── hod/         # Analytics, Tracking
+│   │   │   └── cdc/         # Innovation Hub
+│   │   └── App.jsx          # Route configurations & RBAC
 ├── backend/
 │   ├── src/
-│   │   ├── config/       # DB, Redis, Socket configs
-│   │   ├── controllers/  # Business logic
-│   │   ├── middlewares/  # JWT Auth, Role validation
-│   │   ├── models/       # MySQL Schemas
-│   │   ├── routes/       # API Definitions
-│   │   ├── services/     # AI Prompts, Email triggers
-│   │   └── server.js     # Entry point
-│   ├── .env.example
-│   └── package.json
-│
-└── database/
-    └── schema.sql        # Core relational architecture
+│   │   ├── config/          # DB & Environment configs
+│   │   ├── controllers/     # Route logic
+│   │   ├── middlewares/     # Auth, Error handlers
+│   │   ├── models/          # MySQL Queries/Schemas
+│   │   └── routes/          # API endpoint definitions
+│   └── server.js            # Express entry point
+└── README.md
 ```
 
 ---
 
-## 🧠 Deep Dive: Advanced Features
+## 🚀 Installation & Setup
 
-### 🌐 Frontend Features
-- **Minimalist SaaS UI:** White backgrounds, soft borders, high-contrast text.
-- **Optimistic UI Updates:** Drag-and-drop state updates instantly before server confirmation.
-- **Form Validation:** End-to-end `react-hook-form` and `zod` schemas.
+### Prerequisites
+- Node.js (v18+)
+- MySQL Server (v8+)
 
-### ⚙️ Backend Features & API Overview
-- **Modular Monolith:** Clean separation of concerns.
-- **RESTful Endpoints:** Grouped by `/api/auth`, `/api/projects`, `/api/tasks`, `/api/analytics`.
-- **Background Processing:** BullMQ handles heavy PDF generation and AI prompt resolving asynchronously without blocking the main event loop.
-
-### 🛡️ Security Features
-- **XSS Protection:** Strict sanitization, zero `dangerouslySetInnerHTML`.
-- **Stateless Auth:** JWT-based architecture with short-lived tokens and refresh mechanisms.
-- **Environment Isolation:** Secrets are strictly guarded behind `dotenv`.
-
-### 🤖 AI Features
-- **Automated Task Breakdown:** AI parses abstract text and outputs JSON-formatted SDLC tasks.
-- **Sentiment Analysis:** AI reviews mentor feedback to ensure constructive tone.
-
-### ⚡ Socket.io Realtime Features
-- Live Kanban board synchronization across team members.
-- Instant push notifications for HOD approvals or Mentor reviews.
-
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- Node.js v18+
-- MySQL Server v8+
-- Redis Server (Running on port 6379)
-
-### 2. Installation Guide
-
-**Clone the repository:**
+### 1. Clone the repository
 ```bash
 git clone https://github.com/Piyush200516/ProjectFlow.git
 cd ProjectFlow
 ```
 
-**Environment Setup:**
-Copy `.env.example` to `.env` in both frontend and backend directories and populate your secrets (MySQL credentials, JWT secret, Gemini API key).
+### 2. Environment Setup
+Create a `.env` file in the `backend/` directory:
+```env
+PORT=5000
+NODE_ENV=development
 
-**Database Setup:**
-```bash
-mysql -u root -p < database/schema.sql
+# MySQL Database Credentials
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=projectflow
+
+# JWT Secrets
+JWT_SECRET=your_super_secret_jwt_key
+JWT_EXPIRES_IN=24h
 ```
 
-**Install Dependencies:**
+### 3. Install Dependencies
+**Backend:**
 ```bash
-# Backend
-cd backend && npm install
-
-# Frontend
-cd ../frontend && npm install
+cd backend
+npm install
 ```
 
-### 3. Running Locally
-You will need two terminal windows.
+**Frontend:**
+```bash
+cd ../frontend
+npm install
+```
+
+### 4. Run the Application
+Start both servers concurrently (or in separate terminals):
 
 **Terminal 1 (Backend):**
 ```bash
@@ -284,60 +184,52 @@ The application will be available at `http://localhost:5173`.
 
 ---
 
-## ☁️ Deployment Guide
+## 🗺️ Frontend Routes
 
-1. **Frontend:** Deploy optimized Vite build (`npm run build`) to Vercel, Netlify, or AWS Amplify.
-2. **Backend:** Deploy Express monolith to Railway, Render, or a Hostinger VPS using PM2.
-3. **Database:** Provision a managed MySQL instance (e.g., AWS RDS, PlanetScale) and a managed Redis instance (Upstash).
+- `/login` - Unified authentication entry point.
+- `/register` - Student team registration.
+- `/student/*` - Dashboard, Kanban, Chat, Document Workspace, Final Submission.
+- `/mentor/*` - Review Requests, Document Tracking, Contribution Evaluation.
+- `/hod/*` - Global Analytics, Master Templates, Late Tracking.
+- `/cdc/*` - Startups, Hackathons, Industry Partnerships.
+
+---
+
+## 🔌 Backend API Modules (v1)
+
+- **`/api/auth`**: Login, Registration, JWT validation.
+- **`/api/projects`**: CRUD operations for academic projects.
+- **`/api/teams`**: Team formation and role assignments.
+- **`/api/tasks`**: Kanban board state management.
+- **`/api/documents`**: File uploads and version tracking.
+- **`/api/evaluations`**: Mentor scoring and marks calculation.
+
+---
+
+## 🔮 Future Roadmap
+
+- [ ] **OnlyOffice / Collabora Integration**: Replace the document workspace placeholder with a fully functional, self-hosted collaborative document editor.
+- [ ] **Real-time Socket.io**: Hook up the Chat UI and Activity Timeline to push events in real-time.
+- [ ] **AI Mentor Assistant (LLM)**: Automated code reviews and initial proposal evaluations.
+- [ ] **Plagiarism Detection**: Web scraping and cross-project text similarity checks.
+- [ ] **RAG Knowledge Base**: Let students chat with department guidelines and previous years' project reports.
 
 ---
 
 ## 📸 Screenshots
 
-> *UI Screenshots will be added here once the MVP styling is finalized.*
-> - [ ] Add unified Login Dashboard image
-> - [ ] Add Student Kanban Board image
-> - [ ] Add Mentor Analytics image
+> *Note: Add high-resolution screenshots of the deployed application here.*
+
+| Student Kanban Board | Mentor Evaluation Dashboard |
+| :---: | :---: |
+| ![Student Kanban](https://via.placeholder.com/600x350/0f172a/ffffff?text=Student+Kanban+Board) | ![Mentor Evaluation](https://via.placeholder.com/600x350/0f172a/ffffff?text=Mentor+Evaluation) |
+
+| Document Workspace | HOD Analytics |
+| :---: | :---: |
+| ![Doc Workspace](https://via.placeholder.com/600x350/0f172a/ffffff?text=Full-Screen+Document+Workspace) | ![HOD Analytics](https://via.placeholder.com/600x350/0f172a/ffffff?text=HOD+Department+Analytics) |
 
 ---
-
-## 🗺️ Future Roadmap
-
-- [ ] **Payments API:** Razorpay integration for funding hackathons and startups.
-- [ ] **Cloud Storage:** Direct AWS S3 integration for robust artifact management.
-- [ ] **Mobile App:** React Native companion app for on-the-go mentor approvals.
-- [ ] **Plagiarism Checker:** Automated abstract scanning against existing institutional databases.
-
----
-
-## 🤝 Contribution
-
-We welcome contributions to ProjectFlow Edu! 
-1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/amazing-feature`.
-3. Commit your changes: `git commit -m 'feat: Add amazing feature'`.
-4. Push to the branch: `git push origin feature/amazing-feature`.
-5. Open a Pull Request.
-
-Please adhere to the coding standards and ESLint configurations provided.
-
----
-
-## 📜 License & Author
-
-**ProjectFlow Edu** is distributed under the **MIT License**. See `LICENSE` for more information.
-
-<br />
 
 <div align="center">
-  <p>Architected and Developed with ❤️ by <b>Piyush Mishra</b></p>
-  <p>
-    <a href="https://github.com/Piyush200516">
-      <img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
-    </a>
-    <a href="https://linkedin.com/in/piyushmishra21052003">
-      <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" />
-    </a>
-  </p>
-  <p><i>Empowering the next generation of academic innovators.</i></p>
+  Built with ❤️ by <b>Piyush Mishra</b>
 </div>
