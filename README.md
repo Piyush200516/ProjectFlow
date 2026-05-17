@@ -149,6 +149,49 @@ ProjectFlow/
 └── README.md
 ```
 
+### 🧩 Microservice-Style Frontend Architecture
+
+ProjectFlow Edu embraces a microservice-inspired frontend topology to ensure massive scalability and absolute role isolation. Instead of a monolithic client, the application logic is segmented into distinct "Apps" routed seamlessly under a unified shell.
+
+- **Auth App**: Handles all unified access points including Student/Mentor/HOD/CDC Login, Student Signup, and Forgot Password flows.
+- **Student/Mentor Portal App**: The core academic engine handling the Student Dashboard, Projects, SDLC Kanban, Document Workspace, Contribution Analytics, Calendar, Chat, Notifications, and Mentor Reviews.
+- **HOD/CDC Admin App**: The executive oversight layer handling HOD/CDC Dashboards, Department Analytics, Submission Tracking, Innovation/Startup Monitoring, and Master Template Management.
+
+#### Architectural Benefits:
+- **Independent Deployment**: Segments can be isolated and scaled based on role traffic.
+- **Cleaner Separation of Concerns**: Strict boundary between student-facing tools and administrative oversight.
+- **Role Isolation**: Absolute security preventing unauthorized routing or data leaks between roles.
+- **Enterprise SaaS Readiness**: Built from day one to handle multi-tenant, large-scale university deployments.
+
+```mermaid
+graph TD
+    A[Auth App] -->|JWT| S(Shared API Gateway)
+    B[Student/Mentor App] --> S
+    C[HOD/CDC Admin App] --> S
+    S --> D{Backend Microservices}
+    D --> |Read/Write| E[(MySQL Database)]
+```
+
+### 🌐 Microservice-Style Deployment Strategy
+
+Designed for future production-scale academic SaaS environments, ProjectFlow is fully cloud and Docker-ready.
+
+**Frontend:**
+- Auth Frontend Server
+- Student/Mentor Frontend Server
+- HOD/CDC Frontend Server
+
+**Backend Infrastructure:**
+- Node.js API Services
+- Dedicated JWT Auth Service
+- Document / Storage Service (Multer/S3)
+- Real-time Notification & Chat Services (Socket.io)
+
+**Infrastructure Edge:**
+- Nginx Reverse Proxy for routing traffic to respective micro-frontends.
+- Docker-ready containerized deployment patterns.
+- Cloud-agnostic (AWS/GCP) scalability.
+
 ---
 
 ## 🚀 Installation & Setup
