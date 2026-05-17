@@ -23,7 +23,9 @@ import {
   Handshake,
   ShieldCheck,
   Building2,
-  Users
+  Users,
+  Calendar as CalendarIcon,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/utils';
@@ -52,9 +54,49 @@ const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
   </Link>
 );
 
+const NotificationDropdown = ({ isOpen, onClose }) => {
+  const notifications = [
+    { id: 1, text: 'Mentor assigned SRS Template', time: '10 mins ago', type: 'doc', unread: true },
+    { id: 2, text: 'Project Phase 1 deadline tomorrow', time: '2 hours ago', type: 'alert', unread: true },
+    { id: 3, text: 'HOD commented on your proposal', time: 'Yesterday', type: 'comment', unread: false },
+    { id: 4, text: 'Task "Design DB" assigned to you', time: 'Yesterday', type: 'task', unread: false },
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose}></div>
+      <div className="absolute top-12 right-0 w-80 bg-white border border-slate-200 shadow-xl rounded-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+        <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <span className="font-bold text-slate-800 text-sm">Notifications</span>
+          <button className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">Mark all as read</button>
+        </div>
+        <div className="max-h-[300px] overflow-y-auto">
+          {notifications.map((n) => (
+            <div key={n.id} className={cn("p-3 border-b border-slate-50 flex gap-3 hover:bg-slate-50 transition-colors cursor-pointer", n.unread && "bg-blue-50/30")}>
+              <div className="mt-0.5">
+                {n.unread ? <div className="w-2 h-2 bg-blue-600 rounded-full"></div> : <div className="w-2 h-2"></div>}
+              </div>
+              <div>
+                <p className={cn("text-xs leading-snug", n.unread ? "font-semibold text-slate-900" : "font-medium text-slate-600")}>{n.text}</p>
+                <p className="text-[10px] text-slate-400 font-medium mt-1">{n.time}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="p-2 border-t border-slate-100 text-center bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">View All Notifications</span>
+        </div>
+      </div>
+    </>
+  );
+};
+
 const DashboardLayout = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isCollapsed, setCollapsed] = useState(false);
+  const [isNotifOpen, setNotifOpen] = useState(false);
   const location = useLocation();
   const { user, logout } = useAuth();
 
@@ -79,14 +121,24 @@ const DashboardLayout = ({ children }) => {
       { icon: CheckSquare, label: 'Kanban', href: '/student/kanban' },
       { icon: Clock, label: 'Timeline', href: '/student/timeline' },
       { icon: FileText, label: 'Documentation', href: '/student/documentation' },
+      { icon: Rocket, label: 'Final Submission', href: '/student/final-submission' },
       { icon: MessageSquare, label: 'Feedback', href: '/student/mentor-feedback' },
-      { icon: BarChart3, label: 'Analytics', href: '/student/student-score' },
+      { icon: BarChart3, label: 'Contribution Score', href: '/student/contribution' },
+      { icon: Bell, label: 'Activity Feed', href: '/student/activity' },
+      { icon: FileText, label: 'Doc Workspace', href: '/student/document-workspace' },
+      { icon: Users, label: 'Team Workspace', href: '/student/team-workspace' },
+      { icon: CalendarIcon, label: 'Calendar', href: '/student/calendar' },
+      { icon: MessageCircle, label: 'Project Chat', href: '/student/chat' },
     ],
     mentor: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/mentor/dashboard' },
       { icon: Briefcase, label: 'Projects', href: '/mentor/projects' },
       { icon: CheckSquare, label: 'Review Hub', href: '/mentor/review-requests' },
+      { icon: Rocket, label: 'Final Submissions', href: '/mentor/final-submissions' },
       { icon: BarChart3, label: 'Progress', href: '/mentor/student-progress' },
+      { icon: Users, label: 'Contribution Review', href: '/mentor/contribution-review' },
+      { icon: FileText, label: 'Templates', href: '/mentor/templates' },
+      { icon: CheckSquare, label: 'Doc Reviews', href: '/mentor/document-reviews' },
       { icon: Clock, label: 'Schedule', href: '/mentor/schedule' },
     ],
     hod: [
@@ -95,6 +147,8 @@ const DashboardLayout = ({ children }) => {
       { icon: Users, label: 'Students', href: '/hod/students' },
       { icon: ShieldCheck, label: 'Approvals', href: '/hod/approvals' },
       { icon: BarChart3, label: 'Analytics', href: '/hod/analytics' },
+      { icon: FileText, label: 'Dept Templates', href: '/hod/templates' },
+      { icon: CheckSquare, label: 'Doc Tracking', href: '/hod/submission-tracking' },
     ],
     cdc: [
       { icon: LayoutDashboard, label: 'Overview', href: '/cdc/dashboard' },
@@ -194,13 +248,16 @@ const DashboardLayout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => toast.info('You have 3 new notifications')}
-              className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-all relative"
-            >
-              <Bell size={18} strokeWidth={1.5} />
-              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setNotifOpen(!isNotifOpen)}
+                className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-all relative"
+              >
+                <Bell size={18} strokeWidth={1.5} />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-600 rounded-full border border-white"></span>
+              </button>
+              <NotificationDropdown isOpen={isNotifOpen} onClose={() => setNotifOpen(false)} />
+            </div>
             
             <div className="h-4 w-px bg-slate-200 mx-1"></div>
             

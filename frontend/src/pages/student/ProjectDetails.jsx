@@ -7,7 +7,7 @@ import {
   StatusBadge, 
   ProgressCard 
 } from '../../components/common/PremiumComponents';
-import { ArrowLeft, Loader2, Calendar, Users, FolderOpen } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar, Users, FolderOpen, Target, CheckCircle2, LayoutDashboard } from 'lucide-react';
 
 const ProjectDetails = () => {
   const { id } = useParams();
@@ -71,13 +71,42 @@ const ProjectDetails = () => {
         <div className="md:col-span-2 space-y-6">
           <SectionCard>
             <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <FolderOpen size={20} className="text-slate-400" />
-              Project Information
+              <LayoutDashboard size={20} className="text-slate-400" />
+              Project Progress Dashboard
             </h3>
             <p className="text-slate-600 text-sm leading-relaxed mb-6">
               {project.description}
             </p>
-            <ProgressCard label="Overall Progress" value={project.progress || 0} color="blue" />
+            <div className="space-y-5">
+              <ProgressCard label="Overall Progress" value={project.progress || 65} color="blue" />
+              <ProgressCard label="SDLC Stage: Implementation" value={45} color="indigo" />
+              <ProgressCard label="Task Completion" value={75} color="emerald" />
+              <ProgressCard label="Documentation" value={30} color="amber" />
+            </div>
+            
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <h4 className="text-sm font-semibold text-slate-900 mb-4">Submission Status</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 font-medium">Final Submission</div>
+                    <div className="text-sm font-semibold text-slate-900">Pending</div>
+                  </div>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center">
+                    <Target size={16} />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 font-medium">Mentor Approval</div>
+                    <div className="text-sm font-semibold text-slate-900">Awaiting</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </SectionCard>
         </div>
 

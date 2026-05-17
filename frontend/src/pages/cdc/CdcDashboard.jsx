@@ -132,39 +132,37 @@ const CdcDashboard = () => {
         </SectionCard>
 
         <SectionCard 
-          title="Industry Focus" 
-          subtitle="Startup categorization"
+          title="Top Hackathon-Ready Projects" 
+          subtitle="Projects shortlisted for upcoming events"
         >
-          <div className="h-[250px] w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={distributionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={65}
-                  outerRadius={90}
-                  paddingAngle={10}
-                  dataKey="value"
-                >
-                  {distributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-3 mt-6">
-             {distributionData.map((item, index) => (
-               <div key={item.name} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: COLORS[index]}}></div>
-                    <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{item.name}</span>
+          <div className="space-y-4">
+            {[
+              { name: 'AI Powered Student Tracker', team: 'Team Alpha', score: 95, github: 'https://github.com/piyush/ai', demo: 'https://demo.com' },
+              { name: 'Blockchain Voting System', team: 'Team Beta', score: 92, github: 'https://github.com/rahul/vote', demo: '' },
+            ].map((project, idx) => (
+              <div key={idx} className="flex flex-col p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">{project.name}</div>
+                    <div className="text-xs text-slate-500">{project.team}</div>
                   </div>
-                  <span className="text-sm font-black text-slate-900">{item.value}%</span>
-               </div>
-             ))}
+                  <div className="flex flex-col items-end">
+                    <span className="text-sm font-bold text-blue-600">{project.score}/100</span>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase">Innovation Score</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mt-2 text-xs font-medium">
+                  <a href={project.github} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1">
+                     <span className="underline underline-offset-2">GitHub Repo</span>
+                  </a>
+                  {project.demo && (
+                    <a href={project.demo} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1">
+                      <span className="underline underline-offset-2">Live Demo</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </SectionCard>
       </div>

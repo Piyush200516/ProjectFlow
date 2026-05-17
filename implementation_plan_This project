@@ -1,0 +1,105 @@
+# Upgrade ProjectFlow Edu Frontend to SaaS-Quality Platform
+
+This plan outlines the frontend upgrades required to turn ProjectFlow Edu into a live-ready college project management system. It introduces a comprehensive team system (max 5 students), a robust marks and timeliness scoring system, final submission handling with GitHub validation, and real-time dashboard enhancements across all roles. The UI will be upgraded to have a clean, SaaS-quality feel while adhering strictly to existing design languages and standard Javascript/React practices (no TS, no Firebase).
+
+## User Review Required
+
+> [!IMPORTANT]
+> The requirements specify calculating dummy real-time scores based on contribution, tasks, timeliness, and mentor feedback. Because we are relying on a dummy state for now, these scores will be mocked algorithmically or stored in local dummy context, prepared for future `Socket.io` and `MySQL/Axios` integration. Is this approach acceptable for the demo?
+
+> [!WARNING]
+> Since we are mocking new backend APIs (`/api/projects`, `/api/tasks`, `/api/submissions`, `/api/evaluations`), I will extend the `src/lib/api.js` (or mock data service) with dummy responses that match the expected MySQL schemas. 
+
+## Proposed Changes
+
+---
+
+### Application Configuration and Routing
+
+Updates to the main routing and sidebar navigation to accommodate the new pages.
+
+#### [MODIFY] [App.jsx](file:///e:/ProjectFlow/frontend/src/App.jsx)
+- Import and register new routes:
+  - `StudentFinalSubmission`, `StudentContribution`, `StudentActivity`
+  - `MentorFinalSubmissions`, `MentorContributionReview`
+
+#### [MODIFY] [DashboardLayout.jsx](file:///e:/ProjectFlow/frontend/src/layouts/DashboardLayout.jsx)
+- **Student Menu**: Add "Final Submission", "Contribution Score", and "Activity Feed" items.
+- **Mentor Menu**: Update to include "Final Submissions" and "Contribution Review".
+
+---
+
+### Student Portal
+
+Enhancements to track progress, handle final submissions, and view scores.
+
+#### [NEW] `e:\ProjectFlow\frontend\src\pages\student\StudentFinalSubmission.jsx`
+- Implement form with fields: Project Name, Project Type, Team Name, GitHub URL, Demo URL, Report (placeholder), PPT (placeholder), Remarks.
+- Validation logic: Check if GitHub URL starts with `https://github.com/`. Require Project, Report, PPT.
+- On Submit: Calculate timeliness score (5/5 to 1/5 based on date), show submission status and badges.
+
+#### [NEW] `e:\ProjectFlow\frontend\src\pages\student\StudentContribution.jsx`
+- Create a metrics page displaying the student's and teammates' contribution data.
+- Marks Breakdown (Total 100): Work (50), Tasks (20), Timeliness (15), Documentation (10), GitHub (5).
+- Display calculated task completion %, timeliness score, and final marks in SaaS-style cards/tables.
+
+#### [NEW] `e:\ProjectFlow\frontend\src\pages\student\StudentActivity.jsx`
+- Create an "Activity Feed" showing dummy real-time updates (task changes, mentor comments, deadlines).
+- Structured to accept Socket.io events in the future.
+
+#### [MODIFY] [ProjectDetails.jsx](file:///e:/ProjectFlow/frontend/src/pages/student/ProjectDetails.jsx)
+- Add "Project Progress Dashboard" sections: Overall, SDLC stage, task/docs progress, submission status, mentor/HOD approval.
+- Add team member list (max 5) showing assigned/completed tasks and marks.
+
+---
+
+### Mentor Portal
+
+Features for mentors to review submissions and grade students.
+
+#### [NEW] `e:\ProjectFlow\frontend\src\pages\mentor\MentorFinalSubmissions.jsx`
+- Dashboard of all submitted projects assigned to the mentor.
+- Show GitHub links, late status, and provide "Approve/Reject" functionality.
+
+#### [NEW] `e:\ProjectFlow\frontend\src\pages\mentor\MentorContributionReview.jsx`
+- Page to review each student's contribution individually.
+- Interface to input mentor feedback scores and calculate final marks based on the 100-mark rubric.
+
+---
+
+### Administrative Portals (HOD & CDC)
+
+Dashboard updates for high-level monitoring.
+
+#### [MODIFY] `e:\ProjectFlow\frontend\src\pages\hod\HodDashboard.jsx`
+- Add metrics for department-wise completion, submitted vs pending projects, late submissions, top-performing teams, and an option to export marks.
+
+#### [MODIFY] `e:\ProjectFlow\frontend\src\pages\cdc\CdcDashboard.jsx`
+- Highlight hackathon-ready and startup-worthy projects.
+- Display project GitHub/demo links, innovation score, and shortlisted status.
+
+---
+
+### Mock Data & API Readiness
+
+Preparing the frontend layer for seamless MySQL backend integration.
+
+#### [MODIFY] [api.js](file:///e:/ProjectFlow/frontend/src/lib/api.js) (or create mock data files)
+- Set up fallback dummy states for expected API endpoints:
+  - `GET /api/projects/:id`
+  - `POST/GET /api/projects/:id/team-members`
+  - `GET/POST/PUT /api/tasks`
+  - `POST/GET /api/submissions`
+  - `POST/GET /api/evaluations`
+
+## Verification Plan
+
+### Automated Tests
+- Build verification: Run `npm run dev` to ensure no runtime or compilation errors.
+- Component rendering: Verify that existing shadcn/ui components are used without breaking layout.
+
+### Manual Verification
+- **Routing**: Test all new routes in `/student` and `/mentor`.
+- **Validation**: Attempt to submit a final project with an invalid GitHub URL and verify the error toast.
+- **Scoring Logic**: Hardcode different submission dates in dummy data and verify that the 5-point timeliness scale accurately decreases.
+- **UI/UX**: Check that the design maintains the "SaaS-quality" look (responsive, empty states, toasts, cards).

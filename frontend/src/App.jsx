@@ -13,16 +13,29 @@ import StudentDocumentation from './pages/student/StudentDocumentation';
 import StudentFeedback from './pages/student/StudentFeedback';
 import StudentScore from './pages/student/StudentScore';
 import StudentSettings from './pages/student/StudentSettings';
+import StudentFinalSubmission from './pages/student/StudentFinalSubmission';
+import StudentContribution from './pages/student/StudentContribution';
+import StudentActivity from './pages/student/StudentActivity';
+import StudentDocumentWorkspace from './pages/student/StudentDocumentWorkspace';
+import StudentTeamWorkspace from './pages/student/StudentTeamWorkspace';
+import StudentCalendar from './pages/student/StudentCalendar';
+import ProjectChat from './pages/student/ProjectChat';
 import MentorDashboard from './pages/mentor/MentorDashboard';
 import MentorProjects from './pages/mentor/MentorProjects';
 import MentorReviewRequests from './pages/mentor/MentorReviewRequests';
 import MentorStudentProgress from './pages/mentor/MentorStudentProgress';
 import MentorSchedule from './pages/mentor/MentorSchedule';
 import MentorSettings from './pages/mentor/MentorSettings';
+import MentorFinalSubmissions from './pages/mentor/MentorFinalSubmissions';
+import MentorContributionReview from './pages/mentor/MentorContributionReview';
+import MentorTemplates from './pages/mentor/MentorTemplates';
+import MentorDocumentReviews from './pages/mentor/MentorDocumentReviews';
 import HodDashboard from './pages/hod/HodDashboard';
 import HodProjects from './pages/hod/HodProjects';
 import HodStudents from './pages/hod/HodStudents';
 import HodApprovals from './pages/hod/HodApprovals';
+import HodTemplates from './pages/hod/HodTemplates';
+import HodSubmissionTracking from './pages/hod/HodSubmissionTracking';
 import CdcDashboard from './pages/cdc/CdcDashboard';
 import CdcStartups from './pages/cdc/CdcStartups';
 import CdcIndustryCollaboration from './pages/cdc/CdcIndustryCollaboration';
@@ -116,6 +129,13 @@ function App() {
               <Route path="mentor-feedback" element={<StudentFeedback />} />
               <Route path="student-score" element={<StudentScore />} />
               <Route path="settings" element={<StudentSettings />} />
+              <Route path="final-submission" element={<StudentFinalSubmission />} />
+              <Route path="contribution" element={<StudentContribution />} />
+              <Route path="activity" element={<StudentActivity />} />
+              <Route path="document-workspace" element={<StudentDocumentWorkspace />} />
+              <Route path="team-workspace" element={<StudentTeamWorkspace />} />
+              <Route path="calendar" element={<StudentCalendar />} />
+              <Route path="chat" element={<ProjectChat />} />
             </Route>
 
           <Route path="/mentor" element={<ProtectedRoute allowedRoles={['mentor']} />}>
@@ -126,6 +146,10 @@ function App() {
             <Route path="student-progress" element={<MentorStudentProgress />} />
             <Route path="schedule" element={<MentorSchedule />} />
             <Route path="settings" element={<MentorSettings />} />
+            <Route path="final-submissions" element={<MentorFinalSubmissions />} />
+            <Route path="contribution-review" element={<MentorContributionReview />} />
+            <Route path="templates" element={<MentorTemplates />} />
+            <Route path="document-reviews" element={<MentorDocumentReviews />} />
           </Route>
 
           <Route path="/hod" element={<ProtectedRoute allowedRoles={['hod']} />}>
@@ -135,6 +159,8 @@ function App() {
             <Route path="students" element={<HodStudents />} />
             <Route path="approvals" element={<HodApprovals />} />
             <Route path="analytics" element={<HodDashboard />} />
+            <Route path="templates" element={<HodTemplates />} />
+            <Route path="submission-tracking" element={<HodSubmissionTracking />} />
             <Route path="settings" element={<MentorSettings />} /> 
           </Route>
 

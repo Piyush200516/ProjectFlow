@@ -20,7 +20,11 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Line,
-  Area
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
 } from 'recharts';
 import { 
   PageHeader, 
@@ -65,10 +69,10 @@ const HodDashboard = () => {
   }
 
   const deptStats = [
-    { label: 'Dept Projects', value: stats?.totalProjects || '0', icon: Building2, color: 'blue' },
-    { label: 'Active Students', value: stats?.activeStudents || '0', icon: Users, color: 'indigo' },
-    { label: 'Pending Approvals', value: stats?.pendingApprovals || '0', icon: ShieldCheck, color: 'green' },
-    { label: 'Completion Rate', value: stats?.completionRate || '85%', icon: Award, color: 'amber' },
+    { label: 'Dept Projects', value: stats?.totalProjects || '42', icon: Building2, color: 'blue' },
+    { label: 'Active Students', value: stats?.activeStudents || '210', icon: Users, color: 'indigo' },
+    { label: 'Late Submissions', value: '5', icon: ShieldCheck, color: 'rose' },
+    { label: 'Avg Evaluated Score', value: '88%', icon: Award, color: 'amber' },
   ];
 
   const performanceTrend = [
@@ -78,6 +82,14 @@ const HodDashboard = () => {
     { name: 'Apr', approved: 30, pending: 20 },
     { name: 'May', approved: 55, pending: 5 },
   ];
+
+  const projectDistribution = [
+    { name: 'AI/ML', value: 45 },
+    { name: 'Web Dev', value: 30 },
+    { name: 'IoT', value: 15 },
+    { name: 'Blockchain', value: 10 },
+  ];
+  const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'];
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
@@ -130,77 +142,86 @@ const HodDashboard = () => {
           </div>
         </SectionCard>
 
-        <SectionCard title="Quick Stats" subtitle="Project status breakdown">
-           <div className="space-y-4 mt-6">
-              {[
-                { name: 'Mini Projects', count: projects.filter(p => p.type === 'Mini Project').length, color: '#2563eb' },
-                { name: 'Major Projects', count: projects.filter(p => p.type === 'Major Project').length, color: '#8b5cf6' },
-                { name: 'Completed', count: projects.filter(p => p.status === 'Completed').length, color: '#10b981' },
-              ].map((item) => (
-                <div key={item.name} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: item.color}}></div>
-                    <span className="text-xs font-black text-slate-700 tracking-tight">{item.name}</span>
-                  </div>
-                  <span className="text-sm font-black text-slate-900">{item.count}</span>
-                </div>
-              ))}
-           </div>
+        <SectionCard title="Department Distribution" subtitle="Projects by tech domain">
+          <div className="h-[250px] w-full mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={projectDistribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {projectDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </SectionCard>
       </div>
 
-      <SectionCard 
-        title="Recent Projects Oversight" 
-        subtitle="Tracking of project approvals and mentor allocations"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
-                <th className="pb-4 font-black">Project Title</th>
-                <th className="pb-4 font-black">Mentor</th>
-                <th className="pb-4 font-black">Status</th>
-                <th className="pb-4 font-black">Progress</th>
-                <th className="pb-4 font-black text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {projects.length > 0 ? projects.slice(0, 5).map((project) => (
-                <tr key={project.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer">
-                  <td className="py-5">
-                     <div className="flex flex-col">
-                        <span className="font-black text-slate-800 text-sm tracking-tight">{project.title}</span>
-                        <span className="text-[10px] font-bold text-slate-400">ID: PF-2026-{1000 + project.id}</span>
-                     </div>
-                  </td>
-                  <td className="py-5">
-                     <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center text-[10px] font-black text-blue-700">{project.mentor_name?.[0] || 'M'}</div>
-                        <span className="text-xs font-bold text-slate-600">{project.mentor_name || 'Unassigned'}</span>
-                     </div>
-                  </td>
-                  <td className="py-5">
-                    <StatusBadge 
-                      status={project.status} 
-                      variant={project.status === 'Completed' ? 'success' : project.status === 'Proposal' ? 'warning' : 'info'} 
-                    />
-                  </td>
-                  <td className="py-5 text-xs font-bold text-slate-500">{project.progress}%</td>
-                  <td className="py-5 text-right">
-                    <button className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-all shadow-sm">
-                      Details
-                    </button>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                   <td colSpan="5" className="py-10 text-center text-slate-400 font-bold">No projects available.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <SectionCard 
+          title="Top Mentors" 
+          subtitle="Mentors with highest student ratings"
+        >
+          <div className="space-y-4">
+            {[
+              { name: 'Dr. Sharma', projects: 8, rating: 4.9 },
+              { name: 'Dr. Verma', projects: 6, rating: 4.8 },
+              { name: 'Prof. Gupta', projects: 5, rating: 4.7 },
+            ].map((mentor, idx) => (
+              <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                    {mentor.name[0]}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">{mentor.name}</div>
+                    <div className="text-xs text-slate-500">{mentor.projects} Active Projects</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-sm font-bold text-amber-500">
+                  <Award size={16} /> {mentor.rating}
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard 
+          title="Top Performing Teams" 
+          subtitle="Highest scored final submissions"
+        >
+          <div className="space-y-4">
+            {[
+              { name: 'Team Alpha', project: 'AI Powered Student Tracker', score: 95 },
+              { name: 'Team Beta', project: 'Blockchain Voting System', score: 92 },
+              { name: 'Team Gamma', project: 'Smart Crop Prediction', score: 88 },
+            ].map((team, idx) => (
+              <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                    #{idx + 1}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">{team.name}</div>
+                    <div className="text-xs text-slate-500">{team.project}</div>
+                  </div>
+                </div>
+                <div className="text-lg font-bold text-emerald-600">{team.score}</div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
     </div>
   );
 };
