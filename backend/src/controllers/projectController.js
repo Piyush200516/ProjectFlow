@@ -13,8 +13,8 @@ exports.getProjects = async (req, res) => {
     if (role === 'student') {
       query = `
         SELECT p.* FROM projects p
-        JOIN project_team_members ptm ON p.id = ptm.project_id
-        WHERE ptm.user_id = ?
+        JOIN project_members pm ON p.id = pm.project_id
+        WHERE pm.student_id = ?
         ORDER BY p.created_at DESC
       `;
       params = [id];
@@ -56,8 +56,8 @@ exports.createProject = async (req, res) => {
 
     // Add creator as lead team member
     await db.execute(
-      'INSERT INTO project_team_members (project_id, user_id, role) VALUES (?, ?, ?)',
-      [projectId, userId, 'lead']
+      'INSERT INTO project_members (project_id, student_id, is_leader) VALUES (?, ?, ?)',
+      [projectId, userId, true]
     );
 
     const [rows] = await db.execute('SELECT * FROM projects WHERE id = ?', [projectId]);
@@ -82,10 +82,10 @@ exports.getProjectById = async (req, res) => {
 
     // Get team members with full_name
     const [members] = await db.execute(
-      `SELECT u.id, u.full_name, u.email, ptm.role
+      `SELECT u.id, u.full_name, u.email, CASE WHEN pm.is_leader THEN 'lead' ELSE 'member' END as role
        FROM users u
-       JOIN project_team_members ptm ON u.id = ptm.user_id
-       WHERE ptm.project_id = ?`,
+       JOIN project_members pm ON u.id = pm.student_id
+       WHERE pm.project_id = ?`,
       [req.params.id]
     );
 

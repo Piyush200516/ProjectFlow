@@ -9,8 +9,8 @@ exports.getCdcStats = async (req, res) => {
     const [partners] = await db.execute('SELECT COUNT(*) as count FROM industry_collaborations');
     
     res.json({
-      activeStartups: startups[0].count,
-      industryPartners: partners[0].count,
+      activeStartups: parseInt(startups[0].count || 0, 10),
+      industryPartners: parseInt(partners[0].count || 0, 10),
       patents: 8, // Placeholder
       innovationValue: '$2.4M' // Placeholder
     });

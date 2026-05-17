@@ -26,6 +26,7 @@ DROP TRIGGER IF EXISTS update_tasks_modtime ON tasks;
 DROP FUNCTION IF EXISTS check_project_members_limit();
 DROP FUNCTION IF EXISTS update_modified_column();
 
+DROP TABLE IF EXISTS documents CASCADE;
 DROP TABLE IF EXISTS industry_collaborations CASCADE;
 DROP TABLE IF EXISTS startups CASCADE;
 DROP TABLE IF EXISTS hackathons CASCADE;
@@ -203,14 +204,15 @@ COMMENT ON TABLE sdlc_stages IS 'SDLC workflow stages for Kanban column configur
 CREATE TABLE tasks (
     id SERIAL PRIMARY KEY,
     project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    stage_id INT NOT NULL REFERENCES sdlc_stages(id) ON DELETE RESTRICT,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    assignee_id INT REFERENCES users(id) ON DELETE SET NULL,
-    priority VARCHAR(20) DEFAULT 'Medium' CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
-    status VARCHAR(20) DEFAULT 'To Do' CHECK (status IN ('To Do', 'In Progress', 'Review', 'Completed')),
+    status VARCHAR(100) DEFAULT 'Requirements',
+    priority VARCHAR(20) DEFAULT 'Medium',
+    members JSONB DEFAULT '[]'::jsonb,
+    comments INT DEFAULT 0,
+    attachments INT DEFAULT 0,
+    created_by INT REFERENCES users(id) ON DELETE SET NULL,
     due_date DATE,
-    completion_percent INT DEFAULT 0 CHECK (completion_percent BETWEEN 0 AND 100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -330,6 +332,25 @@ COMMENT ON TABLE final_submissions IS 'Final year deliverables, GitHub links, an
 -- TABLE: mentor_feedback
 -- Purpose: Stores continuous mentoring advice and comments.
 -- =========================================================================
+
+-- =========================================================================
+-- TABLE: documents
+-- Purpose: Holds project deliverables and file uploads for API integration.
+-- =========================================================================
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    uploaded_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    original_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_type VARCHAR(50),
+    file_size VARCHAR(30),
+    url VARCHAR(1000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_documents_project ON documents(project_id);
+
 CREATE TABLE mentor_feedback (
     id SERIAL PRIMARY KEY,
     project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -574,8 +595,8 @@ CREATE INDEX idx_projects_creator ON projects(created_by);
 CREATE INDEX idx_project_members_project ON project_members(project_id);
 CREATE INDEX idx_project_members_student ON project_members(student_id);
 CREATE INDEX idx_tasks_project ON tasks(project_id);
-CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);
-CREATE INDEX idx_tasks_stage ON tasks(stage_id);
+
+CREATE INDEX idx_tasks_created_by ON tasks(created_by);
 CREATE INDEX idx_document_assignments_project ON document_assignments(project_id);
 CREATE INDEX idx_document_submissions_assignment ON document_submissions(assignment_id);
 CREATE INDEX idx_document_submissions_project ON document_submissions(project_id);
@@ -613,13 +634,13 @@ INSERT INTO branches (department_id, name, code) VALUES
 
 -- B. Seed System Users (Credentials specified in requirements)
 INSERT INTO users (email, password_hash, role, full_name, profile_image, is_active) VALUES
-('admin@college.edu', 'password123_hash_here', 'admin', 'System Administrator', NULL, TRUE),
-('hod@college.edu', 'password123_hash_here', 'hod', 'Dr. Alok Chandra', NULL, TRUE),
-('mentor@college.edu', 'password123_hash_here', 'mentor', 'Dr. Priya Sharma', NULL, TRUE),
-('cdc@college.edu', 'password123_hash_here', 'cdc', 'Prof. Ramesh Anand', NULL, TRUE),
-('student@college.edu', 'password123_hash_here', 'student', 'Piyush Mishra', NULL, TRUE),
-('student2@college.edu', 'password123_hash_here', 'student', 'Rohan Verma', NULL, TRUE),
-('student3@college.edu', 'password123_hash_here', 'student', 'Anjali Gupta', NULL, TRUE);
+('admin@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'admin', 'System Administrator', NULL, TRUE),
+('hod@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'hod', 'Dr. Alok Chandra', NULL, TRUE),
+('mentor@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'mentor', 'Dr. Priya Sharma', NULL, TRUE),
+('cdc@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'cdc', 'Prof. Ramesh Anand', NULL, TRUE),
+('student@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Piyush Mishra', NULL, TRUE),
+('student2@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Rohan Verma', NULL, TRUE),
+('student3@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Anjali Gupta', NULL, TRUE);
 
 -- C. Seed Faculty Profile Details
 INSERT INTO mentors (user_id, department_id, designation, specialization, max_projects) VALUES
@@ -660,10 +681,10 @@ INSERT INTO milestones (project_id, title, description, due_date, status, comple
 (1, 'Final Prototype Demo', 'Deploy to staging and present full working application.', '2026-05-18', 'Pending', NULL);
 
 -- I. Seed Tasks (SDLC Kanban Board Columns mapping)
-INSERT INTO tasks (project_id, stage_id, title, description, assignee_id, priority, status, due_date, completion_percent) VALUES
-(1, 3, 'Create PostgreSQL Schema', 'Design 25 relational tables and triggers for academic data, templates, and evaluations.', 5, 'High', 'In Progress', '2026-05-20', 70),
-(1, 3, 'Setup JWT Auth & API Gateway', 'Isolate routes by portal roles (student, mentor, hod, cdc) and verify cookies.', 6, 'Critical', 'Completed', '2026-04-15', 100),
-(1, 6, 'Compile Final Thesis Report', 'Write detailed evaluation methodology, contribution score metrics, and user guides.', 7, 'Medium', 'To Do', '2026-05-25', 0);
+INSERT INTO tasks (project_id, title, description, status, priority, members, comments, attachments, created_by, due_date) VALUES
+(1, 'Create PostgreSQL Schema', 'Design 25 relational tables and triggers for academic data, templates, and evaluations.', 'Architecture', 'High', '["Piyush Mishra"]'::json, 0, 0, 5, '2026-05-20'),
+(1, 'Setup JWT Auth & API Gateway', 'Isolate routes by portal roles (student, mentor, hod, cdc) and verify cookies.', 'Development', 'High', '["Rohan Verma"]'::json, 2, 1, 5, '2026-04-15'),
+(1, 'Compile Final Thesis Report', 'Write detailed evaluation methodology, contribution score metrics, and user guides.', 'Requirements', 'Medium', '["Anjali Gupta"]'::json, 0, 0, 5, '2026-05-25');
 
 -- J. Seed Document Templates
 INSERT INTO document_templates (title, description, file_path, document_type, created_by) VALUES

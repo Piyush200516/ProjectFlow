@@ -10,9 +10,9 @@ exports.getHodStats = async (req, res) => {
     const [pendingApprovals] = await db.execute("SELECT COUNT(*) as count FROM projects WHERE status = 'Proposal'");
     
     res.json({
-      totalProjects: totalProjects[0].count,
-      activeStudents: activeStudents[0].count,
-      pendingApprovals: pendingApprovals[0].count,
+      totalProjects: parseInt(totalProjects[0].count || 0, 10),
+      activeStudents: parseInt(activeStudents[0].count || 0, 10),
+      pendingApprovals: parseInt(pendingApprovals[0].count || 0, 10),
       completionRate: '85%' // Placeholder
     });
   } catch (error) {

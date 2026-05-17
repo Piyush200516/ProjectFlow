@@ -28,9 +28,9 @@ exports.getMentorStats = async (req, res) => {
     );
 
     res.json({
-      assigned: assigned[0].count,
-      pending: pending[0].count,
-      completed: completed[0].count,
+      assigned: parseInt(assigned[0].count || 0, 10),
+      pending: parseInt(pending[0].count || 0, 10),
+      completed: parseInt(completed[0].count || 0, 10),
       feedback: 0 // Placeholder
     });
   } catch (error) {

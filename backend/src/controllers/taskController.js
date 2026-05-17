@@ -13,7 +13,10 @@ exports.getTasksByProject = async (req, res) => {
     const parsed = tasks.map(t => ({
       ...t,
       members: (() => {
-        try { return t.members ? JSON.parse(t.members) : []; }
+        try {
+          if (typeof t.members === 'object' && t.members !== null) return t.members;
+          return t.members ? JSON.parse(t.members) : [];
+        }
         catch { return []; }
       })(),
     }));
@@ -56,7 +59,13 @@ exports.createTask = async (req, res) => {
 
     res.status(201).json({
       ...task,
-      members: (() => { try { return task.members ? JSON.parse(task.members) : []; } catch { return []; } })(),
+      members: (() => {
+        try {
+          if (typeof task.members === 'object' && task.members !== null) return task.members;
+          return task.members ? JSON.parse(task.members) : [];
+        }
+        catch { return []; }
+      })(),
     });
   } catch (error) {
     console.error('createTask error:', error);
@@ -94,7 +103,13 @@ exports.updateTask = async (req, res) => {
 
     res.json({
       ...task,
-      members: (() => { try { return task.members ? JSON.parse(task.members) : []; } catch { return []; } })(),
+      members: (() => {
+        try {
+          if (typeof task.members === 'object' && task.members !== null) return task.members;
+          return task.members ? JSON.parse(task.members) : [];
+        }
+        catch { return []; }
+      })(),
     });
   } catch (error) {
     console.error('updateTask error:', error);
