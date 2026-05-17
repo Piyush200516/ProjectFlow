@@ -28,31 +28,27 @@
 
 ---
 
-## ⚡ Why ProjectFlow Edu vs Jira?
+# Why ProjectFlow Edu vs Existing Tools?
 
-*Jira-inspired, but purpose-built for academic institutions.* 
+**Jira-inspired, but purpose-built for academic institutions.**
 
-While tools like Jira or Trello are excellent for corporate software development, they completely lack the academic workflows required by colleges. ProjectFlow Edu bridges this gap by combining agile methodologies with strict academic rubrics.
+| Feature | ProjectFlow Edu | Jira | Trello | Asana | Microsoft Teams | GitHub Classroom | LMS/ERP |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Kanban Workflow** | ✅ | ✅ | ✅ | ✅ | Limited | Limited | ❌ |
+| **Internal Chat** | ✅ | Limited | ❌ | Limited | ✅ | ❌ | Limited |
+| **Academic Grading** | ✅ | ❌ | ❌ | ❌ | ❌ | Partial | ✅ |
+| **Mentor Review Workflow** | ✅ | ❌ | ❌ | ❌ | ❌ | Partial | Partial |
+| **HOD Dashboard** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | Partial |
+| **CDC / Innovation Portal** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **GitHub Tracking** | ✅ | Plugin | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Startup Pipeline Support** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Team Collaboration** | ✅ | ✅ | Limited | ✅ | ✅ | Limited | Limited |
+| **Contribution-Based Marks** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | Partial |
+| **Timeliness Scoring** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Document Workspace** | ✅ | Plugin | ❌ | Limited | ❌ | ❌ | Partial |
+| **Multi-Role Academic Workflow** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | Partial |
 
-| Feature / Parameter | ProjectFlow Edu 🎓 | Jira / Trello 🏢 |
-| :--- | :---: | :---: |
-| **Academic Project Lifecycle Support** | ✅ Native | ❌ Generic |
-| **Student Team Management (max 5)** | ✅ Native | ❌ Workaround |
-| **Mentor Review Workflow** | ✅ Native | ❌ Custom Config Needed |
-| **HOD Approvals & Oversight** | ✅ Native | ❌ Missing |
-| **CDC / Innovation Management** | ✅ Native | ❌ Missing |
-| **Final Year Project Tracking** | ✅ Native | ❌ Missing |
-| **Hackathon Project Support** | ✅ Native | ❌ Missing |
-| **Contribution-Based Marks (100 pts)** | ✅ Automated & Manual | ❌ Missing |
-| **Timeliness Scoring (Penalty System)** | ✅ Automated | ❌ Missing |
-| **GitHub Final Submission Validation** | ✅ Native | ❌ Missing |
-| **Document Template Workspace** | ✅ In-App Editor Placeholder | ❌ External Only |
-| **PPT / Report Submission Workflow** | ✅ Version Controlled | ❌ Ticket Attachments |
-| **Department Analytics** | ✅ Academic Metrics | ❌ Agile Metrics |
-| **Startup / Incubation Workflow** | ✅ Native | ❌ Missing |
-| **Academic Role-Based Access** | ✅ Student, Mentor, HOD, CDC | ❌ Developer, Admin, etc. |
-| **College-Specific Dashboards** | ✅ Native | ❌ Missing |
-| **AI Academic Assistant Readiness** | ✅ Planned (RAG / Mentor LLM) | ❌ General AI |
+ProjectFlow Edu is not a generic project management tool. It is a college-focused academic SaaS platform combining project execution, mentorship, grading, collaboration, innovation tracking, and startup readiness.
 
 ---
 
