@@ -1,239 +1,192 @@
+# ProjectFlow Edu 🚀
+
 <div align="center">
-  <img src="frontend/src/assets/projectflow-logo.png" alt="ProjectFlow Logo" width="140">
-  
-  # ProjectFlow Edu 🚀
-  
-  **The AI-Powered Academic Project Lifecycle & Collaborative SaaS Platform**
-
-  [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-  [![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-  [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-  [![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E)](https://vitejs.dev/)
-  [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
-
-  *Transforming unstructured college final-year project timelines into an industry-grade Agile SDLC workflow.*
+  <img src="frontend/src/assets/projectflow-logo.png" alt="ProjectFlow Logo" width="140"/>
 </div>
+
+**AI‑Powered Academic Project Lifecycle & Collaborative SaaS Platform**
+
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E)](https://vitejs.dev/)
+[![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
+
+*Transforming unstructured college final‑year project timelines into an industry‑grade Agile SDLC workflow.*
 
 ---
 
 ## 📖 Project Overview
 
-**ProjectFlow Edu** is a comprehensive, multi-role SaaS-grade platform designed for an enterprise **single-college deployment**. It bridges the gap between academic submissions and professional agile methodologies. By organizing the chaos of final-year engineering projects, it provides a unified hub where students collaborate, mentors evaluate, HODs oversee, and career development teams (CDC) scout top-tier talent.
+**ProjectFlow Edu** is a comprehensive, multi‑role SaaS‑grade platform designed for a **single‑college deployment**. It bridges academic submissions with professional agile methodologies, providing a unified hub where students collaborate, mentors evaluate, HODs oversee, and CDC scouts top‑tier talent.
 
-### The Four Pillars of ProjectFlow:
-1. **👨‍🎓 Students**: Form teams, invite peers, manage progress via Kanban, collaborate on deliverables, and submit GitHub repositories.
-2. **👨‍🏫 Mentors**: Issue templates, review document iterations, and evaluate individual contributions using an integrated grading rubric.
-3. **🏛️ HOD (Head of Department)**: Maintain global oversight, monitor late submissions, and enforce department-wide standard templates.
-4. **🏢 CDC (Career Development Cell)**: Discover innovation metrics, track startup ideas, and select "hackathon-ready" projects.
+### Core Pillars
+1. **👨‍🎓 Students** – Form teams, invite peers, manage Kanban progress, collaborate on deliverables, and submit GitHub repositories.
+2. **👨‍🏫 Mentors** – Issue templates, review document iterations, and evaluate contributions via a built‑in rubric.
+3. **🏛️ HOD (Head of Department)** – Global oversight, late‑submission monitoring, and department‑wide template enforcement.
+4. **🏢 CDC (Career Development Cell)** – Innovation tracking, startup funnel, and hackathon selection.
 
 ---
 
 ## 📊 ProjectFlow Edu vs Jira
-
-#### *Why ProjectFlow Edu is not just another project management tool.*
-
 | Feature | ProjectFlow Edu | Jira |
 | :--- | :--- | :--- |
-| **Academic Project Lifecycle Management** | ✅ Built specifically for colleges | ❌ Not academic-focused |
-| **Student Team Formation** | ✅ Invite by email + roll number | ❌ Not built-in |
-| **Mentor Review Workflow** | ✅ Native mentor review system | ❌ Requires customization |
-| **HOD Approval Workflow** | ✅ Built-in | ❌ Not available by default |
-| **CDC / Innovation Tracking** | ✅ Built-in | ❌ Not available |
-| **Final Year Project Management** | ✅ Designed for academic projects | ❌ Generic project management |
-| **Contribution-Based Student Scoring** | ✅ Built-in | ❌ Not available |
-| **Timeliness Marks Calculation** | ✅ Automatic | ❌ Manual/custom |
-| **GitHub Project Validation** | ✅ Integrated | ⚠️ Plugin/custom setup |
-| **Document Workspace** | ✅ Academic document workflow | ❌ Limited |
-| **PPT / Report Submission** | ✅ Native | ❌ Manual attachment only |
-| **Team Member Cap Rules** | ✅ Academic rules (max 5) | ❌ No academic constraints |
-| **Student Notifications** | ✅ Built-in | ✅ Yes |
-| **Internal Chat** | ✅ Planned/Built SaaS workflow | ⚠️ Add-ons |
-| **Calendar / Deadlines** | ✅ Academic deadline-focused | ✅ Generic |
-| **Role-Based Dashboards** | ✅ Student / Mentor / HOD / CDC | ⚠️ Generic roles |
-| **Department Analytics** | ✅ Built-in | ❌ Not native |
-| **Startup / Innovation Tracking** | ✅ CDC-focused | ❌ No |
-| **Hackathon / Incubation Support** | ✅ Future-ready | ❌ No |
-| **AI Academic Evaluation Ready** | ✅ Planned | ❌ Not academic-specific |
-
-### Summary
-ProjectFlow Edu is inspired by Jira’s project workflow concepts, but it is purpose-built for academic institutions. While Jira focuses on generic software project management, ProjectFlow Edu solves academic project lifecycle challenges including student collaboration, mentorship workflows, grading automation, department oversight, and innovation tracking.
+| **Academic Project Lifecycle Management** | ✅ Built for colleges | ❌ Generic |
+| **Student Team Formation** | ✅ Invite by email + roll number | ❌ Not built‑in |
+| **Mentor Review Workflow** | ✅ Native | ❌ Requires customization |
+| **HOD Approval Workflow** | ✅ Built‑in | ❌ Not available |
+| **CDC / Innovation Tracking** | ✅ Built‑in | ❌ Not available |
+| **Final Year Project Management** | ✅ Designed for academia | ❌ Generic |
+| **Contribution‑Based Scoring** | ✅ Built‑in | ❌ Not available |
+| **Timeliness Marks** | ✅ Automatic | ❌ Manual |
+| **GitHub Validation** | ✅ Integrated | ⚠️ Plugin |
+| **Document Workspace** | ✅ Academic workflow | ❌ Limited |
+| **PPT / Report Submission** | ✅ Native | ❌ Manual attachment |
+| **Team Member Cap (max 5)** | ✅ Enforced | ❌ No constraint |
+| **Student Notifications** | ✅ Built‑in | ✅ Yes |
+| **Internal Chat** | ✅ Planned/Built | ⚠️ Add‑ons |
+| **Calendar / Deadlines** | ✅ Academic‑focused | ✅ Generic |
+| **Role‑Based Dashboards** | ✅ Student / Mentor / HOD / CDC | ⚠️ Generic |
+| **Department Analytics** | ✅ Built‑in | ❌ Not native |
+| **Startup / Innovation Tracking** | ✅ CDC‑focused | ❌ No |
+| **Hackathon / Incubation Support** | ✅ Future‑ready | ❌ No |
+| **AI Academic Evaluation** | ✅ Planned | ❌ Not specific |
 
 ---
 
-## 🏛️ Enterprise Multi-Portal Architecture
-
-ProjectFlow Edu employs a **decoupled microservices-style frontend topology** to enforce rigorous role isolation, robust security boundaries, and massive scalability:
-
-```text
-                  ┌─────────────────────────────────┐
-                  │         College Firewall        │
-                  └────────────────┬────────────────┘
-                                   │
-                     [ Vercel Edge Server Routers ]
-                       (TLS/SSL Edge Termination)
-                                   │
-         ┌─────────────────────────┼─────────────────────────┐
-         ▼                         ▼                         ▼
-  ┌───────────────┐         ┌───────────────┐         ┌───────────────┐
-  │   Auth App    │         │ Student/Mentor│         │ HOD/CDC Admin │
-  │  (Port 3000)  │         │  (Port 3001)  │         │  (Port 3002)  │
-  └───────────────┘         └───────────────┘         └───────────────┘
-  projectflow-auth          projectflow-portal       projectflow-admin
-         │                         │                         │
-         └─────────────────────────┼─────────────────────────┘
-                                   │
-                    ┌──────────────▼──────────────┐
-                    │    Vercel Serverless/Render │
-                    │    Central API Gateway      │
-                    └──────────────┬──────────────┘
-                             (Express.js)
-                                   │
-         ┌─────────────────────────┴─────────────────────────┐
-         ▼                                                   ▼
-  ┌───────────────┐                                   ┌───────────────┐
-  │   Express     │ ◄───────────[ Redis ]───────────► │   Socket.io   │
-  │  API Gateway  │       (Job Queues & Cache)        │  Server (5001)│
-  └───────┬───────┘                                   └───────────────┘
-          │
-          ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │              PostgreSQL Cloud Database (Neon / Pool)             │
-  └──────────────────────────────────────────────────────────────────┘
+## 🏛️ Enterprise Multi‑Portal Architecture
+```
+               ┌─────────────────────────────────┐
+               │         College Firewall        │
+               └────────────────┬────────────────┘
+                                │
+                  [ Vercel Edge Server Routers ]
+                        (TLS/SSL Edge Termination)
+                                │
+      ┌─────────────────────────┼─────────────────────────┐
+      ▼                         ▼                         ▼
+ ┌───────────────┐         ┌───────────────┐         ┌───────────────┐
+ │   Auth App    │         │ Student/Mentor│         │ HOD/CDC Admin │
+ │ (Port 3000)   │         │ (Port 3001)   │         │ (Port 3002)   │
+ └───────────────┘         └───────────────┘         └───────────────┘
+ projectflow-auth          projectflow-portal       projectflow-admin
+      │                         │                         │
+      └─────────────────────────┼─────────────────────────┘
+                                │
+                     ┌──────────────▼──────────────┐
+                     │   Central API Gateway (Express)│
+                     └──────────────┬──────────────┘
+                              (Node.js/Express)
+                                │
+      ┌─────────────────────────┴─────────────────────────┐
+      ▼                                                   ▼
+ ┌───────────────┐                                   ┌───────────────┐
+ │   Express     │ ◄───────────[ Redis ]──────────────► │   Socket.io   │
+ │ API Gateway   │       (Job Queues & Cache)        │ Server (5001)│
+ └───────┬───────┘                                   └───────────────┘
+         │
+         ▼
+ ┌──────────────────────────────────────────────────────────────────┐
+ │            PostgreSQL Cloud Database (Neon / Pool)               │
+ └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Decoupled Micro-App Portals:
-* 🔑 **Auth App (`projectflow-auth`)**: Unified identity provider mapping logins for all roles, student registration, and forgot-password flows.
-* 🎓 **Student & Mentor Portal (`projectflow-portal`)**: The operational hub hosting student team workspaces, tasks, document version controls, chats, calendar reviews, and mentor evaluation.
-* 🏛️ **HOD & CDC Admin Portal (`projectflow-admin`)**: Executive dashboards visualizing department analytics, templates management, startup funnels, and approvals.
-
 ---
 
-## ⚡ Key SaaS Workflows Implemented
+## ✅ Completed Frontend Work
+- Student, Mentor, HOD, CDC portals with role‑based UI
+- Auth pages (login, signup, reset) and role‑based login flows
+- SaaS‑grade dashboard UI, Kanban, team workspace, document workspace
+- Invitation workflow (email + roll number, accept/reject, auto‑cancellation)
+- Max 5 students per project, one active project per student
+- Document templates, version history, final submission with GitHub validation
+- Contribution analytics, timeliness scoring, notifications, activity timeline
+- Calendar view, basic chat UI, HOD analytics, CDC innovation tracking
 
-### 1. Peer-to-Peer Team Invitation Center
-* **Direct Invite**: Team leaders can invite students using their **Email + Roll Number**.
-* **Safety Assertions**: The system validates that the target student exists, has the `'student'` role, and is not already associated with an active project.
-* **Auto-Rejection & Sync**: Accepting an invitation automatically cancels all other pending invitations for that student and hooks them up to the team's shared workspace.
-* **Team Limit**: Strictly enforces a maximum of **5 members per project** using native database constraints and triggers.
+## ✅ Completed Backend Work
+- Node.js + Express server with JWT auth and role middleware
+- PostgreSQL integration (SSL, pg‑pool)
+- Comprehensive API routes: auth, projects, tasks, documents, invitations, evaluations, notifications, calendar, chat
+- CORS configured for Vercel URLs and localhost
+- Health endpoint (`GET /api/health`)
+- Render deployment prepared (root `backend`, `npm install`, `npm start`)
 
-### 2. Full-Lifecycle Document Workspace
-* **Template Inheritance**: Mentors can publish standard SRS, architectural, or research templates.
-* **Deliverable Tracking**: Phase-based document assignments with real-time submission triggers.
-* **Version-Control Ledgers**: Tracks document modifications and edits via a complete historical revision rollback ledger.
-* **GitHub Integration**: Validates public repository links securely before accepting final submissions.
+## ✅ Completed Database Work
+- PostgreSQL schema (`projectflow_edu_postgres_schema.sql`) with 25+ tables and indexes
+- Neon PostgreSQL provisioned, SSL enabled, seeded with demo users
+- Tables for users, students, mentors, projects, members, tasks, sdlc stages, documents, evaluations, notifications, chat, calendar, hackathons, startups, industry collaborations
 
-### 3. Continuous Marks & Analytics System
-* **Continuous Rubrics**: Standardized 100-mark scoring system tracking contribution weight, task completions, timelines, and documentation.
-* **Student Contribution Analytics**: Charts showing progress vs expected marks powered by `Recharts`.
-* **HOD Analytics**: Global oversight into project distributions, technology stack popularity, and late-submission flags.
-* **CDC Incubation Funnel**: Visualizes startup stages, funding statuses, and industry partnerships.
+## ✅ Deployment Work
+- Frontend deployed on Vercel (auth, portal, admin apps)
+- Backend prepared for Render (service `projectflow-backend` live at `https://projectflow-backend-lsvr.onrender.com`)
+- Neon PostgreSQL live and seeded
+- Micro‑service style architecture (Auth | Portal | Admin → API Gateway → DB)
 
----
+## 📈 Current Project Status
+- **Frontend**: Mostly completed, live on Vercel.
+- **Backend**: Implemented, deployed on Render but health shows `database":"DISCONNECTED"` – DB URL fix needed.
+- **Database**: Schema completed, Neon instance running.
+- **Deployment**: Frontend live, backend awaiting DB connection verification.
 
-## 🎯 Standardized Academic Rubric (100 Marks)
-
-| Evaluation Rubric | Max Marks | Evaluator | Description |
-| :--- | :---: | :--- | :--- |
-| **Work Contribution** | 50 | Mentor (Manual) | Overall code quality, architecture patterns, and effort. |
-| **Task Completion** | 20 | System (Automatic) | Calculated dynamically via Kanban completions: `(Done / Total) * 20` |
-| **Timeliness** | 15 | System (Automatic) | Dynamic scoring based on phase deadlines and late trigger logs. |
-| **Documentation** | 10 | Mentor (Manual) | Quality and structural review of SRS, Research draft, and PPT. |
-| **GitHub Validation** | 5 | System (Automatic) | Awarded upon verification of active public repository structure. |
-
----
-
-## 💾 Relational Database Schema (PostgreSQL)
-
-The platform is powered by a robust **PostgreSQL** schema composed of **25 highly indexed, constraint-enforced tables**:
-
-```mermaid
-erDiagram
-    users ||--o| students : "extends"
-    users ||--o| mentors : "extends"
-    projects ||--o| project_members : "tracks"
-    projects ||--o| tasks : "has"
-    projects ||--o| team_invitations : "invites"
-    projects ||--o| document_submissions : "submits"
-    projects ||--o| evaluations : "grades"
-    students }|--|| branches : "belongs"
-    students ||--o| project_members : "joins"
+## 🔐 Demo Credentials
+```
+student@college.edu / password123
+mentor@college.edu   / password123
+hod@college.edu      / password123
+cdc@college.edu      / password123
 ```
 
-### Table Dictionary:
-* **Academic Context**: `departments`, `branches`
-* **Identities & Access**: `users`, `students`, `mentors`
-* **Workspace & Teams**: `projects`, `project_members`, `team_invitations` *(Invites)*, `notifications`
-* **SDLC Kanban**: `sdlc_stages`, `tasks`, `milestones`
-* **Document Control**: `document_templates`, `document_assignments`, `document_submissions`, `document_versions` *(Revision Rollback Ledger)*, `final_submissions`
-* **Oversight & Approvals**: `mentor_feedback`, `evaluations`, `approvals`
-* **Incubation & Utilities**: `chat_messages`, `activity_logs`, `calendar_events`, `hackathons`, `startups` *(incubation status)*, `industry_collaborations`
+## 📌 Remaining Work
+- Fix Render backend `DATABASE_URL` (use Neon connection string with SSL) and verify health endpoint returns `database":"CONNECTED"`.
+- Update Vercel `VITE_API_URL` to the live Render backend URL.
+- Perform full production CORS verification.
+- End‑to‑end API testing (auth, project, document, invitation flows).
+- Optional AI‑powered document review integration.
+- Optional real‑time Socket.io features (chat, notifications).
 
 ---
 
 ## ⚙️ Tech Stack & Deployed URLs
-
 ### Technical Stack
-* **Frontend**: React 18, Vite, Tailwind CSS v4, shadcn/ui, Recharts, Lucide Icons.
-* **Backend**: Node.js, Express.js (Modular Router & Controller layers).
-* **Database**: PostgreSQL (SSL connection pools ready for Neon Serverless).
-* **Middlewares**: JWT auth cookies, Rate Limiting, Helmet Security.
+- **Frontend**: React 18, Vite, Tailwind CSS v4, shadcn/ui, Recharts, Lucide Icons.
+- **Backend**: Node.js, Express.js (modular routers & controllers).
+- **Database**: PostgreSQL (Neon serverless, SSL pools).
+- **Middlewares**: JWT auth cookies, rate limiting, Helmet security.
 
-### 🌐 Live Production Deployments
-
-* 🔑 **Auth App Gateway**: [https://projectflow-auth.vercel.app](https://projectflow-auth.vercel.app)
-* 🎓 **Student & Mentor Portal**: [https://projectflow-portal.vercel.app](https://projectflow-portal.vercel.app)
-* 🏛️ **HOD & CDC Admin Portal**: [https://projectflow-admin.vercel.app](https://projectflow-admin.vercel.app)
-* 📡 **Express Backend API**: [https://projectflow-backend.vercel.app](https://projectflow-backend.vercel.app)
-  * *Health Check:* `/api/health` ➡️ [https://projectflow-backend.vercel.app/api/health](https://projectflow-backend.vercel.app/api/health)
+### Live Production Deployments
+- **Auth App**: https://projectflow-auth.vercel.app
+- **Student & Mentor Portal**: https://projectflow-portal.vercel.app
+- **HOD & CDC Admin**: https://projectflow-admin.vercel.app
+- **Express Backend API**: https://projectflow-backend-lsvr.onrender.com
+  - Health Check: `/api/health` → https://projectflow-backend-lsvr.onrender.com/api/health
 
 ---
 
 ## 🚀 Installation & Local Development
-
-### 1. Clone & Set Up the Backend
+### Backend
 ```bash
 git clone https://github.com/Piyush200516/ProjectFlow.git
 cd ProjectFlow/backend
 npm install
-```
-
-Create a `.env` file in the `backend/` directory:
-```env
-PORT=5000
-NODE_ENV=development
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=root
-DB_NAME=projectflow_edu
-JWT_SECRET=your_super_secret_jwt_key
-JWT_EXPIRES_IN=24h
-```
-
-Start the local server:
-```bash
+cp .env.example .env   # edit with your DB credentials
 npm run dev
 ```
-
-### 2. Set Up the Frontend
+### Frontend
 ```bash
 cd ../frontend
 npm install
-npm run dev
+npm run dev   # http://localhost:5173
 ```
-The portals will be accessible locally at `http://localhost:5173`.
 
 ---
 
 ## 🔮 Future Roadmap
-
-- [ ] **OnlyOffice / Collabora Integration**: Embed a real-time, self-hosted document co-authoring engine directly inside the Workspace.
-- [ ] **AI-Powered Document Quality Reviews**: LLM integration to grade SRS and Architecture documents based on compliance checklists.
-- [ ] **Plagiarism Checker**: Cross-project code and documentation similarity parsing.
-- [ ] **GitHub Webhook Analytics**: Automate contribution mapping by reading actual Git commit metrics and code additions/deletions.
-- [ ] **AI Mentor Assistant**: Automatic technical bottleneck alerts and task assignment suggestion engine.
-- [ ] **SMS / WhatsApp Alerts**: Real-time push alerts for deadline milestones and review delays.
+- [ ] OnlyOffice / Collabora real‑time document co‑authoring.
+- [ ] AI‑powered document quality reviews.
+- [ ] Plagiarism checker for code & docs.
+- [ ] GitHub webhook analytics for contribution mapping.
+- [ ] AI Mentor Assistant for bottleneck alerts.
+- [ ] SMS / WhatsApp deadline alerts.
 
 ---
 
