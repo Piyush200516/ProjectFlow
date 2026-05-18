@@ -1,132 +1,274 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileDown, 
   Search, 
   CheckCircle2, 
   AlertCircle,
   FileText,
-  Clock
+  Clock,
+  Loader2,
+  Filter,
+  TrendingUp,
+  Layers,
+  Award
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-const dummyTracking = [
-  { id: 1, project: 'AI Powered Student Tracker', team: 'Team Alpha', document: 'Project Synopsis', mentor: 'Dr. Sharma', status: 'Approved', timeliness: 'On Time', isLate: false },
-  { id: 2, project: 'Blockchain Voting System', team: 'Team Beta', document: 'SRS Document', mentor: 'Dr. Verma', status: 'Under Review', timeliness: '1 Day Late', isLate: true },
-  { id: 3, project: 'IoT Smart Agriculture', team: 'Team Gamma', document: 'Final Report', mentor: 'Dr. Singh', status: 'Pending', timeliness: '3 Days Late', isLate: true },
-  { id: 4, project: 'E-commerce Platform', team: 'Team Delta', document: 'Project Synopsis', mentor: 'Dr. Sharma', status: 'Approved', timeliness: 'On Time', isLate: false },
-];
+import api from '../../lib/api';
+import { SectionCard, PageHeader, StatusBadge } from '../../components/common/PremiumComponents';
 
 const HodSubmissionTracking = () => {
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('tracking');
+  const [trackingData, setTrackingData] = useState([]);
+  const [marksData, setMarksData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLate, setFilterLate] = useState(false);
 
-  const handleExport = () => {
-    toast.success('Submission report exported to Excel successfully.');
+  useEffect(() => {
+    fetchInitData();
+  }, []);
+
+  const fetchInitData = async () => {
+    setLoading(true);
+    try {
+      const [trackRes, marksRes] = await Promise.all([
+        api.get('/workflow/hod/tracking'),
+        api.get('/workflow/projects/marks') // We can query global marks
+      ]);
+      setTrackingData(trackRes.data);
+      setMarksData(marksRes.data);
+    } catch (error) {
+      console.error('Failed to load tracking data:', error);
+      toast.error('Failed to fetch tracking records from backend');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  let filteredData = dummyTracking.filter(t => 
-    t.project.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    t.team.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleExport = () => {
+    // Generate simple csv payload
+    let csvContent = "data:text/csv;charset=utf-8,";
+    if (activeTab === 'tracking') {
+      csvContent += "Project,Team Name,Student Name,Document Type,Status,Late Status,Marks Awarded\n";
+      trackingData.forEach(row => {
+        csvContent += `"${row.project_title}","${row.team_name || 'Group'}","${row.student_name}","${row.document_type}","${row.status}","${row.is_late ? 'Late' : 'On-Time'}","${row.marks_awarded || 0}"\n`;
+      });
+    } else {
+      csvContent += "Student Name,Project Name,Timeliness Score,Completion Score,Kanban Contribution,GitHub Score,Mentor Review,Total Score\n";
+      marksData.forEach(row => {
+        csvContent += `"${row.student_name}","${row.project_title}","${row.timeliness_score}","${row.doc_completion_score}","${row.contribution_score}","${row.github_score}","${row.mentor_review_score}","${row.total_score}"\n`;
+      });
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", activeTab === 'tracking' ? "submission_tracking_report.csv" : "student_marks_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Report successfully exported and downloaded in CSV format!');
+  };
+
+  let filteredTracking = trackingData.filter(t => 
+    (t.project_title || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (t.student_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (t.document_type || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (filterLate) {
-    filteredData = filteredData.filter(t => t.isLate);
+    filteredTracking = filteredTracking.filter(t => t.is_late);
+  }
+
+  const filteredMarks = marksData.filter(m => 
+    (m.student_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (m.project_title || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-900" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Submission Tracking</h1>
-          <p className="text-sm text-slate-500 mt-1">Track document submissions, late filings, and mentor approvals across all teams.</p>
+      <PageHeader 
+        title="Departmental Oversight & Reports" 
+        description="Monitor all batches, submission timeliness, mentor reviews, and export academic grades."
+      />
+
+      {/* Tabs */}
+      <div className="flex justify-between items-center border-b border-slate-200">
+        <div className="flex">
+          <button 
+            onClick={() => setActiveTab('tracking')}
+            className={`pb-4 px-6 font-semibold text-sm transition-all border-b-2 ${
+              activeTab === 'tracking' 
+                ? 'border-slate-900 text-slate-900' 
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Submissions Tracking ({trackingData.length})
+          </button>
+          <button 
+            onClick={() => setActiveTab('marks')}
+            className={`pb-4 px-6 font-semibold text-sm transition-all border-b-2 ${
+              activeTab === 'marks' 
+                ? 'border-slate-900 text-slate-900' 
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Marks Report ({marksData.length})
+          </button>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 bg-white px-3 py-2 border border-slate-200 rounded-lg shadow-sm cursor-pointer hover:bg-slate-50">
-            <input 
-              type="checkbox" 
-              checked={filterLate} 
-              onChange={(e) => setFilterLate(e.target.checked)}
-              className="rounded border-slate-300 text-rose-600 focus:ring-rose-500"
-            />
-            Show Late Only
-          </label>
-          <div className="relative w-full sm:w-64">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+
+        <div className="flex items-center gap-3 pb-3">
+          {activeTab === 'tracking' && (
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 bg-white px-3 py-2 border border-slate-200 rounded-lg shadow-sm cursor-pointer hover:bg-slate-50 select-none">
+              <input 
+                type="checkbox" 
+                checked={filterLate} 
+                onChange={(e) => setFilterLate(e.target.checked)}
+                className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+              />
+              Show Late Only
+            </label>
+          )}
+
+          <div className="relative w-48 sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search projects or teams..." 
+              placeholder="Search..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              className="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-950/5 focus:border-slate-950 transition-all shadow-sm"
             />
           </div>
+
           <button 
             onClick={handleExport}
-            className="w-full sm:w-auto px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 shadow-sm shrink-0"
+            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm shrink-0 active:scale-95"
           >
-            <FileDown size={16} />
-            Export Report
+            <FileDown size={14} />
+            Export Data
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 font-medium">Project & Team</th>
-                <th className="px-6 py-4 font-medium">Document</th>
-                <th className="px-6 py-4 font-medium">Mentor</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Timeliness</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredData.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-semibold text-slate-900">{item.project}</div>
-                    <div className="text-xs text-slate-500">{item.team}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 font-medium text-slate-700">
-                      <FileText size={16} className="text-blue-500" />
-                      {item.document}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-slate-600">{item.mentor}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 w-fit ${
-                      item.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' :
-                      item.status === 'Under Review' ? 'bg-amber-100 text-amber-700' :
-                      'bg-slate-100 text-slate-600'
-                    }`}>
-                      {item.status === 'Approved' && <CheckCircle2 size={12} />}
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`flex items-center gap-1.5 font-medium text-xs ${
-                      item.isLate ? 'text-rose-600 bg-rose-50 px-2 py-1 rounded-md w-fit' : 'text-emerald-600'
-                    }`}>
-                      {item.isLate ? <AlertCircle size={14} /> : <Clock size={14} />}
-                      {item.timeliness}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {filteredData.length === 0 && (
+      {/* Tracking View */}
+      {activeTab === 'tracking' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-slate-500 font-medium">
-                    No submissions found matching your filters.
-                  </td>
+                  <th className="px-6 py-4 font-medium">Project & Student</th>
+                  <th className="px-6 py-4 font-medium">Academic Deliverable</th>
+                  <th className="px-6 py-4 font-medium">Mentor</th>
+                  <th className="px-6 py-4 font-medium">Submission Timeliness</th>
+                  <th className="px-6 py-4 font-medium">Review Status</th>
+                  <th className="px-6 py-4 font-medium">Mark</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredTracking.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                      No deliverables submitted yet.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTracking.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-slate-900">{item.project_title}</div>
+                        <div className="text-xs text-slate-500">by {item.student_name}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 font-medium text-slate-700">
+                          <FileText size={16} className="text-blue-500" />
+                          {item.document_type}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-600">{item.mentor_name || 'Unassigned'}</td>
+                      <td className="px-6 py-4">
+                        {item.is_late ? (
+                          <span className="flex items-center gap-1 text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 w-fit">
+                            <AlertCircle size={12} /> {item.late_days} Days Late
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
+                            <Clock size={12} /> On-Time
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge 
+                          status={item.status} 
+                          variant={item.status === 'Approved' ? 'success' : item.status === 'Needs Work' ? 'error' : 'info'} 
+                        />
+                      </td>
+                      <td className="px-6 py-4 font-black text-indigo-650">{item.marks_awarded || 0}/10</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Marks Report View */}
+      {activeTab === 'marks' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Student & Team</th>
+                  <th className="px-6 py-4 font-medium">Timeliness</th>
+                  <th className="px-6 py-4 font-medium">Deliverables Completion</th>
+                  <th className="px-6 py-4 font-medium">Kanban Contribution</th>
+                  <th className="px-6 py-4 font-medium">GitHub Repository</th>
+                  <th className="px-6 py-4 font-medium">Mentor Review</th>
+                  <th className="px-6 py-4 font-medium">Aggregated Score</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMarks.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
+                      No evaluation score records computed yet.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMarks.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-slate-900">{item.student_name}</div>
+                        <div className="text-xs text-slate-500">{item.project_title}</div>
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{parseFloat(item.timeliness_score).toFixed(2)}/10</td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{parseFloat(item.doc_completion_score).toFixed(2)}/10</td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{parseFloat(item.contribution_score).toFixed(2)}/10</td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{parseFloat(item.github_score).toFixed(2)}/10</td>
+                      <td className="px-6 py-4 font-medium text-slate-700">{parseFloat(item.mentor_review_score).toFixed(2)}/10</td>
+                      <td className="px-6 py-4 font-black text-emerald-650 flex items-center gap-1">
+                        <Award size={14} className="text-emerald-500" />
+                        {parseFloat(item.total_score).toFixed(2)}/10
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

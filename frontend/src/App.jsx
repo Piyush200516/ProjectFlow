@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 
 import Login from './pages/auth/Login';
 import StudentDashboard from './pages/student/StudentDashboard';
+import StudentProjectForm from './pages/student/StudentProjectForm';
 import StudentProjects from './pages/student/StudentProjects';
 import ProjectDetails from './pages/student/ProjectDetails';
 import StudentKanban from './pages/student/StudentKanban';
@@ -168,6 +169,7 @@ function App() {
           }>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="project-form" element={<StudentProjectForm />} />
             <Route path="projects" element={<StudentProjects />} />
             <Route path="projects/:id" element={<ProjectDetails />} />
             <Route path="kanban" element={<StudentKanban />} />

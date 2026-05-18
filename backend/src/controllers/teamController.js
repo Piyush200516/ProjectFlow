@@ -109,9 +109,16 @@ exports.inviteMember = async (req, res) => {
       [invitedStudentId]
     );
 
-    if (studentActiveProjects.length > 0) {
+    const [studentActiveSubmissions] = await db.execute(
+      `SELECT pfs.id FROM project_form_submissions pfs
+       JOIN team_members tm ON pfs.id = tm.submission_id
+       WHERE tm.student_id = ? AND pfs.status = 'Pending'`,
+      [invitedStudentId]
+    );
+
+    if (studentActiveProjects.length > 0 || studentActiveSubmissions.length > 0) {
       return res.status(400).json({ 
-        message: 'This student is already a member of another active project.' 
+        message: 'This student is already working on another project.' 
       });
     }
 
@@ -217,9 +224,16 @@ exports.acceptInvitation = async (req, res) => {
       [studentId]
     );
 
-    if (activeProjects.length > 0) {
+    const [activeSubmissions] = await db.execute(
+      `SELECT pfs.id FROM project_form_submissions pfs
+       JOIN team_members tm ON pfs.id = tm.submission_id
+       WHERE tm.student_id = ? AND pfs.status = 'Pending'`,
+      [studentId]
+    );
+
+    if (activeProjects.length > 0 || activeSubmissions.length > 0) {
       return res.status(400).json({ 
-        message: 'You are already a member of another active project. Reject other invites first.' 
+        message: 'You are already part of an active team.' 
       });
     }
 

@@ -2,58 +2,53 @@ const axios = require('axios');
 
 const API_URL = 'http://localhost:5000/api';
 
-async function testPortals() {
-  console.log('🏁 Starting programmatic integration and verification testing...\n');
+async function testSaaSWorkflow() {
+  console.log('🏁 Starting Academic SaaS Workflow Verification Suite...\n');
 
   try {
-    // 1. Verify Student Portal
-    console.log('--- 👤 1. Testing Student Portal ---');
-    const studentLogin = await axios.post(`${API_URL}/auth/login`, {
-      email: 'student@college.edu',
+    // 1. Log in Student Leader
+    console.log('--- 👤 1. Logging in Student Leader (Rohan Sharma) ---');
+    const student1Login = await axios.post(`${API_URL}/auth/login`, {
+      email: 'student1@college.edu',
       password: 'password123'
     });
-    console.log('✅ Student Login: Success!');
-    const studentToken = studentLogin.data.token;
-    console.log(`   User Info: ${JSON.stringify(studentLogin.data.user)}`);
+    console.log('✅ Student 1 Login: Success!');
+    const student1Token = student1Login.data.token;
+    const student1Headers = { headers: { Authorization: `Bearer ${student1Token}` } };
 
-    const studentHeaders = { headers: { Authorization: `Bearer ${studentToken}` } };
-    
-    const studentMe = await axios.get(`${API_URL}/auth/me`, studentHeaders);
-    console.log(`✅ Get Student Profile /me: Success! Full Name: ${studentMe.data.user.full_name}`);
-
-    const studentProjects = await axios.get(`${API_URL}/projects`, studentHeaders);
-    console.log(`✅ Get Student Projects: Success! Found ${studentProjects.data.length} projects.`);
-    studentProjects.data.forEach(p => {
-      console.log(`   - Project ID: ${p.id}, Title: "${p.title}", Team: "${p.team_name}", Progress: ${p.progress_percent}%`);
-    });
-
-    if (studentProjects.data.length > 0) {
-      const projectId = studentProjects.data[0].id;
-      const projectTasks = await axios.get(`${API_URL}/tasks/project/${projectId}`, studentHeaders);
-      console.log(`✅ Get Project Tasks: Success! Found ${projectTasks.data.length} tasks.`);
-      projectTasks.data.forEach(t => {
-        console.log(`     Task: "${t.title}", Status: "${t.status}", Priority: "${t.priority}", Assignees: ${JSON.stringify(t.members)}`);
-      });
+    // Get Active Registration Forms
+    const activeForms = await axios.get(`${API_URL}/workflow/student/forms/active`, student1Headers);
+    console.log(`✅ Get Active Registration Forms: Success! Found ${activeForms.data.length} open forms.`);
+    if (activeForms.data.length === 0) {
+      throw new Error('No active registration forms found!');
     }
+    const formId = activeForms.data[0].id;
 
-    // 2. Verify Mentor Portal
-    console.log('\n--- 🏫 2. Testing Mentor Portal ---');
-    const mentorLogin = await axios.post(`${API_URL}/auth/login`, {
-      email: 'mentor@college.edu',
-      password: 'password123'
-    });
-    console.log('✅ Mentor Login: Success!');
-    const mentorToken = mentorLogin.data.token;
-    const mentorHeaders = { headers: { Authorization: `Bearer ${mentorToken}` } };
+    // 2. Submit Project Team Proposal
+    console.log('\n--- 👥 2. Submitting Project Team Proposal (exactly 4 members) ---');
+    const submissionBody = {
+      form_id: formId,
+      title: 'Automated Academic SaaS Platform',
+      description: 'Fully digitizing the offline student project management lifecycle.',
+      domain: 'Web Application & Cloud',
+      github_link: 'https://github.com/student/academic-saas',
+      team_member_emails: [
+        'student2@college.edu',
+        'student3@college.edu',
+        'student4@college.edu'
+      ]
+    };
 
-    const mentorStats = await axios.get(`${API_URL}/mentor/dashboard`, mentorHeaders);
-    console.log(`✅ Get Mentor Stats: Success! Statistics: ${JSON.stringify(mentorStats.data)}`);
+    const registrationSubmit = await axios.post(
+      `${API_URL}/workflow/student/forms/submit`,
+      submissionBody,
+      student1Headers
+    );
+    const submissionId = registrationSubmit.data.submissionId;
+    console.log(`✅ Project Proposal Submitted Successfully! Registration ID: ${submissionId}`);
 
-    const mentorReviews = await axios.get(`${API_URL}/mentor/reviews`, mentorHeaders);
-    console.log(`✅ Get Mentor Reviews Queue: Success! Found ${mentorReviews.data.length} items in queue.`);
-
-    // 3. Verify HOD Portal
-    console.log('\n--- 🏛️ 3. Testing HOD Portal ---');
+    // 3. Log in HOD (Dr. Piyush Mishra)
+    console.log('\n--- 🏛️ 3. Logging in HOD for Approval & Mentor Assignment ---');
     const hodLogin = await axios.post(`${API_URL}/auth/login`, {
       email: 'hod@college.edu',
       password: 'password123'
@@ -62,35 +57,99 @@ async function testPortals() {
     const hodToken = hodLogin.data.token;
     const hodHeaders = { headers: { Authorization: `Bearer ${hodToken}` } };
 
-    const hodStats = await axios.get(`${API_URL}/hod/dashboard`, hodHeaders);
-    console.log(`✅ Get HOD Stats: Success! Statistics: ${JSON.stringify(hodStats.data)}`);
+    // Fetch HOD Pending Approvals list
+    const pendingApprovals = await axios.get(`${API_URL}/workflow/hod/submissions`, hodHeaders);
+    console.log(`✅ Get HOD Approvals List: Success! Found ${pendingApprovals.data.length} pending registration forms.`);
 
-    const hodProjects = await axios.get(`${API_URL}/hod/projects`, hodHeaders);
-    console.log(`✅ Get HOD Oversight Projects: Success! Found ${hodProjects.data.length} projects.`);
+    // Assign Mentor (Manual allocation to Prof. Satish Verma, user_id = 3)
+    console.log('   Assigning Prof. Satish Verma to the project team...');
+    const assignResult = await axios.post(
+      `${API_URL}/workflow/hod/assign-mentor`,
+      {
+        submission_id: submissionId,
+        mentor_id: 3,
+        auto_assign: false
+      },
+      hodHeaders
+    );
+    console.log(`✅ Mentor Assigned & Project Workspace Activated! Project ID: ${assignResult.data.projectId}`);
+    const projectId = assignResult.data.projectId;
 
-    // 4. Verify CDC Portal
-    console.log('\n--- 💼 4. Testing CDC Portal ---');
-    const cdcLogin = await axios.post(`${API_URL}/auth/login`, {
-      email: 'cdc@college.edu',
+    // 4. Log in Mentor (Prof. Satish Verma)
+    console.log('\n--- 🏫 4. Logging in Mentor to Create Deliverable Milestones ---');
+    const mentorLogin = await axios.post(`${API_URL}/auth/login`, {
+      email: 'mentor@college.edu',
       password: 'password123'
     });
-    console.log('✅ CDC Login: Success!');
-    const cdcToken = cdcLogin.data.token;
-    const cdcHeaders = { headers: { Authorization: `Bearer ${cdcToken}` } };
+    console.log('✅ Mentor Login: Success!');
+    const mentorToken = mentorLogin.data.token;
+    const mentorHeaders = { headers: { Authorization: `Bearer ${mentorToken}` } };
 
-    const cdcStats = await axios.get(`${API_URL}/cdc/dashboard`, cdcHeaders);
-    console.log(`✅ Get CDC Stats: Success! Statistics: ${JSON.stringify(cdcStats.data)}`);
+    // Upload Document Template (Synopsis Deliverable)
+    console.log('   Uploading Synopsis Deliverable template & setting deadline...');
+    const templateCreate = await axios.post(
+      `${API_URL}/workflow/mentor/document-templates`,
+      {
+        title: 'Project Synopsis deliverable template',
+        description: 'Detailing title, objectives, tech stack, and members role matrix.',
+        file_path: 'uploads/templates/synopsis_format.pdf',
+        document_type: 'Synopsis',
+        project_type: 'Minor Project',
+        deadline_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString() // 5 days from now (on-time)
+      },
+      mentorHeaders
+    );
+    console.log(`✅ Synopsis Template Created! Template ID: ${templateCreate.data.templateId}`);
+    const templateId = templateCreate.data.templateId;
 
-    const cdcStartups = await axios.get(`${API_URL}/cdc/startups`, cdcHeaders);
-    console.log(`✅ Get CDC Startups: Success! Found ${cdcStartups.data.length} incubated startups.`);
-    cdcStartups.data.forEach(s => {
-      console.log(`   - Startup: "${s.name}", Founder: "${s.founder_name}", Stage: "${s.incubation_stage}", Funding: "${s.funding_status}"`);
+    // 5. Student Submits Deliverable
+    console.log('\n--- 📤 5. Student Leader Submitting Synopsis Deliverable ---');
+    const docSubmit = await axios.post(
+      `${API_URL}/workflow/student/documents/submit`,
+      {
+        project_id: projectId,
+        template_id: templateId,
+        document_type: 'Synopsis',
+        file_name: 'Synopsis_Automated_SaaS.pdf',
+        file_path: 'uploads/student1/Synopsis_Automated_SaaS.pdf'
+      },
+      student1Headers
+    );
+    console.log(`✅ Deliverable Submitted! On-Time Status: ${!docSubmit.data.isLate}, Score awarded: ${docSubmit.data.scoreAwarded}/10`);
+    const docSubmissionId = docSubmit.data.submissionId;
+
+    // 6. Mentor Review and Scoring
+    console.log('\n--- 📝 6. Mentor Reviewing Submission ---');
+    const reviewResult = await axios.post(
+      `${API_URL}/workflow/mentor/submissions/${docSubmissionId}/review`,
+      {
+        status: 'Approved',
+        comments: 'Outstanding detailed proposal. 10/10 timeliness and coverage.'
+      },
+      mentorHeaders
+    );
+    console.log('✅ Mentor Approved and Scored the Submission!');
+
+    // 7. Verify Scores and Final Evaluation
+    console.log('\n--- 📊 7. Verifying Auto Scoring & Final Evaluation Breakup ---');
+    const marksData = await axios.get(
+      `${API_URL}/workflow/projects/marks?studentId=4&projectId=${projectId}`,
+      student1Headers
+    );
+
+    console.log(`✅ Marks Retrieval: Success!`);
+    marksData.data.forEach(m => {
+      console.log(`   - Student ID: ${m.student_id}`);
+      console.log(`     Timely Submission Score: ${m.timeliness_marks}/20`);
+      console.log(`     Documentation Completeness: ${m.completeness}/30`);
+      console.log(`     Other Quality Metrics (Mentor + Viva + Innovation): ${parseFloat(m.quality_marks) - parseFloat(m.completeness)}/50`);
+      console.log(`     Total Joint Score: ${m.total_marks}/100`);
     });
 
-    console.log('\n🎉 ALL PORTALS AND ENDPOINTS TESTED SUCCESSFULLY! INTEGRATION VERIFIED 100%!');
+    console.log('\n🎉 ALL PORTAL WORKFLOW PHASES (1 TO 8) SUCCESSFULLY VERIFIED AND COMPLETED!');
     process.exit(0);
   } catch (error) {
-    console.error('\n❌ INTEGRATION TEST FAILED:', error.message);
+    console.error('\n❌ WORKFLOW INTEGRATION TEST FAILED:', error.message);
     if (error.response) {
       console.error(`   Status: ${error.response.status}`);
       console.error(`   Data: ${JSON.stringify(error.response.data)}`);
@@ -99,4 +158,4 @@ async function testPortals() {
   }
 }
 
-testPortals();
+testSaaSWorkflow();

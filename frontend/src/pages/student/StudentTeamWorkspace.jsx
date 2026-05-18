@@ -34,6 +34,7 @@ const StudentTeamWorkspace = () => {
   // Workspace States
   const [activeProject, setActiveProject] = useState(null); // Simple metadata from projects list
   const [workspaceData, setWorkspaceData] = useState(null); // Detailed metrics from getTeamProject
+  const [activeStatus, setActiveStatus] = useState({ hasActive: false, type: null, details: null });
   const [invitations, setInvitations] = useState([]);
   const [notifications, setNotifications] = useState([]);
   
@@ -53,6 +54,10 @@ const StudentTeamWorkspace = () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Fetch active status
+      const statusRes = await api.get('/workflow/student/active-status');
+      setActiveStatus(statusRes.data);
 
       // 1. Fetch user's projects to find an active one
       const projRes = await api.get('/projects');
@@ -169,6 +174,59 @@ const StudentTeamWorkspace = () => {
 
   // State: No Active Project
   if (!activeProject) {
+    if (activeStatus.hasActive && activeStatus.type === 'submission') {
+      return (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Team Workspace</h1>
+            <p className="text-sm text-slate-500 mt-1">Manage project groups, team collaborations, and peer invitations.</p>
+          </div>
+
+          {/* Warning Banner */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 shadow-sm relative overflow-hidden">
+            <div className="absolute right-0 bottom-0 translate-x-10 translate-y-10 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl"></div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="p-2 bg-amber-500/20 text-amber-700 rounded-xl">
+                <Clock size={20} className="animate-pulse" />
+              </span>
+              <h2 className="text-lg font-bold text-amber-900">Academic Project Proposal Pending HOD Review</h2>
+            </div>
+            <p className="text-sm text-amber-800 max-w-2xl leading-relaxed">
+              Your team registration form has been submitted and is currently pending review. 
+              The HOD will assign a mentor to your team, which will activate your full project workspace.
+            </p>
+          </div>
+
+          {/* Proposal Details Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+              <div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200">
+                  Under Review
+                </span>
+                <h3 className="font-bold text-slate-900 text-lg mt-2">{activeStatus.details?.title}</h3>
+                <p className="text-slate-500 text-sm mt-0.5">Domain: <span className="font-semibold text-slate-700">{activeStatus.details?.domain}</span></p>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-450 font-bold uppercase">Project Type</div>
+                <div className="text-sm font-bold text-slate-900 mt-0.5">{activeStatus.details?.project_type}</div>
+              </div>
+            </div>
+            
+            <div className="bg-slate-50 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm">Active Membership Assigned</h4>
+                <p className="text-xs text-slate-500 mt-0.5">You are already assigned to this active team submission. You cannot join other teams.</p>
+              </div>
+              <span className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm">
+                Active Project Assigned
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         <div>

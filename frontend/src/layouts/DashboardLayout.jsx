@@ -118,6 +118,7 @@ const DashboardLayout = ({ children }) => {
   const menuItems = {
     student: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/student/dashboard' },
+      { icon: FileText, label: 'Project Form', href: '/student/project-form' },
       { icon: Briefcase, label: 'Projects', href: '/student/projects' },
       { icon: CheckSquare, label: 'Kanban', href: '/student/kanban' },
       { icon: Clock, label: 'Timeline', href: '/student/timeline' },
@@ -150,12 +151,6 @@ const DashboardLayout = ({ children }) => {
       { icon: BarChart3, label: 'Analytics', href: '/hod/analytics' },
       { icon: FileText, label: 'Dept Templates', href: '/hod/templates' },
       { icon: CheckSquare, label: 'Doc Tracking', href: '/hod/submission-tracking' },
-    ],
-    cdc: [
-      { icon: LayoutDashboard, label: 'Overview', href: '/cdc/dashboard' },
-      { icon: Rocket, label: 'Startups', href: '/cdc/startups' },
-      { icon: Lightbulb, label: 'Hackathons', href: '/cdc/hackathons' },
-      { icon: Handshake, label: 'Industry', href: '/cdc/industry-collaboration' },
     ],
   };
 

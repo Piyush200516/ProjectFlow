@@ -47,7 +47,11 @@ server.on('error', (error) => {
   }
 });
 
+const { startReminderSystem } = require('./utils/reminderSystem');
+
 server.listen(PORT, () => {
   console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
+  startReminderSystem();
 });
+

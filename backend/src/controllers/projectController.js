@@ -47,6 +47,25 @@ exports.createProject = async (req, res) => {
   }
 
   try {
+    // Check if student is already in an active project or team
+    const [activeProjects] = await db.execute(
+      `SELECT p.id FROM projects p
+       JOIN project_members pm ON p.id = pm.project_id
+       WHERE pm.student_id = ? AND p.status NOT IN ('Completed', 'Rejected')`,
+      [userId]
+    );
+
+    const [activeSubmissions] = await db.execute(
+      `SELECT pfs.id FROM project_form_submissions pfs
+       JOIN team_members tm ON pfs.id = tm.submission_id
+       WHERE tm.student_id = ? AND pfs.status = 'Pending'`,
+      [userId]
+    );
+
+    if (activeProjects.length > 0 || activeSubmissions.length > 0) {
+      return res.status(400).json({ message: 'You are already working on an active project.' });
+    }
+
     const [result] = await db.execute(
       'INSERT INTO projects (title, type, description, created_by) VALUES (?, ?, ?, ?)',
       [title, type || 'Mini Project', description || '', userId]
