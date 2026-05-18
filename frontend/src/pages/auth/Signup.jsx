@@ -10,7 +10,9 @@ const Signup = () => {
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
     rollNumber: '',
+    branch: '1',
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -18,13 +20,18 @@ const Signup = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match!');
+      return;
+    }
     setIsLoading(true);
     try {
-      await signup(formData.email, formData.password, formData.name, 'student', formData.rollNumber);
+      await signup(formData.email, formData.password, formData.name, 'student', formData.rollNumber, formData.branch);
       toast.success('Account created! Welcome to ProjectFlow.');
       navigate('/student/dashboard', { replace: true });
     } catch (error) {
-      toast.error(error.response?.data?.message || error.message || 'Signup failed. Please try again.');
+      const errorMsg = error.response?.data?.message || error.message || 'Signup failed. Please try again.';
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -71,6 +78,21 @@ const Signup = () => {
               </div>
 
               <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-900 ml-1">Branch</label>
+                <select
+                  required
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
+                  onChange={(e) => setFormData({...formData, branch: e.target.value})}
+                  value={formData.branch}
+                >
+                  <option value="1">Computer Science & Engineering</option>
+                  <option value="2">Information Technology</option>
+                  <option value="3">Electronics & Communication</option>
+                  <option value="4">Mechanical Engineering</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-900 ml-1">University Email</label>
                 <input
                   type="email"
@@ -89,6 +111,17 @@ const Signup = () => {
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
                   placeholder="••••••••"
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-900 ml-1">Confirm Password</label>
+                <input
+                  type="password"
+                  required
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
+                  placeholder="••••••••"
+                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                 />
               </div>
             </div>

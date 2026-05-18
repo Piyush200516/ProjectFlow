@@ -4,14 +4,14 @@ require('dotenv').config();
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Support standard database connection URI (like Neon PostgreSQL DATABASE_URL)
+const isLocalDb = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost');
 const poolConfig = process.env.DATABASE_URL 
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false // Required for Neon / Heroku PostgreSQL in production
-      }
+      ...(isLocalDb ? {} : { ssl: { rejectUnauthorized: false } })
     }
   : {
+
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       user: process.env.DB_USER || 'postgres',

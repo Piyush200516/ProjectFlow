@@ -7,7 +7,7 @@ const generateToken = require('../utils/generateToken');
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
-  const { full_name, email, password, roll_number } = req.body;
+  const { full_name, email, password, roll_number, branch_id } = req.body;
 
   if (!full_name || !email || !password) {
     return res.status(400).json({ message: 'Name, email, and password are required' });
@@ -15,10 +15,18 @@ exports.register = async (req, res) => {
 
   try {
     console.log('Registration attempt for:', email);
-    const [existing] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) {
+    const [existingEmail] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingEmail.length > 0) {
       console.log('Email already exists:', email);
-      return res.status(400).json({ message: 'An account with this email already exists' });
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+
+    if (roll_number) {
+      const [existingStudent] = await db.execute('SELECT user_id FROM students WHERE roll_number = ?', [roll_number]);
+      if (existingStudent.length > 0) {
+        console.log('Roll Number already exists:', roll_number);
+        return res.status(409).json({ message: 'Roll Number already registered' });
+      }
     }
 
     console.log('Hashing password...');
@@ -37,7 +45,7 @@ exports.register = async (req, res) => {
     console.log('Attempting to create student record for roll_number:', roll_number);
     await db.execute(
       'INSERT INTO students (user_id, roll_number, branch_id, semester, academic_year) VALUES (?, ?, ?, ?, ?) ON CONFLICT (user_id) DO NOTHING',
-      [userId, roll_number || `STU${userId}`, 1, 1, '2024-25']
+      [userId, roll_number || `STU${userId}`, branch_id || 1, 1, '2024-25']
     ).then(() => console.log('Student record created successfully'))
     .catch((err) => console.error('Student record creation failed:', err.message));
 
@@ -51,6 +59,13 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error details:', error);
+    if (error.code === '23505') {
+      if (error.constraint === 'users_email_unique') {
+        return res.status(409).json({ message: 'Email already registered' });
+      } else if (error.constraint === 'students_roll_number_unique') {
+        return res.status(409).json({ message: 'Roll Number already registered' });
+      }
+    }
     res.status(500).json({ 
       success: false,
       message: 'Server error during registration', 

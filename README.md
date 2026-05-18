@@ -1,4 +1,107 @@
-# ProjectFlow Edu 🚀
+# Local Development Completion Plan
+
+## Goal Description
+
+Set up ProjectFlow Edu to run entirely on the local machine (frontend on `http://localhost:5173`, backend on `http://localhost:5000`, PostgreSQL local DB). Ensure database connectivity, seed required demo users, and fix all backend API endpoints and frontend integration so that the full user flow works without any deployment or Firebase dependencies.
+
+## User Review Required
+
+> [!IMPORTANT]
+> The plan involves stopping any current Render deployment and focusing solely on the local environment. Confirm that you are okay with terminating the deployed services for the duration of this work.
+
+> [!NOTE]
+> No UI redesign will be performed; only functional fixes are included.
+
+## Open Questions
+
+> [!WARNING]
+> 1. **Database Credentials**: The `.env` file currently contains Neon DB credentials. Should we replace them with the local PostgreSQL credentials (`DB_HOST=localhost`, `DB_PORT=5432`, `DB_USER=postgres`, `DB_PASSWORD` from your local setup, and `DB_NAME=projectflow_edu`)?
+> 2. **Password Hashing**: The seed script uses bcrypt hashes generated for `password123`. Do you want to keep the existing hashes or regenerate them after switch to local DB?
+> 3. **Port Conflicts**: Backend is currently running on port 5000. Is this ok, or do you prefer a different port?
+> 4. **Team Invitation Flow**: The invite acceptance endpoint expects an email token. Do you have a sample invite token to test, or should we generate a dummy one during seeding?
+> 5. **Document Upload Storage**: Current code stores uploads in a `uploads/` folder. Confirm that the folder exists and is writable in the local repo.
+
+## Proposed Changes
+
+---
+### 1. Environment Configuration
+
+- **Modify `backend/.env`**: Replace Neon `DATABASE_URL` with local connection string:
+  `DATABASE_URL=postgresql://postgres:YOUR_LOCAL_PASSWORD@localhost:5432/projectflow_edu`
+- **Add missing DB variables** (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`) if the code uses them.
+- **Update `frontend/.env`**: Set `VITE_API_URL=http://localhost:5000/api`.
+
+---
+### 2. Database Setup
+
+- **Run schema**: Execute `psql -f database/projectflow_edu_postgres_schema.sql` against the local DB.
+- **Create seed script** (`backend/scripts/seed_local.js`): Insert demo users with bcrypt‑hashed password `password123` and corresponding `students`, `mentors`, `hod`, `cdc` rows.
+- **Add script to `package.json`** for easy execution: `npm run seed`.
+
+---
+### 3. Backend Fixes
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `src/app.js` | Missing health route or incorrect path | Ensure `app.get('/api/health', ...)` returns `{ success:true, message:'OK' }` and logs DB connection status. |
+| `controllers/authController.js` | MySQL‑style `db.execute` and `result.insertId` | Replace with `pg` client queries using `RETURNING id`. Adjust register logic to insert into `users` then create role‑specific rows. |
+| `controllers/authController.js` | Password compare may use wrong field name | Verify query selects `password_hash` and compare with `bcrypt.compare`. |
+| `controllers/authController.js` | `/me` endpoint not returning user correctly | Query user by `req.user.id` and send sanitized user object. |
+| Project, Task, Invite, Document controllers | Still referencing MySQL helper functions | Switch all DB calls to `pg` pool (`pool.query`) with parameterized queries. Add proper error handling and status codes. |
+| CORS config | Allow only localhost origins | Update `cors` whitelist to include `http://localhost:5173` and `http://127.0.0.1:5173`. |
+
+---
+### 4. Frontend Adjustments
+
+- **API Client** (`src/lib/api.js`): Ensure base URL reads from `import.meta.env.VITE_API_URL`. Remove any hard‑coded Render URLs.
+- **Auth Flows**: Verify login, signup forms POST to `${API_URL}/auth/login` and `/auth/register`. Map role returned (`user.role`) to correct dashboard route (`/student`, `/mentor`, `/hod`, `/cdc`).
+- **Redirect Logic**: Update router guards to use local role mapping.
+- **Dashboard Components**: Ensure they fetch data from local endpoints (`/projects`, `/tasks`, etc.).
+- **Invite Flow**: Mock token generation on backend seed; frontend should read token from query param and call accept API.
+- **Document Upload**: Ensure the form posts `multipart/form-data` to `/api/documents/upload` and the response URL is used to display the file.
+
+---
+### 5. Testing Procedure
+
+1. **Start PostgreSQL locally** and confirm connection with `psql -U postgres -d projectflow_edu`.
+2. **Run seed script**.
+3. **Start backend**: `npm run dev` in `backend` (port 5000).
+4. **Start frontend**: `npm run dev` in `frontend` (port 5173).
+5. **Manual Test Checklist** (record results in `task.md`):
+   - Student signup → success, token stored.
+   - Student login → redirects to student dashboard.
+   - Mentor/HOD/CDC login → respective dashboards.
+   - Create a project → appears in list.
+   - Invite a teammate → email token generated (log to console), accept via `/api/invites/accept?token=...`.
+   - Add a task to a project → shows on kanban board.
+   - Upload a document → file appears in documents view.
+   - Submit final GitHub link → stored and displayed.
+6. **Automated Checks**: Write a small script `tests/local_api.test.js` using `node-fetch` to hit each endpoint and assert HTTP 200/201 responses.
+
+---
+## Verification Plan
+
+### Automated Tests
+- Run `npm test` (Jest) for the backend test suite.
+- Use `npm run lint` to ensure no lint errors.
+
+### Manual Verification
+- The user will follow the manual checklist above and report any failures.
+- Capture screenshots of successful dashboard loads and API responses.
+
+---
+**Next Steps**
+
+- Update environment files.
+- Create/adjust seed script.
+- Refactor backend DB calls.
+- Adjust frontend API usage.
+- Run schema and seed.
+- Perform testing.
+
+Please review the plan, answer the open questions, and approve to proceed.
+
+--- 🚀
 
 **AI‑Powered Jira‑Inspired Academic Project Lifecycle Management SaaS Platform**
 
