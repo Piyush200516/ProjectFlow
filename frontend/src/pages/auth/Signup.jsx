@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, Hash, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
+import logo from '../../assets/projectflow-logo.png';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -33,8 +34,12 @@ const Signup = () => {
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6">
       <div className="w-full max-w-[400px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-slate-900 rounded-xl text-white mb-4">
-            <span className="text-xl font-bold">P</span>
+          <div className="flex justify-center mb-4">
+            <img 
+              src={logo} 
+              alt="ProjectFlow Logo" 
+              className="w-36 h-auto object-contain transition-transform duration-300 hover:scale-105" 
+            />
           </div>
           <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">Create Student Account</h1>
           <p className="text-sm text-slate-500">Join the ProjectFlow Edu workspace</p>

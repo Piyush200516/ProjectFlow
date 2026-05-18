@@ -30,6 +30,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/utils';
 import { toast } from 'sonner';
+import logo from '../assets/projectflow-logo.png';
 
 const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
   <Link 
@@ -186,13 +187,17 @@ const DashboardLayout = ({ children }) => {
         )}
       >
         {/* Sidebar Logo */}
-        <div className="h-16 flex items-center px-6 shrink-0">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              P
-            </div>
+        <div className="h-16 flex items-center px-5 shrink-0">
+          <Link to="/" className="flex items-center gap-2.5 w-full">
+            <img 
+              src={logo} 
+              alt="ProjectFlow Logo" 
+              className={cn("h-8 w-auto object-contain transition-all duration-300", isCollapsed && "h-7 mx-auto")} 
+            />
             {!isCollapsed && (
-              <span className="text-sm font-bold text-slate-900 tracking-tight">ProjectFlow</span>
+              <span className="text-sm font-extrabold text-slate-900 tracking-tight bg-gradient-to-r from-slate-900 via-blue-900 to-blue-600 bg-clip-text text-transparent">
+                ProjectFlow
+              </span>
             )}
           </Link>
         </div>

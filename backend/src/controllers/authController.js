@@ -88,6 +88,7 @@ exports.login = async (req, res) => {
     const token = generateToken(user.id);
 
     res.json({
+      success: true,
       token,
       user: {
         id: user.id,

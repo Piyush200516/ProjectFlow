@@ -19,6 +19,7 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:5000',
   'https://projectflow-auth.vercel.app',
   'https://projectflow-portal.vercel.app',

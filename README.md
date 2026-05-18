@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://via.placeholder.com/150/0f172a/ffffff?text=PF" alt="ProjectFlow Logo" width="120" height="120">
+  <img src="frontend/src/assets/projectflow-logo.png" alt="ProjectFlow Logo" width="140">
   
   # ProjectFlow Edu 🚀
   
