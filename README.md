@@ -29,6 +29,38 @@
 
 ---
 
+## 📊 ProjectFlow Edu vs Jira
+
+#### *Why ProjectFlow Edu is not just another project management tool.*
+
+| Feature | ProjectFlow Edu | Jira |
+| :--- | :--- | :--- |
+| **Academic Project Lifecycle Management** | ✅ Built specifically for colleges | ❌ Not academic-focused |
+| **Student Team Formation** | ✅ Invite by email + roll number | ❌ Not built-in |
+| **Mentor Review Workflow** | ✅ Native mentor review system | ❌ Requires customization |
+| **HOD Approval Workflow** | ✅ Built-in | ❌ Not available by default |
+| **CDC / Innovation Tracking** | ✅ Built-in | ❌ Not available |
+| **Final Year Project Management** | ✅ Designed for academic projects | ❌ Generic project management |
+| **Contribution-Based Student Scoring** | ✅ Built-in | ❌ Not available |
+| **Timeliness Marks Calculation** | ✅ Automatic | ❌ Manual/custom |
+| **GitHub Project Validation** | ✅ Integrated | ⚠️ Plugin/custom setup |
+| **Document Workspace** | ✅ Academic document workflow | ❌ Limited |
+| **PPT / Report Submission** | ✅ Native | ❌ Manual attachment only |
+| **Team Member Cap Rules** | ✅ Academic rules (max 5) | ❌ No academic constraints |
+| **Student Notifications** | ✅ Built-in | ✅ Yes |
+| **Internal Chat** | ✅ Planned/Built SaaS workflow | ⚠️ Add-ons |
+| **Calendar / Deadlines** | ✅ Academic deadline-focused | ✅ Generic |
+| **Role-Based Dashboards** | ✅ Student / Mentor / HOD / CDC | ⚠️ Generic roles |
+| **Department Analytics** | ✅ Built-in | ❌ Not native |
+| **Startup / Innovation Tracking** | ✅ CDC-focused | ❌ No |
+| **Hackathon / Incubation Support** | ✅ Future-ready | ❌ No |
+| **AI Academic Evaluation Ready** | ✅ Planned | ❌ Not academic-specific |
+
+### Summary
+ProjectFlow Edu is inspired by Jira’s project workflow concepts, but it is purpose-built for academic institutions. While Jira focuses on generic software project management, ProjectFlow Edu solves academic project lifecycle challenges including student collaboration, mentorship workflows, grading automation, department oversight, and innovation tracking.
+
+---
+
 ## 🏛️ Enterprise Multi-Portal Architecture
 
 ProjectFlow Edu employs a **decoupled microservices-style frontend topology** to enforce rigorous role isolation, robust security boundaries, and massive scalability:
