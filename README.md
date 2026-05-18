@@ -153,12 +153,22 @@ cdc@college.edu      / password123
 - **Database**: PostgreSQL (Neon serverless, SSL pools).
 - **Middlewares**: JWT auth cookies, rate limiting, Helmet security.
 
-### Live Production Deployments
-- **Auth App**: https://projectflow-auth.vercel.app
-- **Student & Mentor Portal**: https://projectflow-portal.vercel.app
-- **HOD & CDC Admin**: https://projectflow-admin.vercel.app
-- **Express Backend API**: https://projectflow-backend-lsvr.onrender.com
-  - Health Check: `/api/health` → https://projectflow-backend-lsvr.onrender.com/api/health
+# Live Deployment
+
+## Frontend
+- Live App: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app
+- Student Login: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/student/login
+- Student Signup: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/student/register
+- Mentor Login: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/mentor/login
+- HOD Login: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/hod/login
+- CDC Login: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/cdc/login
+
+## Backend
+- API URL: https://projectflow-backend-lsvr.onrender.com/api
+- Health Check: https://projectflow-backend-lsvr.onrender.com/api/health
+
+## Database
+- Neon PostgreSQL (Cloud Hosted)
 
 ---
 
