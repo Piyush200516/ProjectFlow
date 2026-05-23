@@ -8,13 +8,17 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader, SectionCard, StatusBadge } from '../../components/common/PremiumComponents';
 
 const StudentProjectForm = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeForms, setActiveForms] = useState([]);
   const [selectedForm, setSelectedForm] = useState(null);
@@ -23,11 +27,13 @@ const StudentProjectForm = () => {
     title: '',
     description: '',
     domain: '',
+    tech_stack: '',
     github_link: '',
-    member1_email: '',
-    member2_email: '',
-    member3_email: ''
   });
+  
+  // Member array
+  const [members, setMembers] = useState([]);
+  
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -36,13 +42,20 @@ const StudentProjectForm = () => {
 
   const fetchActiveForms = async () => {
     try {
-      const statusRes = await api.get('/workflow/student/active-status');
-      setActiveStatus(statusRes.data);
+      // Check if student already has a project or pending submission
+      try {
+        const statusRes = await api.get('/workflow/student/active-status');
+        setActiveStatus(statusRes.data);
+      } catch (e) {
+        // Ignored for now if workflow endpoint is missing
+      }
 
-      const res = await api.get('/workflow/student/forms/active');
-      setActiveForms(res.data);
-      if (res.data.length > 0) {
-        setSelectedForm(res.data[0]);
+      const res = await api.get('/student/registration-forms/active');
+      console.log("Forms response:", res.data);
+      const forms = res.data?.forms || [];
+      setActiveForms(forms);
+      if (forms.length > 0) {
+        handleSelectForm(forms[0]);
       }
     } catch (error) {
       console.error('Failed to fetch active forms:', error);
@@ -58,47 +71,91 @@ const StudentProjectForm = () => {
       title: '',
       description: '',
       domain: '',
-      github_link: '',
-      member1_email: '',
-      member2_email: '',
-      member3_email: ''
+      tech_stack: '',
+      github_link: ''
     });
+    // Initialize required minimum members minus leader
+    const initialMembers = [];
+    const minOthers = Math.max(1, (form.team_size_min || 2) - 1);
+    for(let i=0; i<minOthers; i++){
+      initialMembers.push(createEmptyMember());
+    }
+    setMembers(initialMembers);
   };
+
+  const createEmptyMember = () => ({
+    name: '',
+    email: '',
+    roll_number: '',
+    branch: selectedForm?.branch || '',
+    year: selectedForm?.academic_year || '',
+    semester: selectedForm?.semester || '',
+    section: selectedForm?.section || ''
+  });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleMemberChange = (index, field, value) => {
+    const updated = [...members];
+    updated[index][field] = value;
+    setMembers(updated);
+  };
+
+  const addMember = () => {
+    if (selectedForm && members.length + 1 >= selectedForm.team_size_max) {
+      toast.error(`Maximum team size is ${selectedForm.team_size_max}`);
+      return;
+    }
+    setMembers([...members, createEmptyMember()]);
+  };
+
+  const removeMember = (index) => {
+    if (selectedForm && members.length + 1 <= selectedForm.team_size_min) {
+      toast.error(`Minimum team size is ${selectedForm.team_size_min}`);
+      return;
+    }
+    const updated = [...members];
+    updated.splice(index, 1);
+    setMembers(updated);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.domain) {
-      toast.error('Project Title and Domain are required.');
+    if (!formData.title || !formData.domain || !formData.description) {
+      toast.error('Project Title, Domain, and Problem Statement are required.');
       return;
     }
 
-    if (!formData.member1_email || !formData.member2_email || !formData.member3_email) {
-      toast.error('Exactly 3 team member emails must be entered to complete team of 4.');
-      return;
+    // Validate members
+    for (let i = 0; i < members.length; i++) {
+      const m = members[i];
+      if (!m.name || !m.email || !m.roll_number || !m.branch || !m.year || !m.semester || !m.section) {
+        toast.error(`Please fill all details for Member ${i + 2}`);
+        return;
+      }
     }
 
     setSubmitting(true);
     try {
-      await api.post('/workflow/student/forms/submit', {
-        form_id: selectedForm.id,
-        title: formData.title,
-        description: formData.description,
-        domain: formData.domain,
+      await api.post(`/student/registration-forms/${selectedForm.id}/submit`, {
+        project_title: formData.title,
+        project_type: selectedForm.project_type,
+        project_domain: formData.domain,
+        problem_statement: formData.description,
+        abstract: formData.description,
+        tech_stack: formData.tech_stack,
         github_link: formData.github_link,
-        team_member_emails: [
-          formData.member1_email.trim(),
-          formData.member2_email.trim(),
-          formData.member3_email.trim()
-        ]
+        team_members: members
       });
 
       toast.success('Project and team details registered successfully!');
+      
+      // Update UI
       fetchActiveForms();
+      setSelectedForm(prev => ({...prev, has_submitted: true}));
     } catch (error) {
       console.error('Registration failed:', error);
       toast.error(error.response?.data?.message || 'Failed to submit registration form.');
@@ -134,25 +191,6 @@ const StudentProjectForm = () => {
               Under ProjectFlow Edu academic rules, students are strictly limited to exactly one active project and team enrollment at a time.
             </p>
           </div>
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 w-full text-left space-y-2">
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Your Active Enrollment Details:</div>
-            <div className="text-sm font-semibold text-slate-900">
-              {activeStatus.type === 'project' ? 'Project Title: ' : 'Proposal Title: '}
-              <span className="text-indigo-650 font-black">{activeStatus.details?.title}</span>
-            </div>
-            <div className="flex gap-4 mt-2 text-xs font-bold text-slate-500 uppercase">
-              <span>Status: <span className="text-slate-800 font-extrabold">{activeStatus.details?.status}</span></span>
-              {activeStatus.details?.mentor_name && (
-                <span>Mentor: <span className="text-slate-800 font-extrabold">{activeStatus.details?.mentor_name}</span></span>
-              )}
-            </div>
-          </div>
-          <a 
-            href="/student/team" 
-            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition-all shadow-md active:scale-95"
-          >
-            Go to Team Workspace
-          </a>
         </div>
       </div>
     );
@@ -162,17 +200,17 @@ const StudentProjectForm = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       <PageHeader 
         title="Project Registration" 
-        description="Fill and submit active academic project registration forms sent by your HOD."
+        description="Fill and submit active academic project registration forms published by your HOD."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Side: Form Selector */}
         <div className="space-y-6 lg:col-span-1">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Active HOD Project Forms</h3>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Active Registration Forms</h3>
           {activeForms.length === 0 ? (
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-slate-500 text-sm">
               <Info className="mx-auto mb-2 text-slate-400" size={20} />
-              No active project forms found for your branch/semester.
+              No active registration forms available for your branch/section.
             </div>
           ) : (
             activeForms.map((form) => (
@@ -181,13 +219,13 @@ const StudentProjectForm = () => {
                 onClick={() => handleSelectForm(form)}
                 className={`p-5 rounded-xl border cursor-pointer transition-all duration-200 ${
                   selectedForm?.id === form.id 
-                    ? 'bg-slate-900 border-slate-900 text-white shadow-md' 
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
                     : 'bg-white border-slate-200 text-slate-900 hover:border-slate-300 hover:bg-slate-50/50'
                 }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
-                    selectedForm?.id === form.id ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-700'
+                    selectedForm?.id === form.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
                   }`}>
                     {form.project_type}
                   </span>
@@ -196,7 +234,7 @@ const StudentProjectForm = () => {
                   )}
                 </div>
                 <h4 className="font-bold text-sm leading-snug">{form.title}</h4>
-                <p className={`text-xs mt-2 flex items-center gap-1.5 ${selectedForm?.id === form.id ? 'text-slate-300' : 'text-slate-500'}`}>
+                <p className={`text-xs mt-2 flex items-center gap-1.5 ${selectedForm?.id === form.id ? 'text-blue-100' : 'text-slate-500'}`}>
                   <Calendar size={12} />
                   Deadline: {new Date(form.deadline).toLocaleDateString()}
                 </p>
@@ -224,14 +262,25 @@ const StudentProjectForm = () => {
                     </p>
                   </div>
                   <div className="bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600">
-                    Status: {selectedForm.submission_status || 'Pending Review'}
+                    Status: Pending Review
                   </div>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  
+                  {/* Instructions if any */}
+                  {selectedForm.instructions && (
+                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
+                      <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
+                      <div className="text-sm text-blue-900">
+                        <strong>HOD Instructions:</strong> {selectedForm.instructions}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Part 1: Project Details */}
                   <div className="space-y-4">
-                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">1. Project Proposal details</h3>
+                    <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">1. Project Details</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
@@ -241,8 +290,8 @@ const StudentProjectForm = () => {
                           name="title"
                           value={formData.title}
                           onChange={handleInputChange}
-                          placeholder="e.g. Smart Campus Navigation SaaS"
-                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900"
+                          placeholder="e.g. Smart Campus Navigation"
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                           required
                         />
                       </div>
@@ -253,110 +302,200 @@ const StudentProjectForm = () => {
                           name="domain"
                           value={formData.domain}
                           onChange={handleInputChange}
-                          placeholder="e.g. Web / Machine Learning / IoT"
-                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900"
+                          placeholder="e.g. Web / ML / IoT"
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                           required
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-700">Description</label>
+                      <label className="text-xs font-bold text-slate-700">Problem Statement & Abstract <span className="text-rose-500">*</span></label>
                       <textarea 
                         name="description"
                         value={formData.description}
                         onChange={handleInputChange}
                         rows="3"
-                        placeholder="Brief summary of the goals, target users, and technology stack..."
-                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 resize-none"
+                        placeholder="Brief summary of the goals, target users, and abstract..."
+                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                        required
                       ></textarea>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <FileText size={14} /> GitHub Repository Link
-                      </label>
-                      <input 
-                        type="url" 
-                        name="github_link"
-                        value={formData.github_link}
-                        onChange={handleInputChange}
-                        placeholder="https://github.com/your-username/repo"
-                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700">Technology Stack</label>
+                        <input 
+                          type="text" 
+                          name="tech_stack"
+                          value={formData.tech_stack}
+                          onChange={handleInputChange}
+                          placeholder="e.g. React, Node.js, Postgres"
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          GitHub Link (Optional)
+                        </label>
+                        <input 
+                          type="url" 
+                          name="github_link"
+                          value={formData.github_link}
+                          onChange={handleInputChange}
+                          placeholder="https://github.com/..."
+                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* Part 2: Team Members */}
                   <div className="space-y-4">
                     <div className="border-b border-slate-100 pb-2 flex justify-between items-center">
-                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Team Details (Fixed to 4 Students)</h3>
+                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">2. Team Details</h3>
                       <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase">
                         <Users size={12} />
-                        4 Member Team
+                        Min: {selectedForm.team_size_min} | Max: {selectedForm.team_size_max}
                       </div>
                     </div>
 
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start gap-3">
-                      <Info size={16} className="text-slate-600 mt-0.5 shrink-0" />
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        As the creator of this registration form, you are automatically assigned as the <strong>Team Leader (Student 1)</strong>. Please fill out the registered emails of your 3 other team members.
-                      </p>
+                    {/* Team Leader (Auto-filled) */}
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                      <h4 className="text-xs font-bold text-blue-900 mb-3 flex items-center justify-between">
+                        Team Leader (Student 1) 
+                        <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded">Auto-filled</span>
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Name</label>
+                          <div className="text-sm font-semibold text-slate-800">{user?.full_name || 'Loading...'}</div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Email</label>
+                          <div className="text-sm font-semibold text-slate-800">{user?.email || 'Loading...'}</div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Role</label>
+                          <div className="text-sm font-semibold text-slate-800">Team Leader</div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Student 2 Email <span className="text-rose-500">*</span></label>
-                        <input 
-                          type="email" 
-                          name="member1_email"
-                          value={formData.member1_email}
-                          onChange={handleInputChange}
-                          placeholder="member1@college.edu"
-                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900"
-                          required
-                        />
+                    {/* Team Members List */}
+                    {members.map((member, index) => (
+                      <div key={index} className="p-4 bg-slate-50 border border-slate-200 rounded-xl relative">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="text-xs font-bold text-slate-900">Member {index + 2}</h4>
+                          {members.length + 1 > selectedForm.team_size_min && (
+                            <button type="button" onClick={() => removeMember(index)} className="text-rose-500 hover:bg-rose-50 p-1 rounded transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Full Name <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={member.name}
+                              onChange={(e) => handleMemberChange(index, 'name', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Email <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="email" 
+                              value={member.email}
+                              onChange={(e) => handleMemberChange(index, 'email', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Roll Number <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={member.roll_number}
+                              onChange={(e) => handleMemberChange(index, 'roll_number', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Branch <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={member.branch}
+                              onChange={(e) => handleMemberChange(index, 'branch', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Year <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={member.year}
+                              onChange={(e) => handleMemberChange(index, 'year', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Sem <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="number" 
+                              value={member.semester}
+                              onChange={(e) => handleMemberChange(index, 'semester', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase">Sec <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={member.section}
+                              onChange={(e) => handleMemberChange(index, 'section', e.target.value)}
+                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
+                              required
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Student 3 Email <span className="text-rose-500">*</span></label>
-                        <input 
-                          type="email" 
-                          name="member2_email"
-                          value={formData.member2_email}
-                          onChange={handleInputChange}
-                          placeholder="member2@college.edu"
-                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Student 4 Email <span className="text-rose-500">*</span></label>
-                        <input 
-                          type="email" 
-                          name="member3_email"
-                          value={formData.member3_email}
-                          onChange={handleInputChange}
-                          placeholder="member3@college.edu"
-                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900"
-                          required
-                        />
-                      </div>
-                    </div>
+                    ))}
+
+                    {members.length + 1 < selectedForm.team_size_max && (
+                      <button 
+                        type="button" 
+                        onClick={addMember}
+                        className="w-full py-2 border-2 border-dashed border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 text-sm font-semibold"
+                      >
+                        <Plus size={16} /> Add Team Member
+                      </button>
+                    )}
                   </div>
 
                   <div className="pt-4 border-t border-slate-100 flex justify-end">
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-semibold rounded-xl transition-all shadow-md active:scale-95 shrink-0"
+                      className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 shrink-0"
                     >
                       {submitting ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                          <Loader2 className="w-5 h-5 animate-spin" /> Processing...
                         </>
                       ) : (
                         <>
-                          <Send size={16} /> Register Proposal
+                          <Send size={18} /> Submit Registration
                         </>
                       )}
                     </button>

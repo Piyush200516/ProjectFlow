@@ -1,155 +1,346 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
-  UploadCloud, 
+  Plus, 
   Search, 
   Trash2,
-  FileSpreadsheet, 
-  Presentation,
-  Building2,
-  Share2
+  Edit2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Loader2,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Modal } from '../../components/common/PremiumComponents';
+import api from '../../lib/api';
 
-const dummyHodTemplates = [
-  { id: 1, title: 'Department Standard Synopsis', type: 'Word', uploadedDate: '2026-04-10', sharedWith: 'All Mentors' },
-  { id: 2, title: 'Final Year Presentation Format', type: 'PPT', uploadedDate: '2026-04-12', sharedWith: 'All Mentors' },
-  { id: 3, title: 'Evaluation Criteria Rubric', type: 'Excel', uploadedDate: '2026-04-15', sharedWith: 'HOD Only' },
-];
-
-const HodTemplates = () => {
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+const HodRegistrationForms = () => {
+  const [forms, setForms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [formData, setFormData] = useState({
+    title: '',
+    instructions: '',
+    branch: 'Computer Science & Engineering',
+    academic_year: '2025-26',
+    semester: '',
+    section: 'A',
+    team_size_min: 2,
+    team_size_max: 4,
+    project_type: 'Minor Project',
+    start_date: '',
+    deadline: '',
+    status: 'Draft'
+  });
 
-  const handleUploadSubmit = (e) => {
-    e.preventDefault();
-    toast.success('Department template uploaded successfully.');
-    setIsUploadModalOpen(false);
-  };
-
-  const getIcon = (type) => {
-    switch(type) {
-      case 'Word': return <FileText className="text-blue-500" size={20} />;
-      case 'PPT': return <Presentation className="text-amber-500" size={20} />;
-      case 'Excel': return <FileSpreadsheet className="text-emerald-500" size={20} />;
-      default: return <FileText className="text-slate-500" size={20} />;
+  const fetchForms = async () => {
+    try {
+      const res = await api.get('/hod/registration-forms');
+      setForms(res.data);
+    } catch (error) {
+      toast.error('Failed to load registration forms');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredTemplates = dummyHodTemplates.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase()));
+  useEffect(() => {
+    fetchForms();
+  }, []);
+
+  const handleCreateForm = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/hod/registration-forms', formData);
+      toast.success('Registration form created successfully');
+      setIsModalOpen(false);
+      fetchForms();
+    } catch (error) {
+      toast.error('Failed to create form');
+    }
+  };
+
+  const handlePublish = async (id) => {
+    try {
+      await api.patch(`/hod/registration-forms/${id}/publish`);
+      toast.success('Form published to students');
+      fetchForms();
+    } catch (error) {
+      toast.error('Failed to publish form');
+    }
+  };
+
+  const handleClose = async (id) => {
+    try {
+      await api.patch(`/hod/registration-forms/${id}/close`);
+      toast.success('Form closed');
+      fetchForms();
+    } catch (error) {
+      toast.error('Failed to close form');
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch(status) {
+      case 'Published': return <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md"><CheckCircle2 size={12}/> Published</span>;
+      case 'Closed': return <span className="flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-100 px-2 py-1 rounded-md"><XCircle size={12}/> Closed</span>;
+      default: return <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-200 px-2 py-1 rounded-md"><Clock size={12}/> Draft</span>;
+    }
+  };
+
+  const filteredForms = forms.filter(f => f.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-700">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Department Templates</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage global templates distributed to all mentors and students.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Registration Forms</h1>
+          <p className="text-sm text-slate-500 mt-1">Create and manage project registration forms for students.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative w-full sm:w-64">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search dept templates..." 
+              placeholder="Search forms..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
             />
           </div>
           <button 
-            onClick={() => setIsUploadModalOpen(true)}
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm shrink-0"
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm shrink-0"
           >
-            <UploadCloud size={16} />
-            Upload Master
+            <Plus size={16} />
+            Create Form
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
-          <Building2 size={18} className="text-slate-500" />
-          <h2 className="text-sm font-bold text-slate-700">Master Repository</h2>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 font-medium">Template Name</th>
-                <th className="px-6 py-4 font-medium">Uploaded</th>
-                <th className="px-6 py-4 font-medium">Distribution</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredTemplates.map((template) => (
-                <tr key={template.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-slate-100 rounded-lg">
-                        {getIcon(template.type)}
-                      </div>
-                      <div className="font-semibold text-slate-900">{template.title}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 font-medium">{template.uploadedDate}</td>
-                  <td className="px-6 py-4">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md w-fit">
-                      <Share2 size={12} /> {template.sharedWith}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors ml-auto">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-slate-500 uppercase border-b border-slate-200 bg-slate-50">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Form Title</th>
+                  <th className="px-6 py-4 font-medium">Target</th>
+                  <th className="px-6 py-4 font-medium">Timeline</th>
+                  <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium">Submissions</th>
+                  <th className="px-6 py-4 font-medium text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredForms.length === 0 ? (
+                  <tr><td colSpan="6" className="px-6 py-8 text-center text-slate-500">No forms found. Create one to get started.</td></tr>
+                ) : filteredForms.map((form) => (
+                  <tr key={form.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-900">{form.title}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{form.project_type} (Team: {form.team_size_min}-{form.team_size_max})</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-slate-700">{form.branch}</div>
+                      <div className="text-xs text-slate-500">Sem {form.semester} • Sec {form.section}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-xs font-medium text-slate-700">Starts: {new Date(form.start_date).toLocaleDateString()}</div>
+                      <div className="text-xs font-medium text-rose-600">Ends: {new Date(form.deadline).toLocaleDateString()}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getStatusBadge(form.status.charAt(0).toUpperCase() + form.status.slice(1))}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5 font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md w-fit">
+                        <Users size={14} /> {form.submissions_count || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        {form.status.toLowerCase() === 'draft' && (
+                          <button 
+                            onClick={() => handlePublish(form.id)}
+                            className="px-3 py-1 bg-emerald-50 text-emerald-600 text-xs font-bold rounded hover:bg-emerald-100 transition-colors"
+                          >
+                            Publish
+                          </button>
+                        )}
+                        {form.status.toLowerCase() === 'published' && (
+                          <button 
+                            onClick={() => handleClose(form.id)}
+                            className="px-3 py-1 bg-rose-50 text-rose-600 text-xs font-bold rounded hover:bg-rose-100 transition-colors"
+                          >
+                            Close
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Upload Modal */}
+      {/* Create Form Modal */}
       <Modal 
-        isOpen={isUploadModalOpen} 
-        onClose={() => setIsUploadModalOpen(false)}
-        title="Upload Department Template"
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        title="Create Registration Form"
         footer={
           <>
-            <button onClick={() => setIsUploadModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-            <button onClick={handleUploadSubmit} className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-800 transition-colors">Upload & Share</button>
+            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+            <button onClick={handleCreateForm} className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition-colors">Create Form</button>
           </>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Template Title</label>
+            <label className="text-sm font-bold text-slate-700">Form Title</label>
             <input 
               type="text" 
-              placeholder="e.g. Master SRS Format v2"
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              required
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              placeholder="e.g. Minor Project Registration - Sem 6"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Distribution / Visibility</label>
-            <select className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
-              <option>All Mentors</option>
-              <option>Specific Mentors</option>
-              <option>HOD Only (Private)</option>
-            </select>
+            <label className="text-sm font-bold text-slate-700">Instructions</label>
+            <textarea 
+              value={formData.instructions}
+              onChange={(e) => setFormData({...formData, instructions: e.target.value})}
+              rows={3}
+              placeholder="Guidelines for students..."
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
           </div>
 
-          <div className="space-y-2 pt-2">
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <UploadCloud size={24} className="text-slate-400 mb-2" />
-                <p className="text-xs text-slate-500 font-medium">Click to select template file</p>
-              </div>
-              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" />
-            </label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Branch</label>
+              <select 
+                value={formData.branch}
+                onChange={(e) => setFormData({...formData, branch: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="Computer Science & Engineering">CSE</option>
+                <option value="Electronics & Communication Engineering">ECE</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Project Type</label>
+              <select 
+                value={formData.project_type}
+                onChange={(e) => setFormData({...formData, project_type: e.target.value, semester: ''})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="Minor Project">Minor Project</option>
+                <option value="Major Project">Major Project</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Year</label>
+              <input 
+                type="text" 
+                value={formData.academic_year}
+                onChange={(e) => setFormData({...formData, academic_year: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Semester</label>
+              <select 
+                value={formData.semester}
+                onChange={(e) => setFormData({...formData, semester: parseInt(e.target.value) || ''})}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="" disabled>Select Semester</option>
+                {formData.project_type === 'Minor Project' && (
+                  <>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                  </>
+                )}
+                {formData.project_type === 'Major Project' && (
+                  <>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                  </>
+                )}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Section</label>
+              <input 
+                type="text" 
+                value={formData.section}
+                onChange={(e) => setFormData({...formData, section: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Team Size Min</label>
+              <input 
+                type="number" 
+                min="1"
+                value={formData.team_size_min}
+                onChange={(e) => setFormData({...formData, team_size_min: parseInt(e.target.value)})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Team Size Max</label>
+              <input 
+                type="number" 
+                min="1"
+                value={formData.team_size_max}
+                onChange={(e) => setFormData({...formData, team_size_max: parseInt(e.target.value)})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Start Date</label>
+              <input 
+                type="datetime-local" 
+                required
+                value={formData.start_date}
+                onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Deadline</label>
+              <input 
+                type="datetime-local" 
+                required
+                value={formData.deadline}
+                onChange={(e) => setFormData({...formData, deadline: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
           </div>
         </div>
       </Modal>
@@ -158,4 +349,4 @@ const HodTemplates = () => {
   );
 };
 
-export default HodTemplates;
+export default HodRegistrationForms;

@@ -11,6 +11,7 @@ const mentorRoutes = require('./routes/mentorRoutes');
 const hodRoutes = require('./routes/hodRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const workflowRoutes = require('./routes/workflowRoutes');
+const studentRoutes = require('./routes/studentRoutes');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/mentor', mentorRoutes);
 app.use('/api/hod', hodRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/workflow', workflowRoutes);
+app.use('/api/student', studentRoutes);
 
 // Base route
 app.get('/', (req, res) => {
