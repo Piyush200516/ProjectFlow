@@ -30,6 +30,12 @@ export const AuthProvider = ({ children }) => {
     fetchMe().finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const handleAuthLogout = () => setUser(null);
+    window.addEventListener('auth:logout', handleAuthLogout);
+    return () => window.removeEventListener('auth:logout', handleAuthLogout);
+  }, []);
+
   const login = async (email, password, expectedRole) => {
     const { data } = await api.post('/auth/login', { email, password });
     if (expectedRole && data.user.role !== expectedRole) {

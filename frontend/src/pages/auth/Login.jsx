@@ -15,6 +15,7 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLoading) return;
     setIsLoading(true);
     try {
       await login(email, password, role);
@@ -50,6 +51,7 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
                 <input
                   type="email"
                   required
+                  disabled={isLoading}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
@@ -67,6 +69,7 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
                 <input
                   type="password"
                   required
+                  disabled={isLoading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"

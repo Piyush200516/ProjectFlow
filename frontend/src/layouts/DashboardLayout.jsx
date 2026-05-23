@@ -51,7 +51,7 @@ const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
   </Link>
 );
 
-const NotificationDropdown = ({ isOpen, onClose, notifications, onRead }) => {
+const NotificationDropdown = ({ isOpen, onClose, notifications, onRead, onReadAll }) => {
   if (!isOpen) return null;
   const recentNotifications = [...notifications]
     .sort((a, b) => {
@@ -82,6 +82,15 @@ const NotificationDropdown = ({ isOpen, onClose, notifications, onRead }) => {
       <div className="absolute top-12 right-0 w-80 bg-white border border-slate-200 shadow-xl rounded-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
         <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <span className="font-bold text-slate-800 text-sm">Notifications</span>
+          {notifications.some((n) => !n.is_read) && (
+            <button
+              type="button"
+              onClick={onReadAll}
+              className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
+            >
+              Mark all read
+            </button>
+          )}
         </div>
         <div className="max-h-[300px] overflow-y-auto">
           {recentNotifications.length === 0 ? (
@@ -124,7 +133,7 @@ const DashboardLayout = ({ children }) => {
       try {
         const endpoint = user.role === 'student' ? '/student/notifications' : '/notifications';
         const res = await api.get(endpoint);
-        setNotifications(res.data);
+        setNotifications(res.data.notifications || res.data);
       } catch (error) {
         console.error("Failed to fetch notifications");
       }
@@ -133,7 +142,28 @@ const DashboardLayout = ({ children }) => {
 
   useEffect(() => {
     fetchNotifications();
+    if (!user) return undefined;
+
+    const interval = window.setInterval(fetchNotifications, 30000);
+    return () => window.clearInterval(interval);
   }, [user]);
+
+  const getNotificationTarget = (notif) => {
+    const key = notif.reference_type || notif.type;
+    const targets = {
+      registration_form: '/student/project-form',
+      registration_form_updated: '/student/project-form',
+      registration_form_closed: '/student/project-form',
+      deadline_updated: '/student/project-form',
+      timeline: '/student/timeline',
+      project_timeline: '/student/timeline',
+      project_timeline_updated: '/student/timeline',
+      mentor_assignment: '/student/dashboard',
+      approval: '/student/projects',
+      rejection: '/student/projects'
+    };
+    return targets[key] || null;
+  };
 
   const handleReadNotification = async (notif) => {
     try {
@@ -145,15 +175,31 @@ const DashboardLayout = ({ children }) => {
         fetchNotifications();
       }
       setNotifOpen(false);
-      if (notif.type === 'registration_form' || notif.reference_type === 'registration_form') {
-        navigate('/student/project-form');
+      if (user?.role === 'student') {
+        const target = getNotificationTarget(notif);
+        if (target) {
+          navigate(target);
+        }
       }
     } catch (error) {
       console.error("Failed to read notification");
     }
   };
 
+  const handleReadAllNotifications = async () => {
+    try {
+      const endpoint = user?.role === 'student'
+        ? '/student/notifications/read-all'
+        : '/notifications/read-all';
+      await api.patch(endpoint);
+      fetchNotifications();
+    } catch (error) {
+      console.error("Failed to mark all notifications as read");
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const visibleUnreadCount = Math.min(unreadCount, 3);
 
   useEffect(() => {
     const handleResize = () => {
@@ -314,7 +360,9 @@ const DashboardLayout = ({ children }) => {
               >
                 <Bell size={18} strokeWidth={1.5} />
                 {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-600 rounded-full border border-white"></span>
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold leading-none text-white border border-white">
+                    {visibleUnreadCount}
+                  </span>
                 )}
               </button>
               <NotificationDropdown 
@@ -322,6 +370,7 @@ const DashboardLayout = ({ children }) => {
                 onClose={() => setNotifOpen(false)} 
                 notifications={notifications}
                 onRead={handleReadNotification}
+                onReadAll={handleReadAllNotifications}
               />
             </div>
             

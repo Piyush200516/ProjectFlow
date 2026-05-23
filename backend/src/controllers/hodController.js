@@ -1,4 +1,9 @@
 const db = require('../config/db');
+const {
+  createStudentNotifications,
+  createTeamNotifications,
+  ensureNotificationsTable
+} = require('../utils/studentNotifications');
 
 // Lazy initialize tables just in case they don't exist (since sandboxing prevents migrations)
 (async () => {
@@ -41,6 +46,7 @@ const db = require('../config/db');
         `);
         await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id INT;`);
         await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_type VARCHAR(50);`);
+        await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;`);
         await db.execute(`ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(50);`);
         await db.execute(`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;`);
 
@@ -80,58 +86,115 @@ const db = require('../config/db');
 
 const REGISTRATION_FORM_NOTIFICATION_TITLE = 'New Project Registration Form';
 const REGISTRATION_FORM_NOTIFICATION_MESSAGE = 'HOD has published a new project registration form. Please fill your project and team details before the deadline.';
+const PROJECT_TIMELINE_NOTIFICATION_TITLE = 'Project Timeline Published';
+const PROJECT_TIMELINE_NOTIFICATION_MESSAGE = 'Your project document submission timeline has been published.';
+
+const formFilters = (form) => ({
+  branch_id: form.branch_id,
+  academic_year: form.academic_year,
+  semester: form.semester,
+  section: form.section,
+  subsection: form.subsection || null
+});
+
+const defaultTimelineMilestones = [
+  { title: 'Synopsis', document_type: 'synopsis' },
+  { title: 'SRS', document_type: 'srs' },
+  { title: 'PPT', document_type: 'ppt' },
+  { title: 'Poster', document_type: 'poster' },
+  { title: 'Project Report', document_type: 'report' },
+  { title: 'GitHub Final Submission', document_type: 'github' }
+];
 
 const ensureRegistrationNotificationTable = async () => {
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id SERIAL PRIMARY KEY,
-      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      title VARCHAR(255) NOT NULL,
-      message TEXT NOT NULL,
-      type VARCHAR(50),
-      reference_id INT,
-      reference_type VARCHAR(50),
-      is_read BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id INT;`);
-  await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_type VARCHAR(50);`);
-  await db.execute(`ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(50);`);
-  await db.execute(`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;`);
+  await ensureNotificationsTable();
 };
 
 const notifyMatchingStudentsForRegistrationForm = async (form) => {
-  await ensureRegistrationNotificationTable();
+  return createStudentNotifications({
+    title: 'New Project Registration Form',
+    message: REGISTRATION_FORM_NOTIFICATION_MESSAGE,
+    type: 'registration_form',
+    referenceId: form.id,
+    referenceType: 'registration_form',
+    filters: formFilters(form)
+  });
+};
 
-  const subsection = form.subsection || null;
-  const studentsResult = await db.pool.query(`
-    SELECT user_id FROM students
-    WHERE branch_id = $1
-      AND academic_year = $2
-      AND semester = $3
-      AND section = $4
-      AND (
-        subsection = $5 OR $5 IS NULL OR $5 = ''
+const notifyMatchingStudents = async (form, notification) => {
+  return createStudentNotifications({
+    title: notification.title,
+    message: notification.message,
+    type: notification.type,
+    referenceId: notification.referenceId || form.id,
+    referenceType: notification.referenceType,
+    filters: formFilters(form)
+  });
+};
+
+const ensureRegistrationTimelineColumns = async () => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS project_milestones (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(150) NOT NULL,
+      description TEXT,
+      document_type VARCHAR(100),
+      sequence_no INT,
+      sequence_order INT,
+      deadline TIMESTAMP NOT NULL,
+      status VARCHAR(50) DEFAULT 'pending',
+      created_by INT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS registration_form_id INT REFERENCES registration_forms(id) ON DELETE CASCADE`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS project_registration_id INT`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS document_type VARCHAR(100)`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS sequence_no INT`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS sequence_order INT`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending'`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  await db.execute(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'project_milestones' AND column_name = 'project_id'
+      ) THEN
+        ALTER TABLE project_milestones ALTER COLUMN project_id DROP NOT NULL;
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'project_milestones' AND column_name = 'project_registration_id'
+      ) THEN
+        ALTER TABLE project_milestones ALTER COLUMN project_registration_id DROP NOT NULL;
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'project_milestones' AND column_name = 'document_type'
+      ) THEN
+        ALTER TABLE project_milestones ALTER COLUMN document_type DROP NOT NULL;
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'project_milestones' AND column_name = 'sequence_no'
+      ) THEN
+        ALTER TABLE project_milestones ALTER COLUMN sequence_no DROP NOT NULL;
+      END IF;
+    END $$;
+  `);
+  await db.execute(`
+    UPDATE project_milestones
+    SET registration_form_id = project_registration_id
+    WHERE registration_form_id IS NULL
+      AND project_registration_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM registration_forms
+        WHERE registration_forms.id = project_milestones.project_registration_id
       )
-  `, [form.branch_id, form.academic_year, form.semester, form.section, subsection]);
-
-  const studentIds = [...new Set(studentsResult.rows.map((student) => student.user_id).filter(Boolean))];
-
-  await Promise.all(studentIds.map((studentUserId) => db.execute(`
-    INSERT INTO notifications
-    (user_id, title, message, type, reference_id, reference_type, is_read)
-    VALUES ($1, $2, $3, $4, $5, $6, false)
-  `, [
-    studentUserId,
-    REGISTRATION_FORM_NOTIFICATION_TITLE,
-    REGISTRATION_FORM_NOTIFICATION_MESSAGE,
-    'registration_form',
-    form.id,
-    'registration_form'
-  ])));
-
-  return studentIds.length;
+  `);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_project_milestones_registration_form ON project_milestones(registration_form_id, sequence_no)`);
 };
 
 // @desc    Get HOD dashboard stats (department wide)
@@ -257,8 +320,8 @@ exports.createRegistrationForm = async (req, res) => {
       const currentAcademicStartYear = currentMonth < 6 ? currentYear - 1 : currentYear;
       const submittedStartYear = parseInt(academic_year.split('-')[0], 10);
       
-      if (submittedStartYear <= currentAcademicStartYear) {
-        return res.status(400).json({ message: 'Please select a future academic year.' });
+      if (submittedStartYear < currentAcademicStartYear) {
+        return res.status(400).json({ message: 'Please select the current or a future academic year.' });
       }
     }
 
@@ -273,7 +336,7 @@ exports.createRegistrationForm = async (req, res) => {
       return res.status(400).json({ message: 'Team size must be between 2 and 4 members.' });
     }
 
-    let finalStatus = status || 'draft';
+    let finalStatus = status || 'published';
     if (finalStatus.toLowerCase() === 'published' || finalStatus.toLowerCase() === 'active') finalStatus = 'published';
     if (finalStatus.toLowerCase() === 'draft') finalStatus = 'draft';
     if (finalStatus.toLowerCase() === 'closed') finalStatus = 'closed';
@@ -292,17 +355,16 @@ exports.createRegistrationForm = async (req, res) => {
     
     const newForm = result.rows[0];
     console.log("Created registration form:", newForm);
+    console.log("Form created:", newForm.id);
 
-    let notifiedStudentsCount = 0;
-    if (finalStatus === 'published') {
-      notifiedStudentsCount = await notifyMatchingStudentsForRegistrationForm(newForm);
-    }
+    const notifiedStudentsCount = await notifyMatchingStudentsForRegistrationForm(newForm);
+    console.log("Students notified:", notifiedStudentsCount);
 
     res.status(201).json({
       success: true,
       message: finalStatus === 'published'
         ? "Registration form published and notifications sent"
-        : "Registration form created",
+        : "Registration form created and notifications sent",
       notifiedStudents: notifiedStudentsCount,
       data: newForm
     });
@@ -331,6 +393,11 @@ exports.updateRegistrationForm = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+    const beforeResult = await db.pool.query('SELECT * FROM registration_forms WHERE id = $1', [id]);
+    if (beforeResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+    const existingForm = beforeResult.rows[0];
 
     const allowedFields = new Set([
       'title',
@@ -378,18 +445,54 @@ exports.updateRegistrationForm = async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ message: 'Form not found' });
 
     const updatedForm = result.rows[0];
-    const shouldNotifyStudents = entries.some(([key, value]) => key === 'status' && value === 'published');
-    if (shouldNotifyStudents) {
-      const notifiedStudents = await notifyMatchingStudentsForRegistrationForm(updatedForm);
+    const statusEntry = entries.find(([key]) => key === 'status');
+    const deadlineChanged = entries.some(([key, value]) => (
+      key === 'deadline' && new Date(value).getTime() !== new Date(existingForm.deadline).getTime()
+    ));
+
+    let notification = null;
+    if (statusEntry?.[1] === 'published' && (existingForm.status || '').toLowerCase() !== 'published') {
+      notification = {
+        title: 'New Project Registration Form',
+        message: 'HOD has published a new project registration form. Please fill your project and team details before the deadline.',
+        type: 'registration_form',
+        referenceType: 'registration_form'
+      };
+    } else if (statusEntry?.[1] === 'closed') {
+      notification = {
+        title: 'Project Registration Closed',
+        message: `Project registration for "${updatedForm.title}" has been closed.`,
+        type: 'registration_form_closed',
+        referenceType: 'registration_form'
+      };
+    } else if (deadlineChanged) {
+      notification = {
+        title: 'Project Deadline Updated',
+        message: `The deadline for "${updatedForm.title}" has been updated.`,
+        type: 'deadline_updated',
+        referenceType: 'registration_form'
+      };
+    } else {
+      notification = {
+        title: 'Project Registration Form Updated',
+        message: `The project registration form "${updatedForm.title}" has been updated by HOD.`,
+        type: 'registration_form_updated',
+        referenceType: 'registration_form'
+      };
+    }
+
+    if (notification) {
+      const notifiedStudents = await notifyMatchingStudents(updatedForm, notification);
+      console.log("Students notified:", notifiedStudents);
       return res.json({
         success: true,
-        message: "Registration form published and notifications sent",
+        message: "Registration form updated and notifications sent",
         notifiedStudents,
         data: updatedForm
       });
     }
 
-    res.json(updatedForm);
+    res.json({ success: true, data: updatedForm });
   } catch (error) {
     console.error('updateRegistrationForm error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -410,6 +513,7 @@ exports.publishRegistrationForm = async (req, res) => {
 
     const publishedForm = result.rows[0];
     const notifiedStudents = await notifyMatchingStudentsForRegistrationForm(publishedForm);
+    console.log("Students notified:", notifiedStudents);
 
     res.json({
       success: true,
@@ -426,11 +530,131 @@ exports.publishRegistrationForm = async (req, res) => {
 exports.closeRegistrationForm = async (req, res) => {
   try {
     const { id } = req.params;
-    const [result] = await db.execute(`
+    const result = await db.pool.query(`
       UPDATE registration_forms SET status = 'closed', updated_at = NOW() WHERE id = $1 RETURNING *
     `, [id]);
-    res.json(result[0]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+
+    const closedForm = result.rows[0];
+    const notifiedStudents = await notifyMatchingStudents(closedForm, {
+      title: 'Project Registration Closed',
+      message: `Project registration for "${closedForm.title}" has been closed.`,
+      type: 'registration_form_closed',
+      referenceType: 'registration_form'
+    });
+
+    res.json({
+      success: true,
+      message: 'Registration form closed and notifications sent',
+      notifiedStudents,
+      data: closedForm
+    });
   } catch (error) {
+    console.error('closeRegistrationForm error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.createRegistrationFormTimeline = async (req, res) => {
+  const { formId } = req.params;
+  const { start_date, interval_days = 15, milestones = defaultTimelineMilestones } = req.body;
+  const intervalDays = Number(interval_days);
+
+  if (!start_date) {
+    return res.status(400).json({ message: 'start_date is required' });
+  }
+
+  if (!Array.isArray(milestones) || milestones.length === 0) {
+    return res.status(400).json({ message: 'At least one timeline milestone is required' });
+  }
+
+  if (!Number.isFinite(intervalDays) || intervalDays < 1) {
+    return res.status(400).json({ message: 'interval_days must be a positive number' });
+  }
+
+  try {
+    await ensureRegistrationTimelineColumns();
+
+    const formResult = await db.pool.query('SELECT * FROM registration_forms WHERE id = $1', [formId]);
+    if (formResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Registration form not found' });
+    }
+
+    const form = formResult.rows[0];
+    if ((form.status || '').toLowerCase() !== 'published') {
+      return res.status(400).json({ message: 'Publish the registration form before creating its timeline' });
+    }
+
+    const baseDate = new Date(start_date);
+    if (Number.isNaN(baseDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid start_date' });
+    }
+
+    const existingTimelineResult = await db.pool.query(
+      'SELECT COUNT(*)::int AS count FROM project_milestones WHERE registration_form_id = $1 OR project_registration_id = $1',
+      [form.id]
+    );
+    const isTimelineUpdate = (existingTimelineResult.rows[0]?.count || 0) > 0;
+
+    const created = [];
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'DELETE FROM project_milestones WHERE registration_form_id = $1 OR project_registration_id = $1',
+        [form.id]
+      );
+
+      for (let index = 0; index < milestones.length; index += 1) {
+        const item = milestones[index];
+        const title = typeof item === 'string' ? item : item.title;
+        const documentType = typeof item === 'string'
+          ? item.toLowerCase().replace(/\s+/g, '_')
+          : item.document_type || item.type || title?.toLowerCase().replace(/\s+/g, '_');
+        const deadline = new Date(baseDate);
+        deadline.setDate(baseDate.getDate() + intervalDays * (index + 1));
+
+        if (!title) {
+          throw new Error('Milestone title is required');
+        }
+
+        const result = await client.query(
+          `INSERT INTO project_milestones
+           (registration_form_id, title, document_type, sequence_no, sequence_order, deadline, status, created_by)
+           VALUES ($1, $2, $3, $4, $4, $5, 'pending', $6)
+           RETURNING *`,
+          [form.id, title, documentType, index + 1, deadline.toISOString(), req.user.id]
+        );
+        created.push(result.rows[0]);
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    const notifiedStudents = await notifyMatchingStudents(form, {
+      title: isTimelineUpdate ? 'Project Timeline Updated' : PROJECT_TIMELINE_NOTIFICATION_TITLE,
+      message: isTimelineUpdate
+        ? 'Your project document submission timeline has been updated.'
+        : PROJECT_TIMELINE_NOTIFICATION_MESSAGE,
+      type: isTimelineUpdate ? 'project_timeline_updated' : 'project_timeline',
+      referenceType: 'timeline'
+    });
+
+    res.status(201).json({
+      success: true,
+      form,
+      timeline: created,
+      notifiedStudents
+    });
+  } catch (error) {
+    console.error('createRegistrationFormTimeline error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -474,18 +698,35 @@ exports.approveRegistrationSubmission = async (req, res) => {
   try {
     const { id } = req.params;
     const { remarks } = req.body;
-    const [result] = await db.execute(`
+    const result = await db.pool.query(`
       UPDATE registration_form_submissions 
       SET status = 'Approved', remarks = $1, updated_at = NOW() 
       WHERE id = $2 
       RETURNING *
     `, [remarks || null, id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
     
     // Note: To fully integrate with the app, we would also create an entry in 'projects' table here
     // but the prompt focused on HOD portal and assign mentor. We can assume we might create the project here later.
-    
-    res.json(result[0]);
+    const submission = result.rows[0];
+    const notifiedStudents = await createTeamNotifications({
+      projectRegistrationId: submission.id,
+      title: 'Project Registration Approved',
+      message: `Your project registration "${submission.project_title}" has been approved.`,
+      type: 'approval',
+      referenceId: submission.id,
+      referenceType: 'approval'
+    });
+
+    res.json({
+      success: true,
+      notifiedStudents,
+      data: submission
+    });
   } catch (error) {
+    console.error('approveRegistrationSubmission error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -494,14 +735,33 @@ exports.rejectRegistrationSubmission = async (req, res) => {
   try {
     const { id } = req.params;
     const { remarks } = req.body;
-    const [result] = await db.execute(`
+    const result = await db.pool.query(`
       UPDATE registration_form_submissions 
       SET status = 'Rejected', remarks = $1, updated_at = NOW() 
       WHERE id = $2 
       RETURNING *
     `, [remarks || null, id]);
-    res.json(result[0]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    const submission = result.rows[0];
+    const notifiedStudents = await createTeamNotifications({
+      projectRegistrationId: submission.id,
+      title: 'Project Registration Rejected',
+      message: `Your project registration "${submission.project_title}" has been rejected.${remarks ? ` Remarks: ${remarks}` : ''}`,
+      type: 'rejection',
+      referenceId: submission.id,
+      referenceType: 'rejection'
+    });
+
+    res.json({
+      success: true,
+      notifiedStudents,
+      data: submission
+    });
   } catch (error) {
+    console.error('rejectRegistrationSubmission error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -515,31 +775,47 @@ exports.assignMentor = async (req, res) => {
     // Since we created registration_form_submissions, let's just insert into mentor_assignments directly
     // Wait, mentor_assignments usually links to project_id. We'll map registration_id to it if needed, or submission_id.
     
-    const [submission] = await db.execute(`SELECT * FROM registration_form_submissions WHERE id = $1`, [submission_id]);
-    if (submission.length === 0) return res.status(404).json({ message: 'Submission not found' });
+    const submissionResult = await db.pool.query(`SELECT * FROM registration_form_submissions WHERE id = $1`, [submission_id]);
+    if (submissionResult.rows.length === 0) return res.status(404).json({ message: 'Submission not found' });
+    const submission = submissionResult.rows[0];
     
     // Find or create project
-    let [existingProjects] = await db.execute(`SELECT * FROM projects WHERE title = $1 AND created_by = $2`, [submission[0].project_title, submission[0].leader_id]);
+    const existingProjects = await db.pool.query(`SELECT * FROM projects WHERE title = $1 AND created_by = $2`, [submission.project_title, submission.leader_id]);
     let projectId = null;
-    if (existingProjects.length > 0) {
-      projectId = existingProjects[0].id;
-      await db.execute(`UPDATE projects SET mentor_id = $1 WHERE id = $2`, [mentor_id, projectId]);
+    if (existingProjects.rows.length > 0) {
+      projectId = existingProjects.rows[0].id;
+      await db.pool.query(`UPDATE projects SET mentor_id = $1 WHERE id = $2`, [mentor_id, projectId]);
     } else {
-      const [newProject] = await db.execute(`
+      const newProject = await db.pool.query(`
         INSERT INTO projects (title, description, created_by, mentor_id, status)
         VALUES ($1, $2, $3, $4, 'In Progress')
         RETURNING id
-      `, [submission[0].project_title, submission[0].abstract, submission[0].leader_id, mentor_id]);
-      projectId = newProject[0].id;
+      `, [submission.project_title, submission.abstract, submission.leader_id, mentor_id]);
+      projectId = newProject.rows[0].id;
     }
     
-    const [result] = await db.execute(`
+    const result = await db.pool.query(`
       INSERT INTO mentor_assignments (mentor_id, project_id, assigned_by)
       VALUES ($1, $2, $3)
       RETURNING *
     `, [mentor_id, projectId, assigned_by]);
+
+    const mentorResult = await db.pool.query('SELECT full_name FROM users WHERE id = $1', [mentor_id]);
+    const mentorName = mentorResult.rows[0]?.full_name || 'your mentor';
+    const notifiedStudents = await createTeamNotifications({
+      projectRegistrationId: submission.id,
+      title: 'Mentor Assigned',
+      message: `${mentorName} has been assigned as mentor for your project "${submission.project_title}".`,
+      type: 'mentor_assignment',
+      referenceId: result.rows[0].id,
+      referenceType: 'mentor_assignment'
+    });
     
-    res.status(201).json(result[0]);
+    res.status(201).json({
+      success: true,
+      notifiedStudents,
+      data: result.rows[0]
+    });
   } catch (error) {
     console.error('assignMentor error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

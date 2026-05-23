@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
   Users, 
@@ -22,6 +22,8 @@ const StudentProjectForm = () => {
   const [loading, setLoading] = useState(true);
   const [activeForms, setActiveForms] = useState([]);
   const [selectedForm, setSelectedForm] = useState(null);
+  const selectedFormIdRef = useRef(null);
+  const [studentProfile, setStudentProfile] = useState(null);
   const [activeStatus, setActiveStatus] = useState({ hasActive: false, type: null, details: null });
   const [formData, setFormData] = useState({
     title: '',
@@ -37,8 +39,21 @@ const StudentProjectForm = () => {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    fetchStudentProfile();
     fetchActiveForms();
+    const interval = window.setInterval(fetchActiveForms, 10000);
+    return () => window.clearInterval(interval);
   }, []);
+
+  const fetchStudentProfile = async () => {
+    try {
+      const res = await api.get('/student/profile');
+      setStudentProfile(res.data?.student || null);
+    } catch (error) {
+      console.error('Failed to fetch student profile:', error);
+      toast.error('Failed to load your academic profile');
+    }
+  };
 
   const fetchActiveForms = async () => {
     try {
@@ -53,9 +68,18 @@ const StudentProjectForm = () => {
       const res = await api.get('/student/registration-forms/active');
       console.log("Forms response:", res.data);
       const forms = res.data?.forms || [];
+      console.log("Loaded active forms:", forms);
       setActiveForms(forms);
       if (forms.length > 0) {
-        handleSelectForm(forms[0]);
+        const currentForm = forms.find((form) => String(form.id) === String(selectedFormIdRef.current));
+        if (selectedFormIdRef.current && currentForm) {
+          setSelectedForm(currentForm);
+        } else {
+          handleSelectForm(forms[0]);
+        }
+      } else {
+        selectedFormIdRef.current = null;
+        setSelectedForm(null);
       }
     } catch (error) {
       console.error('Failed to fetch active forms:', error);
@@ -66,6 +90,7 @@ const StudentProjectForm = () => {
   };
 
   const handleSelectForm = (form) => {
+    selectedFormIdRef.current = form.id;
     setSelectedForm(form);
     setFormData({
       title: '',
@@ -86,11 +111,7 @@ const StudentProjectForm = () => {
   const createEmptyMember = () => ({
     name: '',
     email: '',
-    roll_number: '',
-    branch: selectedForm?.branch || '',
-    year: selectedForm?.academic_year || '',
-    semester: selectedForm?.semester || '',
-    section: selectedForm?.section || ''
+    roll_number: ''
   });
 
   const handleInputChange = (e) => {
@@ -132,7 +153,7 @@ const StudentProjectForm = () => {
     // Validate members
     for (let i = 0; i < members.length; i++) {
       const m = members[i];
-      if (!m.name || !m.email || !m.roll_number || !m.branch || !m.year || !m.semester || !m.section) {
+      if (!m.name || !m.email || !m.roll_number) {
         toast.error(`Please fill all details for Member ${i + 2}`);
         return;
       }
@@ -148,7 +169,11 @@ const StudentProjectForm = () => {
         abstract: formData.description,
         tech_stack: formData.tech_stack,
         github_link: formData.github_link,
-        team_members: members
+        team_members: members.map((member) => ({
+          name: member.name.trim(),
+          email: member.email.trim(),
+          roll_number: member.roll_number.trim()
+        }))
       });
 
       toast.success('Project and team details registered successfully!');
@@ -360,24 +385,49 @@ const StudentProjectForm = () => {
                       </div>
                     </div>
 
+                    <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-900">
+                      <Info size={16} className="mt-0.5 shrink-0" />
+                      <span>All team members must belong to your same branch, year, semester, section and subsection.</span>
+                    </div>
+
                     {/* Team Leader (Auto-filled) */}
                     <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
                       <h4 className="text-xs font-bold text-blue-900 mb-3 flex items-center justify-between">
                         Team Leader (Student 1) 
                         <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded">Auto-filled</span>
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 uppercase">Name</label>
-                          <div className="text-sm font-semibold text-slate-800">{user?.full_name || 'Loading...'}</div>
+                          <div className="text-sm font-semibold text-slate-800">{studentProfile?.full_name || user?.full_name || 'Loading...'}</div>
                         </div>
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 uppercase">Email</label>
-                          <div className="text-sm font-semibold text-slate-800">{user?.email || 'Loading...'}</div>
+                          <div className="text-sm font-semibold text-slate-800 break-words">{studentProfile?.email || user?.email || 'Loading...'}</div>
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Role</label>
-                          <div className="text-sm font-semibold text-slate-800">Team Leader</div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Roll Number</label>
+                          <div className="text-sm font-semibold text-slate-800">{studentProfile?.roll_number || 'Loading...'}</div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Branch</label>
+                          <div className="text-sm font-semibold text-slate-800">{studentProfile?.branch_name || studentProfile?.branch_id || 'Loading...'}</div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Academic Year</label>
+                          <div className="text-sm font-semibold text-slate-800">{studentProfile?.academic_year || 'Loading...'}</div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Semester</label>
+                          <div className="text-sm font-semibold text-slate-800">{studentProfile?.semester || 'Loading...'}</div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Section</label>
+                          <div className="text-sm font-semibold text-slate-800">{studentProfile?.section || 'Loading...'}</div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Subsection</label>
+                          <div className="text-sm font-semibold text-slate-800">{studentProfile?.subsection || 'All'}</div>
                         </div>
                       </div>
                     </div>
@@ -421,49 +471,6 @@ const StudentProjectForm = () => {
                               type="text" 
                               value={member.roll_number}
                               onChange={(e) => handleMemberChange(index, 'roll_number', e.target.value)}
-                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Branch <span className="text-rose-500">*</span></label>
-                            <input 
-                              type="text" 
-                              value={member.branch}
-                              onChange={(e) => handleMemberChange(index, 'branch', e.target.value)}
-                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Year <span className="text-rose-500">*</span></label>
-                            <input 
-                              type="text" 
-                              value={member.year}
-                              onChange={(e) => handleMemberChange(index, 'year', e.target.value)}
-                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Sem <span className="text-rose-500">*</span></label>
-                            <input 
-                              type="number" 
-                              value={member.semester}
-                              onChange={(e) => handleMemberChange(index, 'semester', e.target.value)}
-                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Sec <span className="text-rose-500">*</span></label>
-                            <input 
-                              type="text" 
-                              value={member.section}
-                              onChange={(e) => handleMemberChange(index, 'section', e.target.value)}
                               className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
                               required
                             />

@@ -47,9 +47,18 @@ app.use(express.json());
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
+  max: 1000,
+  message: {
+    success: false,
+    message: 'Too many requests, please try again later.'
+  },
 });
-app.use('/api', limiter);
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth/')) {
+    return next();
+  }
+  return limiter(req, res, next);
+});
 
 // Serve uploaded files as static assets
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));

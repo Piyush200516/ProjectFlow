@@ -9,6 +9,7 @@ const {
   updateRegistrationForm,
   publishRegistrationForm,
   closeRegistrationForm,
+  createRegistrationFormTimeline,
   getRegistrationSubmissions,
   getRegistrationSubmissionById,
   approveRegistrationSubmission,
@@ -32,6 +33,7 @@ router.get('/registration-forms', ...hodOnly, getRegistrationForms);
 router.patch('/registration-forms/:id', ...hodOnly, updateRegistrationForm);
 router.patch('/registration-forms/:id/publish', ...hodOnly, publishRegistrationForm);
 router.patch('/registration-forms/:id/close', ...hodOnly, closeRegistrationForm);
+router.post('/registration-forms/:formId/timeline', ...hodOnly, createRegistrationFormTimeline);
 
 // 2. Submissions
 router.get('/registration-submissions', ...hodOnly, getRegistrationSubmissions);

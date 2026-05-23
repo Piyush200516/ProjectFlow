@@ -1,5 +1,29 @@
 const db = require('../config/db');
 
+const ensureProjectMilestoneCompatibility = async () => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS project_milestones (
+      id SERIAL PRIMARY KEY,
+      project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+      title VARCHAR(150) NOT NULL,
+      description TEXT,
+      sequence_order INT,
+      deadline TIMESTAMP NOT NULL,
+      created_by INT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS project_id INT REFERENCES projects(id) ON DELETE CASCADE`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS sequence_order INT`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+};
+
+const tableExists = async (tableName) => {
+  const result = await db.pool.query('SELECT to_regclass($1) as table_name', [tableName]);
+  return Boolean(result.rows[0]?.table_name);
+};
+
 // @desc    Invite a student to the team
 // @route   POST /api/team/invite
 // @access  Private (Student)
@@ -394,33 +418,62 @@ exports.getTeamProject = async (req, res) => {
       [projectId]
     );
 
-    // 4. Fetch milestones/deadlines
+    // 4. Fetch document milestones/deadlines from the project_milestones timeline
+    await ensureProjectMilestoneCompatibility();
     const [milestones] = await db.execute(
-      'SELECT * FROM milestones WHERE project_id = ? ORDER BY due_date ASC',
+      `SELECT id,
+              project_id,
+              title,
+              description,
+              sequence_order,
+              deadline,
+              deadline as due_date,
+              CASE
+                WHEN deadline < CURRENT_TIMESTAMP THEN 'Overdue'
+                ELSE 'Active'
+              END as status,
+              created_by,
+              created_at,
+              updated_at
+       FROM project_milestones
+       WHERE project_id = ?
+       ORDER BY sequence_order ASC, deadline ASC`,
       [projectId]
     );
 
-    // 5. Fetch tasks
-    const [tasks] = await db.execute(
-      'SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC',
-      [projectId]
-    );
+    // 5. Fetch tasks if the local schema has that optional workspace table
+    let tasks = [];
+    if (await tableExists('tasks')) {
+      const [taskRows] = await db.execute(
+        'SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC',
+        [projectId]
+      );
+      tasks = taskRows;
+    }
 
-    // 6. Fetch documents
-    const [documents] = await db.execute(
-      'SELECT * FROM documents WHERE project_id = ? ORDER BY created_at DESC',
-      [projectId]
-    );
+    // 6. Fetch documents if available
+    let documents = [];
+    if (await tableExists('documents')) {
+      const [documentRows] = await db.execute(
+        'SELECT * FROM documents WHERE project_id = ? ORDER BY created_at DESC',
+        [projectId]
+      );
+      documents = documentRows;
+    }
 
-    // 7. Fetch submissions
-    const [submissions] = await db.execute(
-      `SELECT ds.*, da.title as assignment_title, da.due_date as assignment_due_date
-       FROM document_submissions ds
-       JOIN document_assignments da ON ds.assignment_id = da.id
-       WHERE ds.project_id = ?
-       ORDER BY ds.submitted_at DESC`,
-      [projectId]
-    );
+    // 7. Fetch submissions if available
+    let submissions = [];
+    if (await tableExists('document_submissions') && await tableExists('document_assignments')) {
+      const [submissionRows] = await db.execute(
+        `SELECT ds.*, da.title as assignment_title, da.due_date as assignment_due_date
+         FROM document_submissions ds
+         JOIN document_assignments da ON ds.assignment_id = da.id
+         WHERE ds.project_id = ?
+         ORDER BY ds.submitted_at DESC`,
+        [projectId]
+      );
+      submissions = submissionRows;
+    }
 
     res.json({
       project,

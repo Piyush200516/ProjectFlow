@@ -15,10 +15,11 @@ import {
   AlertCircle,
   Plus,
   ArrowUpRight,
-  TrendingUp,
   FileCode,
   Layout,
-  TestTube
+  TestTube,
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -35,6 +36,31 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [activeForms, setActiveForms] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [refreshingRegistration, setRefreshingRegistration] = useState(false);
+  const [lastRegistrationRefresh, setLastRegistrationRefresh] = useState(null);
+
+  const fetchFormsAndNotifications = async () => {
+    setRefreshingRegistration(true);
+    try {
+      const [formsRes, notificationsRes] = await Promise.all([
+        api.get('/student/registration-forms/active'),
+        api.get('/student/notifications')
+      ]);
+      const forms = formsRes.data?.forms || [];
+      const latestNotifications = notificationsRes.data?.notifications || [];
+      console.log('Loaded active forms:', forms);
+      console.log('Notifications loaded:', latestNotifications.length);
+      setActiveForms(forms);
+      setNotifications(latestNotifications);
+      setLastRegistrationRefresh(new Date());
+    } catch (error) {
+      console.error('Failed to load registration updates:', error);
+    } finally {
+      setRefreshingRegistration(false);
+    }
+  };
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -51,6 +77,9 @@ const StudentDashboard = () => {
     };
 
     fetchDashboard();
+    fetchFormsAndNotifications();
+    const interval = window.setInterval(fetchFormsAndNotifications, 10000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const activeProject = projects[0];
@@ -79,6 +108,19 @@ const StudentDashboard = () => {
     { icon: TestTube, title: 'Testing Milestone', description: 'Requirement analysis is complete.', time: 'Yesterday', type: 'warning' },
   ];
 
+  const latestRegistrationNotification = notifications.find(
+    notification => notification.type === 'registration_form' || notification.reference_type === 'registration_form'
+  );
+
+  const formatDeadline = (value) => {
+    if (!value) return 'No deadline';
+    return new Date(value).toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <PageHeader 
@@ -102,6 +144,78 @@ const StudentDashboard = () => {
         <StatCard icon={Clock} label="Deadlines" value={upcomingDeadlines} color="amber" />
         <StatCard icon={AlertCircle} label="Feedback" value="2" trend="down" trendValue="1" color="indigo" />
       </div>
+
+      <SectionCard
+        title="Project Registration"
+        subtitle={lastRegistrationRefresh ? `Latest forms refreshed at ${lastRegistrationRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Latest HOD registration forms from PostgreSQL'}
+        headerActions={
+          <button
+            onClick={fetchFormsAndNotifications}
+            disabled={refreshingRegistration}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={refreshingRegistration ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          {latestRegistrationNotification && (
+            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
+              {latestRegistrationNotification.title || 'New Project Registration Form'}
+            </div>
+          )}
+
+          {activeForms.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+              No active registration forms available for your academic profile.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeForms.slice(0, 4).map((form) => (
+                <div key={form.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <StatusBadge status={form.project_type || 'Project'} variant="info" />
+                      <h3 className="mt-3 text-sm font-bold text-slate-900">{form.title}</h3>
+                    </div>
+                    {form.has_submitted && <StatusBadge status="Registered" variant="success" />}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="font-bold uppercase text-slate-400">Branch</p>
+                      <p className="mt-1 font-semibold text-slate-700">{form.branch}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold uppercase text-slate-400">Batch</p>
+                      <p className="mt-1 font-semibold text-slate-700">{form.academic_year} • Sem {form.semester}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold uppercase text-slate-400">Section</p>
+                      <p className="mt-1 font-semibold text-slate-700">Sec {form.section}{form.subsection ? ` / Sub ${form.subsection}` : ''}</p>
+                    </div>
+                    <div>
+                      <p className="font-bold uppercase text-slate-400">Deadline</p>
+                      <p className="mt-1 inline-flex items-center gap-1 font-semibold text-slate-700">
+                        <Calendar size={12} />
+                        {formatDeadline(form.deadline)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => navigate('/student/project-form')}
+                    className="mt-5 w-full rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-slate-800 active:scale-95"
+                  >
+                    Fill Form
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </SectionCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Analytics Card */}

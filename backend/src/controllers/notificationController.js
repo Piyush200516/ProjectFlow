@@ -17,6 +17,7 @@ const ensureNotificationCompatibility = async () => {
 
   await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id INT`);
   await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_type VARCHAR(50)`);
+  await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE`);
   await db.execute(`ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(50)`);
   await db.execute(`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check`);
 };

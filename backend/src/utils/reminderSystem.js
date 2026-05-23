@@ -15,13 +15,13 @@ async function checkDeadlinesAndSendReminders() {
   try {
     const now = new Date();
 
-    // 1. Scan Milestones
+    // 1. Scan project_milestones document timeline
     const [milestones] = await db.execute(`
       SELECT m.*, p.title as project_title, pm.student_id
-      FROM milestones m
+      FROM project_milestones m
       JOIN projects p ON m.project_id = p.id
       JOIN project_members pm ON p.id = pm.project_id
-      WHERE m.status = 'Active'
+      WHERE m.project_id IS NOT NULL
     `);
 
     for (const milestone of milestones) {

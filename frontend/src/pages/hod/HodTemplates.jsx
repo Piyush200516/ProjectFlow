@@ -16,12 +16,12 @@ import { Modal } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
 
 const defaultMilestoneNames = [
-  'Synopsis',
-  'SRS',
-  'PPT',
-  'Poster',
-  'Project Report',
-  'GitHub Final Submission'
+  { title: 'Synopsis', document_type: 'synopsis' },
+  { title: 'SRS', document_type: 'srs' },
+  { title: 'PPT', document_type: 'ppt' },
+  { title: 'Poster', document_type: 'poster' },
+  { title: 'Project Report', document_type: 'report' },
+  { title: 'GitHub Final Submission', document_type: 'github' }
 ];
 
 const generateFutureAcademicYears = () => {
@@ -31,7 +31,7 @@ const generateFutureAcademicYears = () => {
   const currentAcademicStartYear = currentMonth < 6 ? currentYear - 1 : currentYear;
   
   const futureYears = [];
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 0; i <= 3; i++) {
     const startYear = currentAcademicStartYear + i;
     const endYear = (startYear + 1).toString().slice(-2);
     futureYears.push(`${startYear}-${endYear}`);
@@ -45,9 +45,8 @@ const HodRegistrationForms = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [projects, setProjects] = useState([]);
   const [timelineForm, setTimelineForm] = useState({
-    project_id: '',
+    form_id: '',
     start_date: new Date().toISOString().slice(0, 10),
     interval_days: 15,
   });
@@ -59,26 +58,23 @@ const HodRegistrationForms = () => {
     branch: 'Computer Science & Engineering',
     academic_year: futureAcademicYears[0],
     semester: '',
-    section: '1',
-    subsection: '1',
+    section: 'A',
+    subsection: '',
     team_size_min: 2,
     team_size_max: 4,
     project_type: 'Minor Project',
     start_date: '',
     deadline: '',
-    status: 'Draft'
+    status: 'published'
   });
 
   const fetchForms = async () => {
     try {
-      const [res, projectsRes] = await Promise.all([
-        api.get('/hod/registration-forms'),
-        api.get('/projects')
-      ]);
+      const res = await api.get('/hod/registration-forms');
       setForms(res.data);
-      setProjects(projectsRes.data);
-      if (projectsRes.data.length > 0) {
-        setTimelineForm(prev => ({ ...prev, project_id: prev.project_id || String(projectsRes.data[0].id) }));
+      const publishedForms = res.data.filter(form => (form.status || '').toLowerCase() === 'published');
+      if (publishedForms.length > 0) {
+        setTimelineForm(prev => ({ ...prev, form_id: prev.form_id || String(publishedForms[0].id) }));
       }
     } catch (error) {
       toast.error('Failed to load registration forms');
@@ -117,8 +113,8 @@ const HodRegistrationForms = () => {
       return;
     }
     try {
-      await api.post('/hod/registration-forms', formData);
-      toast.success('Registration form created successfully');
+      await api.post('/hod/registration-forms', { ...formData, status: 'published' });
+      toast.success('Registration form created and sent to matching students');
       setIsModalOpen(false);
       fetchForms();
     } catch (error) {
@@ -148,20 +144,19 @@ const HodRegistrationForms = () => {
 
   const handleCreateTimeline = async (e) => {
     e.preventDefault();
-    if (!timelineForm.project_id || !timelineForm.start_date) {
-      toast.error('Select a project and start date');
+    if (!timelineForm.form_id || !timelineForm.start_date) {
+      toast.error('Select a published registration form and start date');
       return;
     }
 
     setCreatingTimeline(true);
     try {
-      await api.post('/milestones/timeline', {
-        project_id: Number(timelineForm.project_id),
+      await api.post(`/hod/registration-forms/${timelineForm.form_id}/timeline`, {
         start_date: timelineForm.start_date,
         interval_days: Number(timelineForm.interval_days) || 15,
         milestones: defaultMilestoneNames
       });
-      toast.success('Project timeline created with 6 document milestones');
+      toast.success('Project timeline published to matching students');
     } catch (error) {
       console.error('Failed to create project timeline:', error);
       toast.error(error.response?.data?.message || 'Failed to create timeline');
@@ -180,6 +175,7 @@ const HodRegistrationForms = () => {
   };
 
   const filteredForms = forms.filter(f => (f.title || '').toLowerCase().includes(searchTerm.toLowerCase()));
+  const publishedForms = forms.filter(form => (form.status || '').toLowerCase() === 'published');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
@@ -222,16 +218,16 @@ const HodRegistrationForms = () => {
           </div>
           <form onSubmit={handleCreateTimeline} className="grid grid-cols-1 md:grid-cols-[1fr_180px_140px_auto] gap-4 items-end">
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 uppercase">Project</label>
+              <label className="text-xs font-bold text-slate-700 uppercase">Registration Form</label>
               <select
-                value={timelineForm.project_id}
-                onChange={(e) => setTimelineForm(prev => ({ ...prev, project_id: e.target.value }))}
+                value={timelineForm.form_id}
+                onChange={(e) => setTimelineForm(prev => ({ ...prev, form_id: e.target.value }))}
                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
               >
-                {projects.length === 0 ? (
-                  <option value="">No projects found</option>
+                {publishedForms.length === 0 ? (
+                  <option value="">No published forms found</option>
                 ) : (
-                  projects.map(project => <option key={project.id} value={project.id}>{project.title}</option>)
+                  publishedForms.map(form => <option key={form.id} value={form.id}>{form.title}</option>)
                 )}
               </select>
             </div>
@@ -256,16 +252,16 @@ const HodRegistrationForms = () => {
             </div>
             <button
               type="submit"
-              disabled={creatingTimeline || !timelineForm.project_id}
+              disabled={creatingTimeline || !timelineForm.form_id}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-slate-400 transition-colors"
             >
               {creatingTimeline ? 'Creating...' : 'Create Timeline'}
             </button>
           </form>
           <div className="mt-4 flex flex-wrap gap-2">
-            {defaultMilestoneNames.map((name, index) => (
-              <span key={name} className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                Day {(index + 1) * (Number(timelineForm.interval_days) || 15)}: {name}
+            {defaultMilestoneNames.map((milestone, index) => (
+              <span key={milestone.document_type} className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                Day {(index + 1) * (Number(timelineForm.interval_days) || 15)}: {milestone.title}
               </span>
             ))}
           </div>
@@ -442,7 +438,7 @@ const HodRegistrationForms = () => {
                 onChange={(e) => setFormData({...formData, section: e.target.value})}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
-                {[1,2,3,4,5,6].map(s => <option key={s} value={s}>{s}</option>)}
+                {['A','B','C','D','E','F','1','2','3','4','5','6'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="space-y-2">
@@ -452,6 +448,7 @@ const HodRegistrationForms = () => {
                 onChange={(e) => setFormData({...formData, subsection: e.target.value})}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
+                <option value="">All</option>
                 <option value="1">1</option>
                 <option value="2">2</option>
               </select>
