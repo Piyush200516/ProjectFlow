@@ -15,7 +15,23 @@ import { toast } from 'sonner';
 import { Modal } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
 
+const generateFutureAcademicYears = () => {
+  const date = new Date();
+  const currentYear = date.getFullYear();
+  const currentMonth = date.getMonth();
+  const currentAcademicStartYear = currentMonth < 6 ? currentYear - 1 : currentYear;
+  
+  const futureYears = [];
+  for (let i = 1; i <= 4; i++) {
+    const startYear = currentAcademicStartYear + i;
+    const endYear = (startYear + 1).toString().slice(-2);
+    futureYears.push(`${startYear}-${endYear}`);
+  }
+  return futureYears;
+};
+
 const HodRegistrationForms = () => {
+  const futureAcademicYears = generateFutureAcademicYears();
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,9 +41,10 @@ const HodRegistrationForms = () => {
     title: '',
     instructions: '',
     branch: 'Computer Science & Engineering',
-    academic_year: '2025-26',
+    academic_year: futureAcademicYears[0],
     semester: '',
-    section: 'A',
+    section: '1',
+    subsection: '1',
     team_size_min: 2,
     team_size_max: 4,
     project_type: 'Minor Project',
@@ -53,6 +70,10 @@ const HodRegistrationForms = () => {
 
   const handleCreateForm = async (e) => {
     e.preventDefault();
+    if (formData.team_size_min > formData.team_size_max) {
+      toast.error('Team Size Min cannot be greater than Team Size Max');
+      return;
+    }
     try {
       await api.post('/hod/registration-forms', formData);
       toast.success('Registration form created successfully');
@@ -253,15 +274,18 @@ const HodRegistrationForms = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Year</label>
-              <input 
-                type="text" 
+              <select 
                 value={formData.academic_year}
                 onChange={(e) => setFormData({...formData, academic_year: e.target.value})}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-              />
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {futureAcademicYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Semester</label>
@@ -288,35 +312,51 @@ const HodRegistrationForms = () => {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Section</label>
-              <input 
-                type="text" 
+              <select 
                 value={formData.section}
                 onChange={(e) => setFormData({...formData, section: e.target.value})}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-              />
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {[1,2,3,4,5,6].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Subsection</label>
+              <select 
+                value={formData.subsection}
+                onChange={(e) => setFormData({...formData, subsection: e.target.value})}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="1">1</option>
+                <option value="2">2</option>
+              </select>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Team Size Min</label>
-              <input 
-                type="number" 
-                min="1"
+              <select 
                 value={formData.team_size_min}
                 onChange={(e) => setFormData({...formData, team_size_min: parseInt(e.target.value)})}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-              />
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Team Size Max</label>
-              <input 
-                type="number" 
-                min="1"
+              <select 
                 value={formData.team_size_max}
                 onChange={(e) => setFormData({...formData, team_size_max: parseInt(e.target.value)})}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-              />
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
             </div>
           </div>
 

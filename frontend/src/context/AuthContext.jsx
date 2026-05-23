@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
-  const register = async (email, password, full_name, role = 'student', roll_number = '', branch_id = '1') => {
+  const register = async (email, password, full_name, role = 'student', roll_number = '', branch_id = '1', section = '1', subsection = '1') => {
     const { data } = await api.post('/auth/register', {
       email,
       password,
@@ -49,6 +49,8 @@ export const AuthProvider = ({ children }) => {
       role,
       roll_number,
       branch_id,
+      section,
+      subsection,
     });
     // Auto‑login after registration
     localStorage.setItem('token', data.token);

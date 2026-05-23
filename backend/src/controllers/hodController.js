@@ -18,6 +18,7 @@ const db = require('../config/db');
                 start_date TIMESTAMP NOT NULL,
                 deadline TIMESTAMP NOT NULL,
                 status VARCHAR(20) DEFAULT 'draft',
+                subsection VARCHAR(10),
                 created_by INT REFERENCES users(id) ON DELETE SET NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -32,6 +33,7 @@ const db = require('../config/db');
         }
         try {
             await db.execute(`ALTER TABLE registration_forms ADD COLUMN IF NOT EXISTS branch_id INT;`);
+            await db.execute(`ALTER TABLE registration_forms ADD COLUMN IF NOT EXISTS subsection VARCHAR(10);`);
         } catch (err) {
             console.warn("Column branch_id might already exist or error:", err.message);
         }
@@ -108,16 +110,31 @@ exports.createRegistrationForm = async (req, res) => {
   try {
     console.log("HOD publish payload:", req.body);
     const {
-      title, instructions, branch, branch_id, academic_year, semester, section,
+      title, instructions, branch, branch_id, academic_year, semester, section, subsection,
       team_size_min, team_size_max, project_type, start_date, deadline, status
     } = req.body;
     const created_by = req.user.id;
+
+    if (academic_year) {
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const currentAcademicStartYear = currentMonth < 6 ? currentYear - 1 : currentYear;
+      const submittedStartYear = parseInt(academic_year.split('-')[0], 10);
+      
+      if (submittedStartYear <= currentAcademicStartYear) {
+        return res.status(400).json({ message: 'Please select a future academic year.' });
+      }
+    }
 
     if (project_type === 'Minor Project' && ![5, 6].includes(parseInt(semester))) {
       return res.status(400).json({ message: 'Invalid semester for Minor Project. Must be 5 or 6.' });
     }
     if (project_type === 'Major Project' && ![7, 8].includes(parseInt(semester))) {
       return res.status(400).json({ message: 'Invalid semester for Major Project. Must be 7 or 8.' });
+    }
+
+    if (parseInt(team_size_min) < 2 || parseInt(team_size_max) > 4 || parseInt(team_size_min) > parseInt(team_size_max)) {
+      return res.status(400).json({ message: 'Team size must be between 2 and 4 members.' });
     }
 
     let finalStatus = status || 'draft';
@@ -133,10 +150,10 @@ exports.createRegistrationForm = async (req, res) => {
 
     const [result] = await db.execute(`
       INSERT INTO registration_forms 
-      (title, instructions, branch, branch_id, academic_year, semester, section, team_size_min, team_size_max, project_type, start_date, deadline, status, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      (title, instructions, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type, start_date, deadline, status, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
-    `, [title, instructions, branch, finalBranchId, academic_year || '2025-26', semester, section, team_size_min, team_size_max, project_type, start_date || null, deadline || null, finalStatus, created_by]);
+    `, [title, instructions, branch, finalBranchId, academic_year || '2025-26', semester, section, subsection || null, team_size_min, team_size_max, project_type, start_date || null, deadline || null, finalStatus, created_by]);
     
     console.log("Created registration form:", result.rows ? result.rows[0] : result[0]);
 

@@ -20,6 +20,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
     let sYear = null;
     let sSemester = null;
     let sSection = null;
+    let sSubsection = null;
 
     if (studentData.length > 0) {
       student = studentData[0];
@@ -29,6 +30,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
       sYear = student.year || student.academic_year;
       sSemester = student.semester;
       sSection = student.section;
+      sSubsection = student.subsection;
     } else {
       console.log("Student profile not found. Using fallback.");
     }
@@ -36,7 +38,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
     let forms = [];
 
     // Fallback 1: If student details are missing/null
-    if (!student.branch_id || !sYear || !sSemester || !sSection) {
+    if (!student.branch_id || !sYear || !sSemester || !sSection || !sSubsection) {
       console.log("Student profile missing details. Fetching all published forms.");
       const [allForms] = await db.execute(`
         SELECT * FROM registration_forms
@@ -55,8 +57,9 @@ exports.getActiveRegistrationForms = async (req, res) => {
         AND academic_year=$2
         AND semester=$3
         AND section=$4
+        AND subsection=$5
         AND (start_date IS NULL OR deadline IS NULL OR CURRENT_TIMESTAMP BETWEEN start_date AND deadline)
-      `, [student.branch_id, sYear, sSemester, sSection]);
+      `, [student.branch_id, sYear, sSemester, sSection, sSubsection]);
       
       forms = matchingForms;
       console.log("Matched forms:", forms);

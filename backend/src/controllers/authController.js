@@ -3,11 +3,21 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const generateToken = require('../utils/generateToken');
 
+// Lazy initialize students table columns if they don't exist
+(async () => {
+  try {
+    await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS section VARCHAR(10);');
+    await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS subsection VARCHAR(10);');
+  } catch (err) {
+    console.warn("Optional student columns section/subsection might already exist or error:", err.message);
+  }
+})();
+
 // @desc    Register a new student
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res) => {
-  const { full_name, email, password, roll_number, branch_id } = req.body;
+  const { full_name, email, password, roll_number, branch_id, section, subsection } = req.body;
 
   if (!full_name || !email || !password) {
     return res.status(400).json({ message: 'Name, email, and password are required' });
@@ -44,8 +54,8 @@ exports.register = async (req, res) => {
     // Add student record (branch_id defaults to 1 if not provided)
     console.log('Attempting to create student record for roll_number:', roll_number);
     await db.execute(
-      'INSERT INTO students (user_id, roll_number, branch_id, semester, academic_year) VALUES (?, ?, ?, ?, ?) ON CONFLICT (user_id) DO NOTHING',
-      [userId, roll_number || `STU${userId}`, branch_id || 1, 1, '2024-25']
+      'INSERT INTO students (user_id, roll_number, branch_id, semester, academic_year, section, subsection) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (user_id) DO NOTHING',
+      [userId, roll_number || `STU${userId}`, branch_id || 1, 1, '2024-25', section || '1', subsection || '1']
     ).then(() => console.log('Student record created successfully'))
     .catch((err) => console.error('Student record creation failed:', err.message));
 

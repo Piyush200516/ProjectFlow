@@ -13,6 +13,8 @@ const Signup = () => {
     confirmPassword: '',
     rollNumber: '',
     branch: '1',
+    section: '1',
+    subsection: '1',
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -26,7 +28,7 @@ const Signup = () => {
     }
     setIsLoading(true);
     try {
-      await signup(formData.email, formData.password, formData.name, 'student', formData.rollNumber, formData.branch);
+      await signup(formData.email, formData.password, formData.name, 'student', formData.rollNumber, formData.branch, formData.section, formData.subsection);
       toast.success('Account created! Welcome to ProjectFlow.');
       navigate('/student/dashboard', { replace: true });
     } catch (error) {
@@ -90,6 +92,32 @@ const Signup = () => {
                   <option value="3">Electronics & Communication</option>
                   <option value="4">Mechanical Engineering</option>
                 </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-900 ml-1">Section</label>
+                  <select
+                    required
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
+                    onChange={(e) => setFormData({...formData, section: e.target.value})}
+                    value={formData.section}
+                  >
+                    {[1,2,3,4,5,6].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-900 ml-1">Subsection</label>
+                  <select
+                    required
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
+                    onChange={(e) => setFormData({...formData, subsection: e.target.value})}
+                    value={formData.subsection}
+                  >
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-2">
