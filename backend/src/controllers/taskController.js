@@ -6,7 +6,9 @@ const db = require('../config/db');
 exports.getTasksByProject = async (req, res) => {
   try {
     const [tasks] = await db.execute(
-      'SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC',
+      `SELECT * FROM tasks
+       WHERE project_id = ?
+       ORDER BY due_date ASC NULLS LAST, created_at DESC`,
       [req.params.projectId]
     );
     // Parse JSON members field if present
@@ -31,7 +33,7 @@ exports.getTasksByProject = async (req, res) => {
 // @route   POST /api/tasks
 // @access  Private
 exports.createTask = async (req, res) => {
-  const { title, status, priority, projectId, members, comments, attachments } = req.body;
+  const { title, status, priority, projectId, members, comments, attachments, due_date } = req.body;
 
   if (!title || !projectId) {
     return res.status(400).json({ message: 'Title and projectId are required' });
@@ -39,8 +41,8 @@ exports.createTask = async (req, res) => {
 
   try {
     const [result] = await db.execute(
-      `INSERT INTO tasks (title, status, priority, project_id, members, comments, attachments, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (title, status, priority, project_id, members, comments, attachments, created_by, due_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         status || 'Requirements',
@@ -50,6 +52,7 @@ exports.createTask = async (req, res) => {
         comments || 0,
         attachments || 0,
         req.user.id,
+        due_date || null,
       ]
     );
 
@@ -77,7 +80,7 @@ exports.createTask = async (req, res) => {
 // @route   PUT /api/tasks/:id
 // @access  Private
 exports.updateTask = async (req, res) => {
-  const { title, status, priority, members, comments, attachments } = req.body;
+  const { title, status, priority, members, comments, attachments, due_date } = req.body;
 
   try {
     const fields = [];
@@ -89,6 +92,7 @@ exports.updateTask = async (req, res) => {
     if (members !== undefined)     { fields.push('members = ?');     values.push(JSON.stringify(members)); }
     if (comments !== undefined)    { fields.push('comments = ?');    values.push(comments); }
     if (attachments !== undefined) { fields.push('attachments = ?'); values.push(attachments); }
+    if (due_date !== undefined)    { fields.push('due_date = ?');    values.push(due_date || null); }
 
     if (fields.length === 0) {
       return res.status(400).json({ message: 'No fields to update' });

@@ -566,7 +566,7 @@ exports.submitDocument = async (req, res) => {
 
     res.status(201).json({
       message: 'Document submitted successfully',
-      submissionId: resultId = subResult.insertId,
+      submissionId: subResult.insertId,
       isLate,
       lateDays,
       scoreAwarded: finalScore

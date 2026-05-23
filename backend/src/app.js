@@ -12,6 +12,9 @@ const hodRoutes = require('./routes/hodRoutes');
 const teamRoutes = require('./routes/teamRoutes');
 const workflowRoutes = require('./routes/workflowRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const cdcRoutes = require('./routes/cdcRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const milestoneRoutes = require('./routes/milestoneRoutes');
 
 const app = express();
 
@@ -73,6 +76,9 @@ app.use('/api/hod', hodRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/workflow', workflowRoutes);
 app.use('/api/student', studentRoutes);
+app.use('/api/cdc', cdcRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/milestones', milestoneRoutes);
 
 // Base route
 app.get('/', (req, res) => {

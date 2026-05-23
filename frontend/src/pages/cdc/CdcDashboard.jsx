@@ -5,13 +5,8 @@ import {
   Handshake, 
   Zap,
   Loader2,
-  TrendingUp,
-  Plus,
-  Search
 } from 'lucide-react';
 import { 
-  BarChart, 
-  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -19,9 +14,6 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  PieChart,
-  Pie,
-  Cell
 } from 'recharts';
 import { 
   PageHeader, 
@@ -67,14 +59,6 @@ const CdcDashboard = () => {
     { month: 'Apr', count: 12 },
     { month: 'May', count: 18 },
   ];
-
-  const distributionData = [
-    { name: 'FinTech', value: 40 },
-    { name: 'EduTech', value: 30 },
-    { name: 'HealthTech', value: 30 },
-  ];
-
-  const COLORS = ['#2563eb', '#8b5cf6', '#10b981'];
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">

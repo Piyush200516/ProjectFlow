@@ -443,7 +443,18 @@ exports.getNotifications = async (req, res) => {
   const userId = req.user.id;
   try {
     const [notifications] = await db.execute(
-      'SELECT id, title, message, type, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20',
+      `SELECT id,
+              title,
+              message,
+              type,
+              is_read,
+              created_at,
+              TO_CHAR(created_at, 'DD Mon YYYY') as notification_date,
+              TO_CHAR(created_at, 'HH12:MI AM') as notification_time
+       FROM notifications
+       WHERE user_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT 3`,
       [userId]
     );
     res.json(notifications);

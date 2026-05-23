@@ -9,7 +9,8 @@ import {
   MessageSquare,
   Loader2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../lib/api';

@@ -115,7 +115,7 @@ const StudentKanban = () => {
   const [tasks, setTasks] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', status: 'Requirements', priority: 'Medium' });
+  const [newTask, setNewTask] = useState({ title: '', status: 'Requirements', priority: 'Medium', due_date: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
@@ -169,7 +169,7 @@ const StudentKanban = () => {
       const { data } = await api.post('/tasks', taskData);
       setTasks((prev) => [...prev, data]);
       setIsModalOpen(false);
-      setNewTask({ title: '', status: 'Requirements', priority: 'Medium' });
+      setNewTask({ title: '', status: 'Requirements', priority: 'Medium', due_date: '' });
       toast.success('Task added');
     } catch (error) {
       console.error('Error adding task:', error);
@@ -350,6 +350,15 @@ const StudentKanban = () => {
               onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
               placeholder="What needs to be done?"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-900 ml-1">Deadline</label>
+            <input
+              type="date"
+              value={newTask.due_date}
+              onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
             />
           </div>
           <div className="grid grid-cols-2 gap-6">

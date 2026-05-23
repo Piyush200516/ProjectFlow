@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -13,13 +13,8 @@ import {
   Bell,
   Search,
   Menu,
-  X,
-  User,
-  ChevronRight,
   ChevronDown,
-  HelpCircle,
   Rocket,
-  Lightbulb,
   Handshake,
   ShieldCheck,
   Building2,
@@ -27,6 +22,7 @@ import {
   Calendar as CalendarIcon,
   MessageCircle
 } from 'lucide-react';
+import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/utils';
 import { toast } from 'sonner';
@@ -55,15 +51,30 @@ const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
   </Link>
 );
 
-const NotificationDropdown = ({ isOpen, onClose }) => {
-  const notifications = [
-    { id: 1, text: 'Mentor assigned SRS Template', time: '10 mins ago', type: 'doc', unread: true },
-    { id: 2, text: 'Project Phase 1 deadline tomorrow', time: '2 hours ago', type: 'alert', unread: true },
-    { id: 3, text: 'HOD commented on your proposal', time: 'Yesterday', type: 'comment', unread: false },
-    { id: 4, text: 'Task "Design DB" assigned to you', time: 'Yesterday', type: 'task', unread: false },
-  ];
-
+const NotificationDropdown = ({ isOpen, onClose, notifications, onRead }) => {
   if (!isOpen) return null;
+  const recentNotifications = [...notifications]
+    .sort((a, b) => {
+      const byDate = new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      return byDate || ((b.id || 0) - (a.id || 0));
+    })
+    .slice(0, 3);
+
+  const formatNotificationDateTime = (notification) => {
+    if (notification.notification_date && notification.notification_time) {
+      return `${notification.notification_date} at ${notification.notification_time}`;
+    }
+
+    if (!notification.created_at) return '';
+
+    return new Date(notification.created_at).toLocaleString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <>
@@ -71,23 +82,28 @@ const NotificationDropdown = ({ isOpen, onClose }) => {
       <div className="absolute top-12 right-0 w-80 bg-white border border-slate-200 shadow-xl rounded-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
         <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <span className="font-bold text-slate-800 text-sm">Notifications</span>
-          <button className="text-[10px] font-semibold text-blue-600 hover:text-blue-800">Mark all as read</button>
         </div>
         <div className="max-h-[300px] overflow-y-auto">
-          {notifications.map((n) => (
-            <div key={n.id} className={cn("p-3 border-b border-slate-50 flex gap-3 hover:bg-slate-50 transition-colors cursor-pointer", n.unread && "bg-blue-50/30")}>
-              <div className="mt-0.5">
-                {n.unread ? <div className="w-2 h-2 bg-blue-600 rounded-full"></div> : <div className="w-2 h-2"></div>}
+          {recentNotifications.length === 0 ? (
+            <div className="p-4 text-center text-sm text-slate-500">No new notifications</div>
+          ) : (
+            recentNotifications.map((n) => (
+              <div 
+                key={n.id} 
+                onClick={() => onRead(n)}
+                className={cn("p-3 border-b border-slate-50 flex gap-3 hover:bg-slate-50 transition-colors cursor-pointer", !n.is_read && "bg-blue-50/30")}
+              >
+                <div className="mt-0.5">
+                  {!n.is_read ? <div className="w-2 h-2 bg-blue-600 rounded-full"></div> : <div className="w-2 h-2"></div>}
+                </div>
+                <div>
+                  <p className={cn("text-xs leading-snug", !n.is_read ? "font-semibold text-slate-900" : "font-medium text-slate-600")}>{n.title}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{n.message}</p>
+                  <p className="text-[9px] text-slate-400 font-medium mt-1">{formatNotificationDateTime(n)}</p>
+                </div>
               </div>
-              <div>
-                <p className={cn("text-xs leading-snug", n.unread ? "font-semibold text-slate-900" : "font-medium text-slate-600")}>{n.text}</p>
-                <p className="text-[10px] text-slate-400 font-medium mt-1">{n.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="p-2 border-t border-slate-100 text-center bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">View All Notifications</span>
+            ))
+          )}
         </div>
       </div>
     </>
@@ -98,8 +114,46 @@ const DashboardLayout = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isCollapsed, setCollapsed] = useState(false);
   const [isNotifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  const fetchNotifications = async () => {
+    if (user) {
+      try {
+        const endpoint = user.role === 'student' ? '/student/notifications' : '/notifications';
+        const res = await api.get(endpoint);
+        setNotifications(res.data);
+      } catch (error) {
+        console.error("Failed to fetch notifications");
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [user]);
+
+  const handleReadNotification = async (notif) => {
+    try {
+      if (!notif.is_read) {
+        const endpoint = user?.role === 'student'
+          ? `/student/notifications/${notif.id}/read`
+          : `/notifications/${notif.id}/read`;
+        await api.patch(endpoint);
+        fetchNotifications();
+      }
+      setNotifOpen(false);
+      if (notif.type === 'registration_form' || notif.reference_type === 'registration_form') {
+        navigate('/student/project-form');
+      }
+    } catch (error) {
+      console.error("Failed to read notification");
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   useEffect(() => {
     const handleResize = () => {
@@ -152,14 +206,19 @@ const DashboardLayout = ({ children }) => {
       { icon: FileText, label: 'Dept Templates', href: '/hod/templates' },
       { icon: CheckSquare, label: 'Doc Tracking', href: '/hod/submission-tracking' },
     ],
+    cdc: [
+      { icon: LayoutDashboard, label: 'Dashboard', href: '/cdc/dashboard' },
+      { icon: Rocket, label: 'Startups', href: '/cdc/startups' },
+      { icon: Handshake, label: 'Partnerships', href: '/cdc/industry-collaboration' },
+    ],
   };
 
   const currentMenu = menuItems[user?.role || 'student'] || [];
 
   const handleLogout = () => {
-    const role = user?.role || 'student';
     logout();
     toast.success('Logged out successfully');
+    navigate(`/auth/${user?.role || 'student'}/login`, { replace: true });
   };
 
   return (
@@ -254,9 +313,16 @@ const DashboardLayout = ({ children }) => {
                 className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg transition-all relative"
               >
                 <Bell size={18} strokeWidth={1.5} />
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-600 rounded-full border border-white"></span>
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-600 rounded-full border border-white"></span>
+                )}
               </button>
-              <NotificationDropdown isOpen={isNotifOpen} onClose={() => setNotifOpen(false)} />
+              <NotificationDropdown 
+                isOpen={isNotifOpen} 
+                onClose={() => setNotifOpen(false)} 
+                notifications={notifications}
+                onRead={handleReadNotification}
+              />
             </div>
             
             <div className="h-4 w-px bg-slate-200 mx-1"></div>

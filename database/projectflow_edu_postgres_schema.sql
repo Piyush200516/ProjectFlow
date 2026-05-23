@@ -38,10 +38,12 @@ DROP TABLE IF EXISTS approvals CASCADE;
 DROP TABLE IF EXISTS evaluations CASCADE;
 DROP TABLE IF EXISTS mentor_feedback CASCADE;
 DROP TABLE IF EXISTS final_submissions CASCADE;
+DROP TABLE IF EXISTS milestone_submissions CASCADE;
 DROP TABLE IF EXISTS document_versions CASCADE;
 DROP TABLE IF EXISTS document_submissions CASCADE;
 DROP TABLE IF EXISTS document_assignments CASCADE;
 DROP TABLE IF EXISTS document_templates CASCADE;
+DROP TABLE IF EXISTS project_milestones CASCADE;
 DROP TABLE IF EXISTS milestones CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS sdlc_stages CASCADE;
@@ -236,6 +238,46 @@ CREATE TABLE milestones (
 COMMENT ON TABLE milestones IS 'Major project milestones and deadlines';
 
 -- =========================================================================
+-- TABLE: project_milestones
+-- Purpose: Project-specific academic document timeline created by mentors/HODs.
+-- =========================================================================
+CREATE TABLE project_milestones (
+    id SERIAL PRIMARY KEY,
+    project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title VARCHAR(150) NOT NULL,
+    description TEXT,
+    sequence_order INT NOT NULL,
+    deadline TIMESTAMP NOT NULL,
+    created_by INT REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_project_milestone_order UNIQUE (project_id, sequence_order)
+);
+
+COMMENT ON TABLE project_milestones IS 'Document submission milestones such as Synopsis, SRS, PPT, Poster, Report, and GitHub final submission';
+
+-- =========================================================================
+-- TABLE: milestone_submissions
+-- Purpose: Student uploads against project timeline milestones.
+-- =========================================================================
+CREATE TABLE milestone_submissions (
+    id SERIAL PRIMARY KEY,
+    milestone_id INT NOT NULL REFERENCES project_milestones(id) ON DELETE CASCADE,
+    project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    submitted_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_url VARCHAR(1000),
+    status VARCHAR(20) DEFAULT 'Submitted' CHECK (status IN ('Submitted', 'Reviewed', 'Rejected')),
+    is_late BOOLEAN DEFAULT FALSE,
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    remarks TEXT,
+    CONSTRAINT unique_milestone_student_submission UNIQUE (milestone_id, submitted_by)
+);
+
+COMMENT ON TABLE milestone_submissions IS 'Student file uploads for each project milestone with late status tracking';
+
+-- =========================================================================
 -- 5. DOCUMENT WORKSPACE & TEMPLATES
 -- =========================================================================
 
@@ -411,7 +453,9 @@ CREATE TABLE notifications (
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
-    type VARCHAR(20) DEFAULT 'Info' CHECK (type IN ('Success', 'Info', 'Warning', 'Error')),
+    type VARCHAR(50) DEFAULT 'Info',
+    reference_id INT,
+    reference_type VARCHAR(50),
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -597,6 +641,10 @@ CREATE INDEX idx_project_members_student ON project_members(student_id);
 CREATE INDEX idx_tasks_project ON tasks(project_id);
 
 CREATE INDEX idx_tasks_created_by ON tasks(created_by);
+CREATE INDEX idx_project_milestones_project ON project_milestones(project_id);
+CREATE INDEX idx_milestone_submissions_milestone ON milestone_submissions(milestone_id);
+CREATE INDEX idx_milestone_submissions_project ON milestone_submissions(project_id);
+CREATE INDEX idx_milestone_submissions_student ON milestone_submissions(submitted_by);
 CREATE INDEX idx_document_assignments_project ON document_assignments(project_id);
 CREATE INDEX idx_document_submissions_assignment ON document_submissions(assignment_id);
 CREATE INDEX idx_document_submissions_project ON document_submissions(project_id);

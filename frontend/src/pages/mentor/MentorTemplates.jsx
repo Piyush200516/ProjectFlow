@@ -16,6 +16,15 @@ import { toast } from 'sonner';
 import api from '../../lib/api';
 import { Modal, SectionCard } from '../../components/common/PremiumComponents';
 
+const defaultMilestoneNames = [
+  'Synopsis',
+  'SRS',
+  'PPT',
+  'Poster',
+  'Project Report',
+  'GitHub Final Submission'
+];
+
 const MentorTemplates = () => {
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState([]);
@@ -23,6 +32,13 @@ const MentorTemplates = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [timelineForm, setTimelineForm] = useState({
+    project_id: '',
+    start_date: new Date().toISOString().slice(0, 10),
+    interval_days: 15,
+  });
+  const [creatingTimeline, setCreatingTimeline] = useState(false);
 
   // Form states
   const [uploadForm, setUploadForm] = useState({
@@ -45,8 +61,15 @@ const MentorTemplates = () => {
 
   const fetchTemplates = async () => {
     try {
-      const res = await api.get('/workflow/projects/deadlines');
+      const [res, projectsRes] = await Promise.all([
+        api.get('/workflow/projects/deadlines'),
+        api.get('/projects')
+      ]);
       setTemplates(res.data);
+      setProjects(projectsRes.data);
+      if (projectsRes.data.length > 0) {
+        setTimelineForm(prev => ({ ...prev, project_id: prev.project_id || String(projectsRes.data[0].id) }));
+      }
     } catch (error) {
       console.error('Failed to fetch templates:', error);
       toast.error('Failed to load active templates and deadlines');
@@ -134,6 +157,30 @@ const MentorTemplates = () => {
     (t.template_title || t.title || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleCreateTimeline = async (e) => {
+    e.preventDefault();
+    if (!timelineForm.project_id || !timelineForm.start_date) {
+      toast.error('Select a project and start date');
+      return;
+    }
+
+    setCreatingTimeline(true);
+    try {
+      await api.post('/milestones/timeline', {
+        project_id: Number(timelineForm.project_id),
+        start_date: timelineForm.start_date,
+        interval_days: Number(timelineForm.interval_days) || 15,
+        milestones: defaultMilestoneNames
+      });
+      toast.success('Project timeline created with 6 document milestones');
+    } catch (error) {
+      console.error('Failed to create project timeline:', error);
+      toast.error(error.response?.data?.message || 'Failed to create timeline');
+    } finally {
+      setCreatingTimeline(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -169,6 +216,64 @@ const MentorTemplates = () => {
           </button>
         </div>
       </div>
+
+      <SectionCard title="Project Document Timeline" subtitle="Create 6 deliverable milestones, one every 15 days">
+        <form onSubmit={handleCreateTimeline} className="grid grid-cols-1 md:grid-cols-[1fr_180px_140px_auto] gap-4 items-end">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 uppercase">Project</label>
+            <select
+              value={timelineForm.project_id}
+              onChange={(e) => setTimelineForm(prev => ({ ...prev, project_id: e.target.value }))}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
+            >
+              {projects.length === 0 ? (
+                <option value="">No projects found</option>
+              ) : (
+                projects.map(project => (
+                  <option key={project.id} value={project.id}>{project.title}</option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 uppercase">Start Date</label>
+            <input
+              type="date"
+              value={timelineForm.start_date}
+              onChange={(e) => setTimelineForm(prev => ({ ...prev, start_date: e.target.value }))}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 uppercase">Interval</label>
+            <input
+              type="number"
+              min="1"
+              value={timelineForm.interval_days}
+              onChange={(e) => setTimelineForm(prev => ({ ...prev, interval_days: e.target.value }))}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={creatingTimeline || !timelineForm.project_id}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-slate-400 transition-colors"
+          >
+            {creatingTimeline ? 'Creating...' : 'Create Timeline'}
+          </button>
+        </form>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {defaultMilestoneNames.map((name, index) => (
+            <span key={name} className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              Day {(index + 1) * (Number(timelineForm.interval_days) || 15)}: {name}
+            </span>
+          ))}
+        </div>
+      </SectionCard>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTemplates.map((template) => (

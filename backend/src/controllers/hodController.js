@@ -25,6 +25,25 @@ const db = require('../config/db');
             );
         `;
         await db.execute(createRegistrationFormsTable);
+        
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                type VARCHAR(50),
+                reference_id INT,
+                reference_type VARCHAR(50),
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id INT;`);
+        await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_type VARCHAR(50);`);
+        await db.execute(`ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(50);`);
+        await db.execute(`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;`);
+
         // Remove the old constraint safely to allow lowercase statuses
         try {
             await db.execute(`ALTER TABLE registration_forms DROP CONSTRAINT IF EXISTS registration_forms_status_check;`);
@@ -58,6 +77,62 @@ const db = require('../config/db');
         console.error('Failed to init HOD tables:', e);
     }
 })();
+
+const REGISTRATION_FORM_NOTIFICATION_TITLE = 'New Project Registration Form';
+const REGISTRATION_FORM_NOTIFICATION_MESSAGE = 'HOD has published a new project registration form. Please fill your project and team details before the deadline.';
+
+const ensureRegistrationNotificationTable = async () => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      type VARCHAR(50),
+      reference_id INT,
+      reference_type VARCHAR(50),
+      is_read BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id INT;`);
+  await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_type VARCHAR(50);`);
+  await db.execute(`ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(50);`);
+  await db.execute(`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;`);
+};
+
+const notifyMatchingStudentsForRegistrationForm = async (form) => {
+  await ensureRegistrationNotificationTable();
+
+  const subsection = form.subsection || null;
+  const studentsResult = await db.pool.query(`
+    SELECT user_id FROM students
+    WHERE branch_id = $1
+      AND academic_year = $2
+      AND semester = $3
+      AND section = $4
+      AND (
+        subsection = $5 OR $5 IS NULL OR $5 = ''
+      )
+  `, [form.branch_id, form.academic_year, form.semester, form.section, subsection]);
+
+  const studentIds = [...new Set(studentsResult.rows.map((student) => student.user_id).filter(Boolean))];
+
+  await Promise.all(studentIds.map((studentUserId) => db.execute(`
+    INSERT INTO notifications
+    (user_id, title, message, type, reference_id, reference_type, is_read)
+    VALUES ($1, $2, $3, $4, $5, $6, false)
+  `, [
+    studentUserId,
+    REGISTRATION_FORM_NOTIFICATION_TITLE,
+    REGISTRATION_FORM_NOTIFICATION_MESSAGE,
+    'registration_form',
+    form.id,
+    'registration_form'
+  ])));
+
+  return studentIds.length;
+};
 
 // @desc    Get HOD dashboard stats (department wide)
 // @route   GET /api/hod/dashboard-stats
@@ -105,6 +180,32 @@ exports.getAllProjects = async (req, res) => {
   }
 };
 
+exports.getStudents = async (req, res) => {
+  try {
+    const [students] = await db.execute(
+      `SELECT u.id,
+              u.full_name,
+              u.email,
+              u.is_active,
+              s.roll_number,
+              s.semester,
+              s.academic_year,
+              s.section,
+              s.subsection,
+              b.name as branch_name
+       FROM users u
+       JOIN students s ON u.id = s.user_id
+       LEFT JOIN branches b ON s.branch_id = b.id
+       WHERE u.role = 'student'
+       ORDER BY u.full_name ASC`
+    );
+    res.json(students);
+  } catch (error) {
+    console.error('getStudents error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // 1. Create Project Registration Form
 exports.createRegistrationForm = async (req, res) => {
   try {
@@ -114,6 +215,41 @@ exports.createRegistrationForm = async (req, res) => {
       team_size_min, team_size_max, project_type, start_date, deadline, status
     } = req.body;
     const created_by = req.user.id;
+    let resolvedBranch = branch;
+    let finalBranchId = branch_id;
+
+    if (!resolvedBranch && finalBranchId) {
+      const branchResult = await db.pool.query('SELECT name FROM branches WHERE id = $1', [finalBranchId]);
+      resolvedBranch = branchResult.rows[0]?.name;
+    }
+
+    if (!title || !resolvedBranch || !academic_year || !semester || !section || !project_type || !start_date || !deadline) {
+      return res.status(400).json({
+        message: 'Title, branch, academic year, semester, section, project type, start date, and deadline are required.'
+      });
+    }
+
+    const parsedSemester = parseInt(semester, 10);
+    const parsedTeamSizeMin = parseInt(team_size_min, 10);
+    const parsedTeamSizeMax = parseInt(team_size_max, 10);
+    const parsedStartDate = new Date(start_date);
+    const parsedDeadline = new Date(deadline);
+
+    if (Number.isNaN(parsedSemester)) {
+      return res.status(400).json({ message: 'Semester must be a valid number.' });
+    }
+
+    if (Number.isNaN(parsedTeamSizeMin) || Number.isNaN(parsedTeamSizeMax)) {
+      return res.status(400).json({ message: 'Team size must be valid numbers.' });
+    }
+
+    if (Number.isNaN(parsedStartDate.getTime()) || Number.isNaN(parsedDeadline.getTime())) {
+      return res.status(400).json({ message: 'Start date and deadline must be valid dates.' });
+    }
+
+    if (parsedDeadline <= parsedStartDate) {
+      return res.status(400).json({ message: 'Deadline must be after the start date.' });
+    }
 
     if (academic_year) {
       const currentMonth = new Date().getMonth();
@@ -126,14 +262,14 @@ exports.createRegistrationForm = async (req, res) => {
       }
     }
 
-    if (project_type === 'Minor Project' && ![5, 6].includes(parseInt(semester))) {
+    if (project_type === 'Minor Project' && ![5, 6].includes(parsedSemester)) {
       return res.status(400).json({ message: 'Invalid semester for Minor Project. Must be 5 or 6.' });
     }
-    if (project_type === 'Major Project' && ![7, 8].includes(parseInt(semester))) {
+    if (project_type === 'Major Project' && ![7, 8].includes(parsedSemester)) {
       return res.status(400).json({ message: 'Invalid semester for Major Project. Must be 7 or 8.' });
     }
 
-    if (parseInt(team_size_min) < 2 || parseInt(team_size_max) > 4 || parseInt(team_size_min) > parseInt(team_size_max)) {
+    if (parsedTeamSizeMin < 2 || parsedTeamSizeMax > 4 || parsedTeamSizeMin > parsedTeamSizeMax) {
       return res.status(400).json({ message: 'Team size must be between 2 and 4 members.' });
     }
 
@@ -142,22 +278,34 @@ exports.createRegistrationForm = async (req, res) => {
     if (finalStatus.toLowerCase() === 'draft') finalStatus = 'draft';
     if (finalStatus.toLowerCase() === 'closed') finalStatus = 'closed';
 
-    let finalBranchId = branch_id;
     if (!finalBranchId) {
-      if (branch === 'Electronics & Communication Engineering') finalBranchId = 2;
+      if (resolvedBranch === 'Electronics & Communication Engineering') finalBranchId = 2;
       else finalBranchId = 1;
     }
 
-    const [result] = await db.execute(`
+    const result = await db.pool.query(`
       INSERT INTO registration_forms 
       (title, instructions, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type, start_date, deadline, status, created_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
-    `, [title, instructions, branch, finalBranchId, academic_year || '2025-26', semester, section, subsection || null, team_size_min, team_size_max, project_type, start_date || null, deadline || null, finalStatus, created_by]);
+    `, [title, instructions, resolvedBranch, finalBranchId, academic_year, parsedSemester, section, subsection || null, parsedTeamSizeMin, parsedTeamSizeMax, project_type, start_date, deadline, finalStatus, created_by]);
     
-    console.log("Created registration form:", result.rows ? result.rows[0] : result[0]);
+    const newForm = result.rows[0];
+    console.log("Created registration form:", newForm);
 
-    res.status(201).json(result.rows ? result.rows[0] : result[0]);
+    let notifiedStudentsCount = 0;
+    if (finalStatus === 'published') {
+      notifiedStudentsCount = await notifyMatchingStudentsForRegistrationForm(newForm);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: finalStatus === 'published'
+        ? "Registration form published and notifications sent"
+        : "Registration form created",
+      notifiedStudents: notifiedStudentsCount,
+      data: newForm
+    });
   } catch (error) {
     console.error('createRegistrationForm error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -183,21 +331,65 @@ exports.updateRegistrationForm = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    
-    // Simplistic update for now, ideally parameterized dynamically
-    const fields = Object.keys(updates).map((key, idx) => `${key} = $${idx + 1}`).join(', ');
-    const values = Object.values(updates);
+
+    const allowedFields = new Set([
+      'title',
+      'instructions',
+      'branch',
+      'branch_id',
+      'academic_year',
+      'semester',
+      'section',
+      'subsection',
+      'team_size_min',
+      'team_size_max',
+      'project_type',
+      'start_date',
+      'deadline',
+      'status'
+    ]);
+    const entries = Object.entries(updates)
+      .filter(([key]) => allowedFields.has(key))
+      .map(([key, value]) => {
+        if (key === 'status') {
+          const normalizedStatus = String(value).toLowerCase();
+          if (normalizedStatus === 'published' || normalizedStatus === 'active') return [key, 'published'];
+          if (normalizedStatus === 'draft') return [key, 'draft'];
+          if (normalizedStatus === 'closed') return [key, 'closed'];
+        }
+        return [key, value];
+      });
+
+    if (entries.length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update' });
+    }
+
+    const fields = entries.map(([key], idx) => `${key} = $${idx + 1}`).join(', ');
+    const values = entries.map(([, value]) => value);
     values.push(id);
     
-    const [result] = await db.execute(`
+    const result = await db.pool.query(`
       UPDATE registration_forms 
       SET ${fields}, updated_at = NOW()
       WHERE id = $${values.length}
       RETURNING *
     `, values);
     
-    if (result.length === 0) return res.status(404).json({ message: 'Form not found' });
-    res.json(result[0]);
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Form not found' });
+
+    const updatedForm = result.rows[0];
+    const shouldNotifyStudents = entries.some(([key, value]) => key === 'status' && value === 'published');
+    if (shouldNotifyStudents) {
+      const notifiedStudents = await notifyMatchingStudentsForRegistrationForm(updatedForm);
+      return res.json({
+        success: true,
+        message: "Registration form published and notifications sent",
+        notifiedStudents,
+        data: updatedForm
+      });
+    }
+
+    res.json(updatedForm);
   } catch (error) {
     console.error('updateRegistrationForm error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -208,11 +400,23 @@ exports.publishRegistrationForm = async (req, res) => {
   try {
     const { id } = req.params;
     console.log('Publish request for form id:', id);
-    const [result] = await db.execute(`
+    const result = await db.pool.query(`
       UPDATE registration_forms SET status = 'published', updated_at = NOW() WHERE id = $1 RETURNING *
     `, [id]);
     console.log('Published form result:', result);
-    res.json(result[0]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Form not found' });
+    }
+
+    const publishedForm = result.rows[0];
+    const notifiedStudents = await notifyMatchingStudentsForRegistrationForm(publishedForm);
+
+    res.json({
+      success: true,
+      message: "Registration form published and notifications sent",
+      notifiedStudents,
+      data: publishedForm
+    });
   } catch (error) {
     console.error('publishRegistrationForm error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

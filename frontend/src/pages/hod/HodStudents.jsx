@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Filter, Loader2, Mail } from 'lucide-react';
+import { Search, Filter, Loader2, Mail } from 'lucide-react';
 import { PageHeader, SectionCard } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
 import { toast } from 'sonner';
@@ -12,15 +12,8 @@ const HodStudents = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        // We'll use a generic /auth/users or /students endpoint if available, 
-        // for now let's assume we can fetch students from a dedicated endpoint
-        const { data } = await api.get('/auth/me'); // This is just to test API connection
-        // In a real app, HOD would have access to list all users
-        // Mocking for now since we don't have a list-all-users API yet
-        setStudents([
-          { id: 1, full_name: 'Piyush Mishra', email: 'student@college.edu', role: 'student', active: true },
-          { id: 2, full_name: 'Rahul Verma', email: 'rahul@college.edu', role: 'student', active: true },
-        ]);
+        const { data } = await api.get('/hod/students');
+        setStudents(data);
       } catch (error) {
         console.error('Failed to fetch students:', error);
         toast.error('Failed to load student registry');
@@ -73,19 +66,28 @@ const HodStudents = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {students.map((student) => (
+              {students
+                .filter((student) =>
+                  `${student.full_name || ''} ${student.email || ''} ${student.roll_number || ''}`
+                    .toLowerCase()
+                    .includes(searchTerm.toLowerCase())
+                )
+                .map((student) => (
                 <tr key={student.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer">
                   <td className="py-5">
                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-black text-slate-600">{student.full_name[0]}</div>
+                        <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-xs font-black text-slate-600">{student.full_name?.[0] || 'S'}</div>
                         <span className="font-black text-slate-800 text-sm tracking-tight">{student.full_name}</span>
+                     </div>
+                     <div className="text-[10px] font-bold text-slate-400 mt-1">
+                       {student.roll_number || 'No roll number'} {student.branch_name ? `• ${student.branch_name}` : ''}
                      </div>
                   </td>
                   <td className="py-5 text-xs font-bold text-slate-500">{student.email}</td>
                   <td className="py-5">
                     <div className="flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                       <span className="text-[10px] font-black uppercase text-slate-400">Active</span>
+                       <span className="text-[10px] font-black uppercase text-slate-400">{student.is_active ? 'Active' : 'Inactive'}</span>
                     </div>
                   </td>
                   <td className="py-5 text-right">

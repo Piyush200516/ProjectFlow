@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Rocket, Plus, Search, Filter, Loader2, ExternalLink } from 'lucide-react';
+import { Rocket, Plus, Search, Loader2, ExternalLink } from 'lucide-react';
 import { PageHeader, SectionCard, StatusBadge } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
 import { toast } from 'sonner';
@@ -24,8 +24,8 @@ const CdcStartups = () => {
     fetchStartups();
   }, []);
 
-  const filteredStartups = startups.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredStartups = startups.filter(s =>
+    (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {

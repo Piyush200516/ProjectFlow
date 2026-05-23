@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Handshake, Search, Filter, Loader2, Globe, ArrowUpRight } from 'lucide-react';
+import { Loader2, Globe, ArrowUpRight } from 'lucide-react';
 import { PageHeader, SectionCard, StatusBadge } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
 import { toast } from 'sonner';
@@ -12,13 +12,8 @@ const CdcIndustryCollaboration = () => {
   useEffect(() => {
     const fetchCollabs = async () => {
       try {
-        // We'll mock some data for now since we don't have a list endpoint for this yet,
-        // but it's set up to be easily connected.
-        setCollaborations([
-          { id: 1, partner_name: 'Google Cloud', type: 'MoU - R&D', status: 'Active', expiry: '2027-12-31' },
-          { id: 2, partner_name: 'Microsoft for Startups', type: 'Incubation Support', status: 'Active', expiry: '2026-06-30' },
-          { id: 3, partner_name: 'AWS EdStart', type: 'Cloud Credits', status: 'Active', expiry: '2026-01-15' },
-        ]);
+        const { data } = await api.get('/cdc/industry-collaborations');
+        setCollaborations(data);
       } catch (error) {
         console.error('Failed to fetch collaborations:', error);
         toast.error('Failed to load industry partnerships');
@@ -60,7 +55,7 @@ const CdcIndustryCollaboration = () => {
                <div className="flex items-center justify-between">
                   <StatusBadge status={collab.status} variant="success" />
                   <div className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                     Expires: {collab.expiry}
+                     Expires: {collab.expiry ? new Date(collab.expiry).toLocaleDateString() : 'N/A'}
                   </div>
                </div>
                <button className="w-full py-3 bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2">

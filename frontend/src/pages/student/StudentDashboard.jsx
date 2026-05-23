@@ -1,7 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { mockProjects } from '../../data/mockData';
 import { 
   PageHeader, 
   StatCard, 
@@ -31,9 +29,40 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import api from '../../lib/api';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const { data: projectData } = await api.get('/projects');
+        setProjects(projectData);
+        if (projectData.length > 0) {
+          const { data: taskData } = await api.get(`/tasks/project/${projectData[0].id}`);
+          setTasks(taskData);
+        }
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
+
+  const activeProject = projects[0];
+  const completedTasks = tasks.filter((task) => task.status === 'Completed').length;
+  const upcomingDeadlines = tasks.filter((task) => {
+    if (!task.due_date || task.status === 'Completed') return false;
+    const now = new Date();
+    const deadline = new Date(task.due_date);
+    const diffDays = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 7;
+  }).length;
+
   const chartData = [
     { name: 'Mon', tasks: 4 },
     { name: 'Tue', tasks: 7 },
@@ -68,9 +97,9 @@ const StudentDashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Briefcase} label="Active" value={mockProjects.length} trend="up" trendValue="12%" color="blue" />
-        <StatCard icon={CheckCircle2} label="Completed" value="48" trend="up" trendValue="8" color="green" />
-        <StatCard icon={Clock} label="Deadlines" value="3" color="amber" />
+        <StatCard icon={Briefcase} label="Active" value={projects.length} color="blue" />
+        <StatCard icon={CheckCircle2} label="Completed" value={completedTasks} color="green" />
+        <StatCard icon={Clock} label="Deadlines" value={upcomingDeadlines} color="amber" />
         <StatCard icon={AlertCircle} label="Feedback" value="2" trend="down" trendValue="1" color="indigo" />
       </div>
 
@@ -125,13 +154,13 @@ const StudentDashboard = () => {
           <SectionCard title="Featured Project" subtitle="Main active goal">
             <div className="space-y-5">
               <div>
-                <h4 className="text-xs font-semibold text-slate-900 mb-3 uppercase tracking-wider">{mockProjects[0].title}</h4>
-                <ProgressCard label="Completion" value={mockProjects[0].progress} color="blue" />
+                <h4 className="text-xs font-semibold text-slate-900 mb-3 uppercase tracking-wider">{activeProject?.title || 'No active project yet'}</h4>
+                <ProgressCard label="Completion" value={activeProject?.progress || 0} color="blue" />
               </div>
               <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                <StatusBadge status={mockProjects[0].status} variant="info" />
+                <StatusBadge status={activeProject?.status || 'Not Started'} variant="info" />
                 <button 
-                  onClick={() => navigate('/student/kanban')}
+                  onClick={() => navigate(activeProject ? `/student/kanban?projectId=${activeProject.id}` : '/student/projects')}
                   className="text-xs font-semibold text-slate-900 flex items-center gap-1 hover:underline underline-offset-4"
                 >
                   View Board <ArrowUpRight size={12} />

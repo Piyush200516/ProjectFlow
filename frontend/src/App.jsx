@@ -37,6 +37,9 @@ import HodStudents from './pages/hod/HodStudents';
 import HodApprovals from './pages/hod/HodApprovals';
 import HodTemplates from './pages/hod/HodTemplates';
 import HodSubmissionTracking from './pages/hod/HodSubmissionTracking';
+import CdcDashboard from './pages/cdc/CdcDashboard';
+import CdcStartups from './pages/cdc/CdcStartups';
+import CdcIndustryCollaboration from './pages/cdc/CdcIndustryCollaboration';
 import Signup from './pages/auth/Signup';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -156,6 +159,12 @@ function App() {
             </MicroFrontendGate>
           } />
 
+          <Route path="/auth/cdc/login" element={
+            <MicroFrontendGate allowedPortal="auth">
+              <Login role="cdc" title="CDC Sign In" />
+            </MicroFrontendGate>
+          } />
+
           {/* Legacy Redirects */}
           <Route path="/login" element={<Navigate to="/auth/student/login" replace />} />
           <Route path="/signup" element={<Navigate to="/auth/student/register" replace />} />
@@ -219,6 +228,18 @@ function App() {
             <Route path="templates" element={<HodTemplates />} />
             <Route path="submission-tracking" element={<HodSubmissionTracking />} />
             <Route path="settings" element={<MentorSettings />} /> 
+          </Route>
+
+          <Route path="/cdc" element={
+            <MicroFrontendGate allowedPortal="admin">
+              <ProtectedRoute allowedRoles={['cdc']} />
+            </MicroFrontendGate>
+          }>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<CdcDashboard />} />
+            <Route path="startups" element={<CdcStartups />} />
+            <Route path="industry-collaboration" element={<CdcIndustryCollaboration />} />
+            <Route path="settings" element={<MentorSettings />} />
           </Route>
 
           {/* Default Redirect */}

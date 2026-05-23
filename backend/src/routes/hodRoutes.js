@@ -3,6 +3,7 @@ const router = express.Router();
 const { 
   getHodStats, 
   getAllProjects,
+  getStudents,
   createRegistrationForm,
   getRegistrationForms,
   updateRegistrationForm,
@@ -16,33 +17,35 @@ const {
   exportReport,
   getMentors
 } = require('../controllers/hodController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, authorize } = require('../middleware/authMiddleware');
 
-// Existing
-router.get('/dashboard', protect, getHodStats); // Re-used for dashboard stats? Wait, prompt asked for /dashboard-stats. I will alias it.
-router.get('/dashboard-stats', protect, getHodStats);
-router.get('/projects', protect, getAllProjects);
+const hodOnly = [protect, authorize('hod', 'admin')];
+
+router.get('/dashboard', ...hodOnly, getHodStats);
+router.get('/dashboard-stats', ...hodOnly, getHodStats);
+router.get('/projects', ...hodOnly, getAllProjects);
+router.get('/students', ...hodOnly, getStudents);
 
 // 1. Registration Forms
-router.post('/registration-forms', protect, createRegistrationForm);
-router.get('/registration-forms', protect, getRegistrationForms);
-router.patch('/registration-forms/:id', protect, updateRegistrationForm);
-router.patch('/registration-forms/:id/publish', protect, publishRegistrationForm);
-router.patch('/registration-forms/:id/close', protect, closeRegistrationForm);
+router.post('/registration-forms', ...hodOnly, createRegistrationForm);
+router.get('/registration-forms', ...hodOnly, getRegistrationForms);
+router.patch('/registration-forms/:id', ...hodOnly, updateRegistrationForm);
+router.patch('/registration-forms/:id/publish', ...hodOnly, publishRegistrationForm);
+router.patch('/registration-forms/:id/close', ...hodOnly, closeRegistrationForm);
 
 // 2. Submissions
-router.get('/registration-submissions', protect, getRegistrationSubmissions);
-router.get('/registration-submissions/:id', protect, getRegistrationSubmissionById);
-router.patch('/registration-submissions/:id/approve', protect, approveRegistrationSubmission);
-router.patch('/registration-submissions/:id/reject', protect, rejectRegistrationSubmission);
+router.get('/registration-submissions', ...hodOnly, getRegistrationSubmissions);
+router.get('/registration-submissions/:id', ...hodOnly, getRegistrationSubmissionById);
+router.patch('/registration-submissions/:id/approve', ...hodOnly, approveRegistrationSubmission);
+router.patch('/registration-submissions/:id/reject', ...hodOnly, rejectRegistrationSubmission);
 
 // 3. Mentor Assignment
-router.post('/assign-mentor', protect, assignMentor);
+router.post('/assign-mentor', ...hodOnly, assignMentor);
 
 // 4. Mentors
-router.get('/mentors', protect, getMentors);
+router.get('/mentors', ...hodOnly, getMentors);
 
 // 5. Export
-router.get('/export-report', protect, exportReport);
+router.get('/export-report', ...hodOnly, exportReport);
 
 module.exports = router;

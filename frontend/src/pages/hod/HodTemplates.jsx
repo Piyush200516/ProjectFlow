@@ -15,6 +15,15 @@ import { toast } from 'sonner';
 import { Modal } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
 
+const defaultMilestoneNames = [
+  'Synopsis',
+  'SRS',
+  'PPT',
+  'Poster',
+  'Project Report',
+  'GitHub Final Submission'
+];
+
 const generateFutureAcademicYears = () => {
   const date = new Date();
   const currentYear = date.getFullYear();
@@ -36,6 +45,13 @@ const HodRegistrationForms = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [timelineForm, setTimelineForm] = useState({
+    project_id: '',
+    start_date: new Date().toISOString().slice(0, 10),
+    interval_days: 15,
+  });
+  const [creatingTimeline, setCreatingTimeline] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -55,8 +71,15 @@ const HodRegistrationForms = () => {
 
   const fetchForms = async () => {
     try {
-      const res = await api.get('/hod/registration-forms');
+      const [res, projectsRes] = await Promise.all([
+        api.get('/hod/registration-forms'),
+        api.get('/projects')
+      ]);
       setForms(res.data);
+      setProjects(projectsRes.data);
+      if (projectsRes.data.length > 0) {
+        setTimelineForm(prev => ({ ...prev, project_id: prev.project_id || String(projectsRes.data[0].id) }));
+      }
     } catch (error) {
       toast.error('Failed to load registration forms');
     } finally {
@@ -70,6 +93,25 @@ const HodRegistrationForms = () => {
 
   const handleCreateForm = async (e) => {
     e.preventDefault();
+    const requiredFields = [
+      ['title', 'Form title'],
+      ['branch', 'Branch'],
+      ['academic_year', 'Academic year'],
+      ['semester', 'Semester'],
+      ['section', 'Section'],
+      ['project_type', 'Project type'],
+      ['start_date', 'Start date'],
+      ['deadline', 'Deadline']
+    ];
+    const missingField = requiredFields.find(([key]) => !formData[key]);
+    if (missingField) {
+      toast.error(`${missingField[1]} is required`);
+      return;
+    }
+    if (new Date(formData.deadline) <= new Date(formData.start_date)) {
+      toast.error('Deadline must be after the start date');
+      return;
+    }
     if (formData.team_size_min > formData.team_size_max) {
       toast.error('Team Size Min cannot be greater than Team Size Max');
       return;
@@ -80,7 +122,7 @@ const HodRegistrationForms = () => {
       setIsModalOpen(false);
       fetchForms();
     } catch (error) {
-      toast.error('Failed to create form');
+      toast.error(error.response?.data?.message || 'Failed to create form');
     }
   };
 
@@ -104,15 +146,40 @@ const HodRegistrationForms = () => {
     }
   };
 
+  const handleCreateTimeline = async (e) => {
+    e.preventDefault();
+    if (!timelineForm.project_id || !timelineForm.start_date) {
+      toast.error('Select a project and start date');
+      return;
+    }
+
+    setCreatingTimeline(true);
+    try {
+      await api.post('/milestones/timeline', {
+        project_id: Number(timelineForm.project_id),
+        start_date: timelineForm.start_date,
+        interval_days: Number(timelineForm.interval_days) || 15,
+        milestones: defaultMilestoneNames
+      });
+      toast.success('Project timeline created with 6 document milestones');
+    } catch (error) {
+      console.error('Failed to create project timeline:', error);
+      toast.error(error.response?.data?.message || 'Failed to create timeline');
+    } finally {
+      setCreatingTimeline(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
-    switch(status) {
-      case 'Published': return <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md"><CheckCircle2 size={12}/> Published</span>;
-      case 'Closed': return <span className="flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-100 px-2 py-1 rounded-md"><XCircle size={12}/> Closed</span>;
+    const normalized = (status || 'draft').toLowerCase();
+    switch(normalized) {
+      case 'published': return <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md"><CheckCircle2 size={12}/> Published</span>;
+      case 'closed': return <span className="flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-100 px-2 py-1 rounded-md"><XCircle size={12}/> Closed</span>;
       default: return <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-200 px-2 py-1 rounded-md"><Clock size={12}/> Draft</span>;
     }
   };
 
-  const filteredForms = forms.filter(f => f.title.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredForms = forms.filter(f => (f.title || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
@@ -147,6 +214,63 @@ const HodRegistrationForms = () => {
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
       ) : (
+        <>
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-base font-bold text-slate-900">Project Document Timeline</h2>
+            <p className="text-xs text-slate-500">Create 6 deliverable milestones, one every 15 days.</p>
+          </div>
+          <form onSubmit={handleCreateTimeline} className="grid grid-cols-1 md:grid-cols-[1fr_180px_140px_auto] gap-4 items-end">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 uppercase">Project</label>
+              <select
+                value={timelineForm.project_id}
+                onChange={(e) => setTimelineForm(prev => ({ ...prev, project_id: e.target.value }))}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+              >
+                {projects.length === 0 ? (
+                  <option value="">No projects found</option>
+                ) : (
+                  projects.map(project => <option key={project.id} value={project.id}>{project.title}</option>)
+                )}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 uppercase">Start Date</label>
+              <input
+                type="date"
+                value={timelineForm.start_date}
+                onChange={(e) => setTimelineForm(prev => ({ ...prev, start_date: e.target.value }))}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 uppercase">Interval</label>
+              <input
+                type="number"
+                min="1"
+                value={timelineForm.interval_days}
+                onChange={(e) => setTimelineForm(prev => ({ ...prev, interval_days: e.target.value }))}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={creatingTimeline || !timelineForm.project_id}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-slate-400 transition-colors"
+            >
+              {creatingTimeline ? 'Creating...' : 'Create Timeline'}
+            </button>
+          </form>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {defaultMilestoneNames.map((name, index) => (
+              <span key={name} className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                Day {(index + 1) * (Number(timelineForm.interval_days) || 15)}: {name}
+              </span>
+            ))}
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -178,7 +302,7 @@ const HodRegistrationForms = () => {
                       <div className="text-xs font-medium text-rose-600">Ends: {new Date(form.deadline).toLocaleDateString()}</div>
                     </td>
                     <td className="px-6 py-4">
-                      {getStatusBadge(form.status.charAt(0).toUpperCase() + form.status.slice(1))}
+                      {getStatusBadge(form.status)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md w-fit">
@@ -187,7 +311,7 @@ const HodRegistrationForms = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        {form.status.toLowerCase() === 'draft' && (
+                        {(form.status || 'draft').toLowerCase() === 'draft' && (
                           <button 
                             onClick={() => handlePublish(form.id)}
                             className="px-3 py-1 bg-emerald-50 text-emerald-600 text-xs font-bold rounded hover:bg-emerald-100 transition-colors"
@@ -195,7 +319,7 @@ const HodRegistrationForms = () => {
                             Publish
                           </button>
                         )}
-                        {form.status.toLowerCase() === 'published' && (
+                        {(form.status || '').toLowerCase() === 'published' && (
                           <button 
                             onClick={() => handleClose(form.id)}
                             className="px-3 py-1 bg-rose-50 text-rose-600 text-xs font-bold rounded hover:bg-rose-100 transition-colors"
@@ -211,6 +335,7 @@ const HodRegistrationForms = () => {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Create Form Modal */}

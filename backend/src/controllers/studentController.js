@@ -38,7 +38,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
     let forms = [];
 
     // Fallback 1: If student details are missing/null
-    if (!student.branch_id || !sYear || !sSemester || !sSection || !sSubsection) {
+    if (!student || !student.branch_id || !sYear || !sSemester || !sSection || !sSubsection) {
       console.log("Student profile missing details. Fetching all published forms.");
       const [allForms] = await db.execute(`
         SELECT * FROM registration_forms
@@ -78,7 +78,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
     res.json({ success: true, forms });
   } catch (error) {
     console.error('getActiveRegistrationForms error:', error);
-    res.json({ success: true, forms: [] });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -113,7 +113,7 @@ exports.submitRegistrationForm = async (req, res) => {
     }
     const form = formResult[0];
 
-    if (form.status !== 'Published') {
+    if ((form.status || '').toLowerCase() !== 'published') {
       return res.status(400).json({ message: 'This form is not currently accepting submissions' });
     }
 
@@ -165,6 +165,53 @@ exports.submitRegistrationForm = async (req, res) => {
     res.status(201).json(result[0]);
   } catch (error) {
     console.error('submitRegistrationForm error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// @desc    Get student notifications
+// @route   GET /api/student/notifications
+// @access  Private (Student)
+exports.getNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [notifications] = await db.execute(`
+      SELECT *,
+             TO_CHAR(created_at, 'DD Mon YYYY') as notification_date,
+             TO_CHAR(created_at, 'HH12:MI AM') as notification_time
+      FROM notifications 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC, id DESC
+      LIMIT 3
+    `, [userId]);
+    res.json(notifications);
+  } catch (error) {
+    console.error('getNotifications error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// @desc    Mark notification as read
+// @route   PATCH /api/student/notifications/:id/read
+// @access  Private (Student)
+exports.markNotificationAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const [result] = await db.execute(`
+      UPDATE notifications 
+      SET is_read = TRUE 
+      WHERE id = $1 AND user_id = $2 
+      RETURNING *
+    `, [id, userId]);
+    
+    if (result.length === 0) {
+      return res.status(404).json({ message: 'Notification not found or unauthorized' });
+    }
+    
+    res.json({ success: true, notification: result[0] });
+  } catch (error) {
+    console.error('markNotificationAsRead error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
