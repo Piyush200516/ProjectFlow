@@ -1,183 +1,218 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  UploadCloud, 
-  Send, 
-  Search, 
-  MoreVertical, 
-  Clock, 
-  CheckCircle2, 
-  FileSpreadsheet, 
-  Presentation,
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Download,
+  Eye,
+  FileText,
   Loader2,
-  Calendar
+  Pencil,
+  Send,
+  Trash2,
+  UploadCloud
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../lib/api';
-import { Modal, SectionCard } from '../../components/common/PremiumComponents';
+import { SectionCard, StatusBadge } from '../../components/common/PremiumComponents';
 
-const defaultMilestoneNames = [
+const documentTypes = [
   'Synopsis',
   'SRS',
   'PPT',
   'Poster',
   'Project Report',
-  'GitHub Final Submission'
+  'Research Paper',
+  'Demo Presentation',
+  'Final Submission'
 ];
+
+const allowedAccept = '.doc,.docx,.ppt,.pptx,.pdf,.xlsx,.zip,.png,.jpg,.jpeg,.mp4,.txt';
+
+const emptyForm = {
+  document_name: 'Synopsis',
+  document_type: 'Synopsis',
+  deadline: '',
+  max_marks: 10,
+  instructions: '',
+  file: null
+};
+
+const toDateInput = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 16);
+};
+
+const templateUrl = (template) => {
+  const path = template?.file_path;
+  if (!path) return '';
+  if (String(path).startsWith('http')) return path;
+  return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/${path}`;
+};
+
+const projectKey = (project) => String(project?.project_registration_id || project?.registration_id || project?.id || '');
+const projectLabel = (project) => project?.project_title || project?.title || `Project #${projectKey(project)}`;
 
 const MentorTemplates = () => {
   const [loading, setLoading] = useState(true);
-  const [templates, setTemplates] = useState([]);
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState([]);
-  const [timelineForm, setTimelineForm] = useState({
-    project_id: '',
-    start_date: new Date().toISOString().slice(0, 10),
-    interval_days: 15,
-  });
-  const [creatingTimeline, setCreatingTimeline] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [replacingId, setReplacingId] = useState(null);
 
-  // Form states
-  const [uploadForm, setUploadForm] = useState({
-    title: '',
-    description: '',
-    document_type: 'Synopsis',
-    file_path: '/files/templates/synopsis_format.docx'
-  });
-  const [uploading, setUploading] = useState(false);
-
-  const [assignForm, setAssignForm] = useState({
-    project_type: 'Mini Project',
-    deadline_date: ''
-  });
-  const [assigning, setAssigning] = useState(false);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-  const fetchTemplates = async () => {
-    try {
-      const [res, projectsRes] = await Promise.all([
-        api.get('/workflow/projects/deadlines'),
-        api.get('/projects')
-      ]);
-      setTemplates(res.data);
-      setProjects(projectsRes.data);
-      if (projectsRes.data.length > 0) {
-        setTimelineForm(prev => ({ ...prev, project_id: prev.project_id || String(projectsRes.data[0].id) }));
-      }
-    } catch (error) {
-      console.error('Failed to fetch templates:', error);
-      toast.error('Failed to load active templates and deadlines');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOpenAssign = (template) => {
-    setSelectedTemplate(template);
-    setAssignForm({
-      project_type: template.project_type || 'Mini Project',
-      deadline_date: template.deadline_date ? new Date(template.deadline_date).toISOString().slice(0, 16) : ''
-    });
-    setIsAssignModalOpen(true);
-  };
-
-  const handleAssignSubmit = async (e) => {
-    e.preventDefault();
-    if (!assignForm.deadline_date) {
-      toast.error('Please specify a valid deadline date and time');
-      return;
-    }
-
-    setAssigning(true);
-    try {
-      await api.post('/workflow/mentor/deadlines', {
-        template_id: selectedTemplate.template_id || selectedTemplate.id,
-        project_type: assignForm.project_type,
-        deadline_date: assignForm.deadline_date
-      });
-      toast.success(`Academic deadline for ${selectedTemplate?.template_title || selectedTemplate?.title} set successfully!`);
-      setIsAssignModalOpen(false);
-      fetchTemplates();
-    } catch (error) {
-      console.error('Failed to assign deadline:', error);
-      toast.error('Failed to set deliverable deadline');
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  const handleUploadSubmit = async (e) => {
-    e.preventDefault();
-    if (!uploadForm.title) {
-      toast.error('Please enter a Template Title');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      await api.post('/workflow/mentor/document-templates', {
-        title: uploadForm.title,
-        description: uploadForm.description,
-        document_type: uploadForm.document_type,
-        file_path: `/files/templates/${uploadForm.document_type.toLowerCase().replace(' ', '_')}_format.docx`
-      });
-
-      toast.success('Academic deliverable template registered successfully!');
-      setIsUploadModalOpen(false);
-      setUploadForm({
-        title: '',
-        description: '',
-        document_type: 'Synopsis',
-        file_path: '/files/templates/synopsis_format.docx'
-      });
-      fetchTemplates();
-    } catch (error) {
-      console.error('Upload failed:', error);
-      toast.error('Failed to register template format');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const getIcon = (type) => {
-    if (type === 'PPT') return <Presentation className="text-amber-500" size={20} />;
-    if (type === 'Word' || type === 'Synopsis' || type === 'SRS' || type === 'Project Report' || type === 'Final Report') {
-      return <FileText className="text-blue-500" size={20} />;
-    }
-    return <FileSpreadsheet className="text-emerald-500" size={20} />;
-  };
-
-  const filteredTemplates = templates.filter(t => 
-    (t.template_title || t.title || '').toLowerCase().includes(searchTerm.toLowerCase())
+  const selectedProject = useMemo(
+    () => projects.find((project) => projectKey(project) === String(selectedProjectId)),
+    [projects, selectedProjectId]
   );
 
-  const handleCreateTimeline = async (e) => {
-    e.preventDefault();
-    if (!timelineForm.project_id || !timelineForm.start_date) {
-      toast.error('Select a project and start date');
+  const fetchProjects = async () => {
+    const { data } = await api.get('/mentor/assigned-projects');
+    const nextProjects = data.projects || data || [];
+    setProjects(nextProjects);
+    setSelectedProjectId((current) => current || projectKey(nextProjects[0]));
+  };
+
+  const fetchTemplates = async (projectId = selectedProjectId) => {
+    if (!projectId) {
+      setTemplates([]);
+      return;
+    }
+    const { data } = await api.get(`/mentor/templates/${projectId}`);
+    setTemplates(data.templates || []);
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        await fetchProjects();
+      } catch (error) {
+        console.error('Failed to load assigned projects:', error);
+        toast.error('Failed to load assigned projects');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      fetchTemplates(selectedProjectId).catch((error) => {
+        console.error('Failed to load templates:', error);
+        toast.error('Failed to load document templates');
+      });
+    }
+  }, [selectedProjectId]);
+
+  const updateForm = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const uploadTemplate = async (event) => {
+    event.preventDefault();
+    if (!selectedProjectId) {
+      toast.error('Select a project first');
+      return;
+    }
+    if (!form.file) {
+      toast.error('Choose a template file');
       return;
     }
 
-    setCreatingTimeline(true);
+    const payload = new FormData();
+    payload.append('project_registration_id', selectedProjectId);
+    payload.append('document_name', form.document_name);
+    payload.append('document_type', form.document_type);
+    payload.append('deadline', form.deadline);
+    payload.append('max_marks', form.max_marks);
+    payload.append('instructions', form.instructions);
+    payload.append('is_published', 'true');
+    payload.append('template_file', form.file);
+
+    setSaving(true);
     try {
-      await api.post('/milestones/timeline', {
-        project_id: Number(timelineForm.project_id),
-        start_date: timelineForm.start_date,
-        interval_days: Number(timelineForm.interval_days) || 15,
-        milestones: defaultMilestoneNames
+      await api.post('/mentor/templates/upload', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      toast.success('Project timeline created with 6 document milestones');
+      toast.success('Template uploaded');
+      setForm(emptyForm);
+      await fetchTemplates(selectedProjectId);
     } catch (error) {
-      console.error('Failed to create project timeline:', error);
-      toast.error(error.response?.data?.message || 'Failed to create timeline');
+      console.error('Template upload failed:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload template');
     } finally {
-      setCreatingTimeline(false);
+      setSaving(false);
+    }
+  };
+
+  const updateTemplate = async (template, updates = {}) => {
+    const payload = new FormData();
+    const merged = {
+      document_name: template.document_name || template.template_name,
+      document_type: template.document_type,
+      deadline: toDateInput(template.deadline),
+      max_marks: template.max_marks || 10,
+      instructions: template.instructions || '',
+      is_published: template.is_published,
+      ...updates
+    };
+    Object.entries(merged).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) payload.append(key, value);
+    });
+
+    setSaving(true);
+    try {
+      await api.patch(`/mentor/templates/${template.id}`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success(updates.is_published === 'true' ? 'Template published' : 'Template updated');
+      await fetchTemplates(selectedProjectId);
+    } catch (error) {
+      console.error('Template update failed:', error);
+      toast.error(error.response?.data?.message || 'Failed to update template');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const replaceTemplate = async (template, file) => {
+    if (!file) return;
+    const payload = new FormData();
+    payload.append('template_file', file);
+    payload.append('document_name', template.document_name || template.template_name);
+    payload.append('document_type', template.document_type || '');
+    payload.append('deadline', toDateInput(template.deadline));
+    payload.append('max_marks', template.max_marks || 10);
+    payload.append('instructions', template.instructions || '');
+    payload.append('is_published', template.is_published ? 'true' : 'false');
+
+    setReplacingId(template.id);
+    try {
+      await api.patch(`/mentor/templates/${template.id}`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success('Template replaced');
+      await fetchTemplates(selectedProjectId);
+    } catch (error) {
+      console.error('Template replace failed:', error);
+      toast.error(error.response?.data?.message || 'Failed to replace template');
+    } finally {
+      setReplacingId(null);
+    }
+  };
+
+  const deleteTemplate = async (template) => {
+    setSaving(true);
+    try {
+      await api.delete(`/mentor/templates/${template.id}`);
+      toast.success('Template deleted');
+      await fetchTemplates(selectedProjectId);
+    } catch (error) {
+      console.error('Template delete failed:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete template');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -190,241 +225,207 @@ const MentorTemplates = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Academic Templates & Deadlines</h1>
-          <p className="text-sm text-slate-500 mt-1">Upload required document templates and set individual deadlines for teams.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Document Templates</h1>
+          <p className="text-sm text-slate-500 mt-1">Upload and manage templates for assigned student teams.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative w-full sm:w-64">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search templates..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5 focus:border-slate-950 transition-all shadow-sm"
-            />
-          </div>
-          <button 
-            onClick={() => setIsUploadModalOpen(true)}
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm shrink-0"
-          >
-            <UploadCloud size={16} />
-            Add Template Format
-          </button>
-        </div>
+        <select
+          value={selectedProjectId}
+          onChange={(event) => setSelectedProjectId(event.target.value)}
+          className="w-full sm:w-80 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
+        >
+          {projects.length === 0 ? (
+            <option value="">No assigned projects</option>
+          ) : projects.map((project) => (
+            <option key={projectKey(project)} value={projectKey(project)}>{projectLabel(project)}</option>
+          ))}
+        </select>
       </div>
 
-      <SectionCard title="Project Document Timeline" subtitle="Create 6 deliverable milestones, one every 15 days">
-        <form onSubmit={handleCreateTimeline} className="grid grid-cols-1 md:grid-cols-[1fr_180px_140px_auto] gap-4 items-end">
+      <SectionCard title="Upload New Template" subtitle={selectedProject ? projectLabel(selectedProject) : 'Select an assigned project'}>
+        <form onSubmit={uploadTemplate} className="grid grid-cols-1 lg:grid-cols-[1fr_180px_190px_100px_1.2fr_170px_auto] gap-3 items-end">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Project</label>
-            <select
-              value={timelineForm.project_id}
-              onChange={(e) => setTimelineForm(prev => ({ ...prev, project_id: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
-            >
-              {projects.length === 0 ? (
-                <option value="">No projects found</option>
-              ) : (
-                projects.map(project => (
-                  <option key={project.id} value={project.id}>{project.title}</option>
-                ))
-              )}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Start Date</label>
+            <label className="text-xs font-bold text-slate-700 uppercase">Document Name</label>
             <input
-              type="date"
-              value={timelineForm.start_date}
-              onChange={(e) => setTimelineForm(prev => ({ ...prev, start_date: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
+              value={form.document_name}
+              onChange={(event) => updateForm('document_name', event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
             />
           </div>
-
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Interval</label>
+            <label className="text-xs font-bold text-slate-700 uppercase">Type</label>
+            <select
+              value={form.document_type}
+              onChange={(event) => updateForm('document_type', event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+            >
+              {documentTypes.map((type) => <option key={type}>{type}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 uppercase">Deadline</label>
+            <input
+              type="datetime-local"
+              value={form.deadline}
+              onChange={(event) => updateForm('deadline', event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 uppercase">Marks</label>
             <input
               type="number"
               min="1"
-              value={timelineForm.interval_days}
-              onChange={(e) => setTimelineForm(prev => ({ ...prev, interval_days: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
+              value={form.max_marks}
+              onChange={(event) => updateForm('max_marks', event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
             />
           </div>
-
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 uppercase">Instructions</label>
+            <input
+              value={form.instructions}
+              onChange={(event) => updateForm('instructions', event.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 uppercase">Template File</label>
+            <input
+              type="file"
+              accept={allowedAccept}
+              onChange={(event) => updateForm('file', event.target.files?.[0] || null)}
+              className="w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white"
+            />
+          </div>
           <button
             type="submit"
-            disabled={creatingTimeline || !timelineForm.project_id}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:bg-slate-400 transition-colors"
+            disabled={saving || !selectedProjectId}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-400"
           >
-            {creatingTimeline ? 'Creating...' : 'Create Timeline'}
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
+            Upload
           </button>
         </form>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {defaultMilestoneNames.map((name, index) => (
-            <span key={name} className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-              Day {(index + 1) * (Number(timelineForm.interval_days) || 15)}: {name}
-            </span>
-          ))}
-        </div>
       </SectionCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTemplates.map((template) => (
-          <div key={template.id} className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col hover:border-slate-300 transition-colors justify-between">
-            <div className="p-5">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                  {getIcon(template.document_type || template.type)}
-                </div>
-              </div>
-              <h3 className="text-base font-semibold text-slate-900 mb-1">{template.template_title || template.title}</h3>
-              <p className="text-xs font-medium text-slate-500 mb-4">{template.document_type || 'Academic Format'}</p>
-              
-              {template.deadline_date && (
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/50">
-                  <span className="flex items-center gap-1.5 text-indigo-600">
-                    <Clock size={14} />
-                    Due Date:
-                  </span>
-                  <span className="text-slate-900">{new Date(template.deadline_date).toLocaleDateString()}</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50">
-              <button 
-                onClick={() => handleOpenAssign(template)}
-                className="w-full py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2"
-              >
-                <Clock size={16} />
-                Set Deliverable Deadline
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Set Deadline Modal */}
-      <Modal 
-        isOpen={isAssignModalOpen} 
-        onClose={() => setIsAssignModalOpen(false)}
-        title="Set Submission Deadline"
-        footer={
-          <>
-            <button onClick={() => setIsAssignModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-            <button 
-              onClick={handleAssignSubmit} 
-              disabled={assigning}
-              className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-800 transition-colors"
-            >
-              {assigning ? 'Saving...' : 'Set Deadline'}
-            </button>
-          </>
-        }
-      >
-        <form onSubmit={handleAssignSubmit} className="space-y-4">
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-center gap-3">
-            {getIcon(selectedTemplate?.document_type)}
-            <span className="font-semibold text-slate-900 text-sm">{selectedTemplate?.template_title}</span>
-          </div>
-          
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Target Project Type</label>
-            <select 
-              value={assignForm.project_type}
-              onChange={(e) => setAssignForm(prev => ({ ...prev, project_type: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
-            >
-              <option>Mini Project</option>
-              <option>Major Project</option>
-              <option>Final Year Project</option>
-              <option>Hackathon</option>
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Deadline Date & Time</label>
-            <div className="relative">
-              <input 
-                type="datetime-local" 
-                value={assignForm.deadline_date}
-                onChange={(e) => setAssignForm(prev => ({ ...prev, deadline_date: e.target.value }))}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
-                required
-              />
-            </div>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Upload Modal */}
-      <Modal 
-        isOpen={isUploadModalOpen} 
-        onClose={() => setIsUploadModalOpen(false)}
-        title="Upload Academic Deliverable Format"
-        footer={
-          <>
-            <button onClick={() => setIsUploadModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-            <button 
-              onClick={handleUploadSubmit} 
-              disabled={uploading}
-              className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-slate-800 transition-colors"
-            >
-              {uploading ? 'Registering...' : 'Publish Template'}
-            </button>
-          </>
-        }
-      >
-        <form onSubmit={handleUploadSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Template Name</label>
-            <input 
-              type="text" 
-              placeholder="e.g. Synopsis Standard Format"
-              value={uploadForm.title}
-              onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
-              required
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Document Category</label>
-            <select 
-              value={uploadForm.document_type}
-              onChange={(e) => setUploadForm(prev => ({ ...prev, document_type: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-950/5"
-            >
-              <option>Poster</option>
-              <option>PPT</option>
-              <option>Project Report</option>
-              <option>Research Paper</option>
-              <option>Synopsis</option>
-              <option>SRS</option>
-              <option>Final Report</option>
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 uppercase">Description / Instruction Remarks</label>
-            <textarea 
-              rows="3"
-              placeholder="Guidelines for students on how to prepare this deliverable..."
-              value={uploadForm.description}
-              onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 resize-none"
-            ></textarea>
-          </div>
-        </form>
-      </Modal>
-
+      <SectionCard title="Template Management" subtitle="Publish templates to make them visible in the student Document Workspace">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs text-slate-500 uppercase border-b border-slate-200 bg-slate-50">
+              <tr>
+                <th className="px-4 py-3 font-medium">Document Name</th>
+                <th className="px-4 py-3 font-medium">Template File</th>
+                <th className="px-4 py-3 font-medium">Deadline</th>
+                <th className="px-4 py-3 font-medium">Max Marks</th>
+                <th className="px-4 py-3 font-medium">Instructions</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {templates.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-4 py-8 text-center text-slate-500">No templates uploaded for this project.</td>
+                </tr>
+              ) : templates.map((template) => (
+                <tr key={template.id} className="hover:bg-slate-50 align-top">
+                  <td className="px-4 py-4 min-w-44">
+                    <input
+                      defaultValue={template.document_name || template.template_name}
+                      onBlur={(event) => updateTemplate(template, { document_name: event.target.value })}
+                      className="w-full bg-transparent font-bold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/10 rounded px-2 py-1"
+                    />
+                    <div className="mt-1 text-xs text-slate-500">{template.document_type}</div>
+                  </td>
+                  <td className="px-4 py-4 min-w-44">
+                    <div className="flex items-center gap-2 font-semibold text-slate-700">
+                      <FileText size={15} />
+                      {template.file_name || template.template_name}
+                    </div>
+                    <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                      {replacingId === template.id ? <Loader2 size={13} className="animate-spin" /> : <Pencil size={13} />}
+                      Replace
+                      <input
+                        type="file"
+                        accept={allowedAccept}
+                        className="hidden"
+                        onChange={(event) => replaceTemplate(template, event.target.files?.[0])}
+                      />
+                    </label>
+                  </td>
+                  <td className="px-4 py-4 min-w-48">
+                    <input
+                      type="datetime-local"
+                      defaultValue={toDateInput(template.deadline)}
+                      onBlur={(event) => updateTemplate(template, { deadline: event.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                  </td>
+                  <td className="px-4 py-4 w-28">
+                    <input
+                      type="number"
+                      min="1"
+                      defaultValue={template.max_marks || 10}
+                      onBlur={(event) => updateTemplate(template, { max_marks: event.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                  </td>
+                  <td className="px-4 py-4 min-w-64">
+                    <textarea
+                      defaultValue={template.instructions || ''}
+                      onBlur={(event) => updateTemplate(template, { instructions: event.target.value })}
+                      rows={2}
+                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs resize-none"
+                    />
+                  </td>
+                  <td className="px-4 py-4">
+                    <StatusBadge status={template.is_published ? 'Published' : 'Draft'} variant={template.is_published ? 'success' : 'default'} />
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => window.open(templateUrl(template), '_blank', 'noopener,noreferrer')}
+                        className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        title="Preview"
+                      >
+                        <Eye size={15} />
+                      </button>
+                      <a
+                        href={templateUrl(template)}
+                        download
+                        className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        title="Download"
+                      >
+                        <Download size={15} />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => updateTemplate(template, { is_published: 'true' })}
+                        className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                        title="Publish"
+                      >
+                        <Send size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteTemplate(template)}
+                        className="p-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50"
+                        title="Delete"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
     </div>
   );
 };

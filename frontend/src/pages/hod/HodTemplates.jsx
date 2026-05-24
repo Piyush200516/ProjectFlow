@@ -59,8 +59,8 @@ const HodRegistrationForms = () => {
     branch: 'Computer Science & Engineering',
     academic_year: futureAcademicYears[0],
     semester: '',
-    section: 'A',
-    subsection: '',
+    section: 'ALL',
+    subsection: 'ALL',
     team_size_min: 1,
     team_size_max: 4,
     project_type: 'Minor Project',
@@ -101,7 +101,6 @@ const HodRegistrationForms = () => {
       ['branch', 'Branch'],
       ['academic_year', 'Academic year'],
       ['semester', 'Semester'],
-      ['section', 'Section'],
       ['project_type', 'Project type'],
       ['start_date', 'Start date'],
       ['deadline', 'Deadline']
@@ -120,7 +119,12 @@ const HodRegistrationForms = () => {
       return;
     }
     try {
-      await api.post('/hod/registration-forms', { ...formData, status: 'published' });
+      await api.post('/hod/registration-forms', {
+        ...formData,
+        section: 'ALL',
+        subsection: 'ALL',
+        status: 'published'
+      });
       toast.success('Registration form created and sent to matching students');
       setIsModalOpen(false);
       fetchForms();
@@ -189,6 +193,10 @@ const HodRegistrationForms = () => {
     () => forms.filter(form => (form.status || '').toLowerCase() === 'published'),
     [forms]
   );
+  const displayTargetValue = (value) => {
+    const normalized = String(value || '').trim().toUpperCase();
+    return normalized === 'ALL' || normalized === '' ? 'All' : value;
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
@@ -304,7 +312,12 @@ const HodRegistrationForms = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-700">{form.branch}</div>
-                      <div className="text-xs text-slate-500">Sem {form.semester} • Sec {form.section}</div>
+                      <div className="text-xs text-slate-500">
+                        Sem {form.semester} &bull; Section: {displayTargetValue(form.section)}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Subsection: {displayTargetValue(form.subsection)}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-xs font-medium text-slate-700">Starts: {new Date(form.start_date).toLocaleDateString()}</div>
@@ -446,25 +459,15 @@ const HodRegistrationForms = () => {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Section</label>
-              <select 
-                value={formData.section}
-                onChange={(e) => setFormData({...formData, section: e.target.value})}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                {['A','B','C','D','E','F','1','2','3','4','5','6'].map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700">
+                All Sections
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Subsection</label>
-              <select 
-                value={formData.subsection}
-                onChange={(e) => setFormData({...formData, subsection: e.target.value})}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="">All</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-              </select>
+              <div className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700">
+                All Subsections
+              </div>
             </div>
           </div>
 

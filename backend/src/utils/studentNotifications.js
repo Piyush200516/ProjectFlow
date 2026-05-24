@@ -64,9 +64,9 @@ const createStudentNotifications = async ({
     WHERE s.branch_id = $1
       AND s.academic_year = $2
       AND s.semester = $3
-      AND s.section = $4
+      AND ($4 = 'ALL' OR s.section = $4)
       AND (
-        s.subsection = $5 OR $5 IS NULL OR $5 = ''
+        $5 = 'ALL' OR s.subsection = $5 OR $5 IS NULL OR $5 = ''
       )
   `, [
     filters.branch_id,

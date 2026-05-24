@@ -5,7 +5,9 @@ const {
 } = require('../utils/studentNotifications');
 const {
   ensureAdvancedWorkflowTables,
-  recalculateProjectScores
+  recalculateProjectScores,
+  recordDocumentVersion,
+  recordMilestoneSubmissionScore
 } = require('../utils/advancedProjectWorkflow');
 
 const ensureStudentProfileCompatibility = async () => {
@@ -61,6 +63,20 @@ const ensureStudentTimelineColumns = async () => {
 
 const normalizeComparable = (value) => String(value ?? '').trim().toLowerCase();
 const normalizeRollNumber = (value) => String(value ?? '').trim().toUpperCase();
+const targetMatches = (target, value) => {
+  const normalizedTarget = normalizeComparable(target);
+  return normalizedTarget === 'all' || normalizedTarget === '' || normalizedTarget === normalizeComparable(value);
+};
+const fileMatchesAllowedFormats = (fileName, allowedFormats) => {
+  if (!allowedFormats) return true;
+  const formats = String(allowedFormats)
+    .split(',')
+    .map((format) => format.trim().replace(/^\./, '').toLowerCase())
+    .filter(Boolean);
+  if (formats.length === 0) return true;
+  const extension = String(fileName || '').split('.').pop().toLowerCase();
+  return formats.includes(extension);
+};
 
 const sameAcademicProfile = (leader, member) => {
   return Number(leader.branch_id) === Number(member.branch_id)
@@ -356,11 +372,11 @@ exports.getActiveRegistrationForms = async (req, res) => {
 
     let forms = [];
 
-    if (!student || !student.branch_id || !sYear || !sSemester || !sSection) {
+    if (!student || !student.branch_id || !sYear || !sSemester) {
       console.log("Student profile missing required details. No active forms loaded.");
       forms = [];
     } else {
-      // Find matching published forms for the exact student profile
+      // Find matching published forms for the student profile, with ALL as a wildcard target.
       const [matchingForms] = await db.execute(`
         SELECT rf.id,
                rf.title,
@@ -387,9 +403,9 @@ exports.getActiveRegistrationForms = async (req, res) => {
         AND branch_id=$1
         AND academic_year=$2
         AND semester=$3
-        AND section=$4
+        AND (section = 'ALL' OR section=$4)
         AND (
-          subsection = $5 OR subsection IS NULL OR subsection = ''
+          subsection = 'ALL' OR subsection = $5 OR subsection IS NULL OR subsection = ''
         )
         AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)
         ORDER BY created_at DESC
@@ -398,38 +414,6 @@ exports.getActiveRegistrationForms = async (req, res) => {
       
       forms = matchingForms;
       console.log("Matched forms:", forms);
-
-      if (!forms || forms.length === 0) {
-        console.log("Strict matching returned 0 forms. Falling back to all published forms for testing.");
-        const [allPublishedForms] = await db.execute(`
-          SELECT rf.id,
-                 rf.title,
-                 rf.instructions,
-                 rf.branch,
-                 rf.branch_id,
-                 rf.academic_year,
-                 rf.semester,
-                 rf.section,
-                 rf.subsection,
-                 rf.team_size_min,
-                 rf.team_size_max,
-                 rf.project_type,
-                 rf.start_date,
-                 rf.deadline,
-                 rf.status,
-                 EXISTS (
-                   SELECT 1
-                   FROM registration_form_submissions rfs
-                   WHERE rfs.form_id = rf.id AND rfs.leader_id = $1
-                 ) as has_submitted
-          FROM registration_forms rf
-          WHERE LOWER(status) = 'published'
-            AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)
-          ORDER BY created_at DESC
-          LIMIT 20
-        `, [userId]);
-        forms = allPublishedForms || [];
-      }
     }
 
     console.log("Active forms found:", forms.length);
@@ -468,6 +452,81 @@ exports.getStudentTimeline = async (req, res) => {
     }
 
     const student = studentData[0];
+    const currentProject = await getStudentProjectRegistrationId(userId);
+    if (currentProject?.project_id) {
+      const projectResult = await db.pool.query(`
+        SELECT p.id,
+               p.registration_id AS project_registration_id,
+               p.title,
+               p.status,
+               p.mentor_id
+        FROM projects p
+        WHERE p.id = $1
+        LIMIT 1
+      `, [currentProject.project_id]);
+
+      const projectTimeline = await db.pool.query(`
+        SELECT pm.id,
+               pm.title,
+               pm.description,
+               pm.document_type,
+               pm.sequence_no,
+               pm.sequence_order,
+               pm.deadline,
+               pm.max_marks,
+               pm.instructions,
+               pm.status,
+               pm.created_at,
+               pm.updated_at,
+               dt.id AS template_id,
+               COALESCE(dt.document_name, dt.template_name) AS template_name,
+               dt.file_path AS template_file_path,
+               ms.id AS submission_id,
+               ms.version_no,
+               ms.submitted_at,
+               COALESCE(ms.review_status, ms.status) AS submission_status,
+               GREATEST(CEIL(EXTRACT(EPOCH FROM (pm.deadline - CURRENT_TIMESTAMP)) / 86400), 0)::int AS days_left,
+               CASE
+                 WHEN COALESCE(ms.review_status, ms.status) = 'approved' THEN 'approved'
+                 WHEN COALESCE(ms.review_status, ms.status) = 'needs_revision' THEN 'needs revision'
+                 WHEN COALESCE(ms.review_status, ms.status) = 'rejected' THEN 'rejected'
+                 WHEN ms.id IS NOT NULL AND ms.is_late = TRUE THEN 'late'
+                 WHEN ms.id IS NOT NULL THEN 'submitted'
+                 WHEN pm.deadline < CURRENT_TIMESTAMP THEN 'late'
+                 ELSE 'pending'
+               END AS display_status
+        FROM project_milestones pm
+        LEFT JOIN LATERAL (
+          SELECT *
+          FROM document_templates
+          WHERE project_milestone_id = pm.id
+            AND is_published = TRUE
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1
+        ) dt ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT *
+          FROM milestone_submissions
+          WHERE project_milestone_id = pm.id
+          ORDER BY submitted_at DESC, id DESC
+          LIMIT 1
+        ) ms ON TRUE
+        WHERE pm.project_id = $1
+          AND (dt.id IS NOT NULL OR pm.project_registration_id = $2)
+        ORDER BY COALESCE(pm.sequence_no, pm.sequence_order, pm.id) ASC, pm.deadline ASC
+      `, [currentProject.project_id, currentProject.project_registration_id]);
+
+      if (projectTimeline.rows.length > 0) {
+        return res.json({
+          success: true,
+          form: null,
+          project: projectResult.rows[0] || null,
+          timeline: projectTimeline.rows,
+          milestones: projectTimeline.rows
+        });
+      }
+    }
+
     const [forms] = await db.execute(`
       SELECT rf.id,
              rf.title,
@@ -489,9 +548,10 @@ exports.getStudentTimeline = async (req, res) => {
         AND branch_id = $1
         AND academic_year = $2
         AND semester = $3
-        AND section = $4
+        AND (section = 'ALL' OR section = $4)
         AND (
-          subsection IS NOT DISTINCT FROM $5
+          subsection = 'ALL'
+          OR subsection IS NOT DISTINCT FROM $5
           OR subsection IS NULL
           OR subsection = ''
         )
@@ -610,6 +670,16 @@ exports.submitRegistrationForm = async (req, res) => {
     const leaderProfile = await getStudentProfileByUserId(client, leaderId);
     if (!leaderProfile) {
       return res.status(404).json({ message: 'Student profile not found' });
+    }
+
+    const leaderMatchesForm = Number(leaderProfile.branch_id) === Number(form.branch_id)
+      && normalizeComparable(leaderProfile.academic_year) === normalizeComparable(form.academic_year)
+      && Number(leaderProfile.semester) === Number(form.semester)
+      && targetMatches(form.section, leaderProfile.section)
+      && targetMatches(form.subsection, leaderProfile.subsection);
+
+    if (!leaderMatchesForm) {
+      return res.status(403).json({ message: 'This registration form is not available for your academic profile' });
     }
 
     const teamMembersForDuplicateCheck = [
@@ -742,7 +812,7 @@ exports.submitRegistrationForm = async (req, res) => {
         form.branch || form.branch_id || leaderProfile.branch_name || 'CSE',
         form.academic_year || leaderProfile.academic_year,
         form.semester || leaderProfile.semester,
-        form.section || leaderProfile.section,
+        normalizeComparable(form.section) === 'all' ? leaderProfile.section : (form.section || leaderProfile.section),
         project_domain,
         abstract || '',
         leaderId,
@@ -1020,6 +1090,248 @@ const getStudentProjectRegistrationId = async (studentId) => {
   return result.rows[0] || null;
 };
 
+exports.getDocumentWorkspace = async (req, res) => {
+  try {
+    const current = await getStudentProjectRegistrationId(req.user.id);
+    if (!current?.project_id) {
+      return res.json({ success: true, project: null, milestones: [] });
+    }
+
+    const projectResult = await db.pool.query(`
+      SELECT p.*,
+             mentor.full_name AS mentor_name,
+             mentor.email AS mentor_email
+      FROM projects p
+      LEFT JOIN users mentor ON mentor.id = p.mentor_id
+      WHERE p.id = $1
+      LIMIT 1
+    `, [current.project_id]);
+
+    const membersResult = await db.pool.query(`
+      SELECT u.id,
+             u.full_name,
+             u.email,
+             COALESCE(pm.role, CASE WHEN pm.is_leader THEN 'Leader' ELSE 'Member' END) AS role,
+             COALESCE(pm.is_leader, false) AS is_leader
+      FROM project_members pm
+      JOIN users u ON u.id = pm.student_id
+      WHERE pm.project_id = $1
+      UNION
+      SELECT COALESCE(ptm.user_id, ptm.student_id, ptm.student_user_id) AS id,
+             ptm.full_name,
+             ptm.email,
+             ptm.role,
+             COALESCE(ptm.is_leader, ptm.is_team_leader, false) AS is_leader
+      FROM project_team_members ptm
+      WHERE ptm.project_registration_id = $2
+        AND COALESCE(ptm.user_id, ptm.student_id, ptm.student_user_id) IS NOT NULL
+      ORDER BY is_leader DESC, full_name ASC
+    `, [current.project_id, current.project_registration_id]);
+
+    const milestonesResult = await db.pool.query(`
+      SELECT pm.id,
+             pm.project_id,
+             pm.project_registration_id,
+             pm.title,
+             pm.document_type,
+             pm.deadline,
+             pm.max_marks,
+             pm.instructions,
+             pm.allowed_formats,
+             pm.sequence_order,
+             dt.id AS template_id,
+             COALESCE(dt.document_name, dt.template_name) AS template_name,
+             dt.file_path AS template_file_path,
+             COALESCE(dt.mime_type, dt.file_type) AS template_file_type,
+             dt.is_published AS template_is_published,
+             ms.id AS submission_id,
+             ms.file_name,
+             ms.file_path,
+             ms.file_url,
+             ms.mime_type,
+             ms.submission_notes,
+             ms.version_no,
+             ms.status,
+             ms.review_status,
+             ms.feedback,
+             ms.marks,
+             ms.is_late,
+             ms.submitted_at,
+             submitter.full_name AS submitted_by_name,
+             CASE
+               WHEN ms.review_status = 'approved' THEN 'approved'
+               WHEN ms.review_status = 'needs_revision' THEN 'needs revision'
+               WHEN ms.review_status = 'rejected' THEN 'rejected'
+               WHEN ms.id IS NOT NULL AND ms.is_late = TRUE THEN 'late'
+               WHEN ms.id IS NOT NULL THEN 'submitted'
+               WHEN pm.deadline < CURRENT_TIMESTAMP THEN 'late'
+               ELSE 'pending'
+             END AS workspace_status
+      FROM project_milestones pm
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM document_templates
+        WHERE project_milestone_id = pm.id
+          AND is_published = TRUE
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+      ) dt ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM milestone_submissions
+        WHERE project_milestone_id = pm.id
+        ORDER BY submitted_at DESC, id DESC
+        LIMIT 1
+      ) ms ON TRUE
+      LEFT JOIN users submitter ON submitter.id = ms.submitted_by
+      WHERE pm.project_id = $1
+        AND dt.id IS NOT NULL
+      ORDER BY COALESCE(pm.sequence_no, pm.sequence_order) ASC, pm.deadline ASC
+    `, [current.project_id]);
+
+    res.json({
+      success: true,
+      project: projectResult.rows[0] || null,
+      team_members: membersResult.rows,
+      milestones: milestonesResult.rows
+    });
+  } catch (error) {
+    console.error('getDocumentWorkspace error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.submitMilestoneWorkspace = async (req, res) => {
+  const { project_milestone_id, remarks } = req.body;
+  if (!project_milestone_id || !req.file) {
+    return res.status(400).json({ message: 'project_milestone_id and file are required' });
+  }
+
+  try {
+    await ensureAdvancedWorkflowTables();
+    const current = await getStudentProjectRegistrationId(req.user.id);
+    if (!current?.project_id) {
+      return res.status(404).json({ message: 'Active project workspace not found' });
+    }
+
+    const milestoneResult = await db.pool.query(`
+      SELECT pm.*, p.mentor_id, p.title AS project_title
+      FROM project_milestones pm
+      JOIN projects p ON p.id = pm.project_id
+      WHERE pm.id = $1 AND pm.project_id = $2
+      LIMIT 1
+    `, [project_milestone_id, current.project_id]);
+
+    if (milestoneResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Milestone not found in your project workspace' });
+    }
+
+    const milestone = milestoneResult.rows[0];
+    if (!fileMatchesAllowedFormats(req.file.originalname, milestone.allowed_formats)) {
+      return res.status(400).json({ message: `Allowed formats: ${milestone.allowed_formats}` });
+    }
+    const isLate = new Date() > new Date(milestone.deadline);
+    const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${req.file.filename}`;
+    const existing = await db.pool.query(`
+      SELECT id, COALESCE(version_no, 1) AS version_no
+      FROM milestone_submissions
+      WHERE project_milestone_id = $1 AND project_id = $2
+      ORDER BY submitted_at DESC, id DESC
+      LIMIT 1
+    `, [project_milestone_id, current.project_id]);
+
+    const nextVersion = Number(existing.rows[0]?.version_no || 0) + 1;
+    const submissionResult = existing.rows[0]
+      ? await db.pool.query(`
+        UPDATE milestone_submissions
+        SET submitted_by = $1,
+            file_name = $2,
+            file_path = $3,
+            file_url = $4,
+            mime_type = $5,
+            status = $6,
+            review_status = 'submitted',
+            is_late = $7,
+            remarks = $8,
+            submission_notes = $8,
+            feedback = NULL,
+            version_no = $9,
+            submitted_at = CURRENT_TIMESTAMP
+        WHERE id = $10
+        RETURNING *
+      `, [req.user.id, req.file.originalname, req.file.filename, fileUrl, req.file.mimetype || null, isLate ? 'late' : 'submitted', isLate, remarks || '', nextVersion, existing.rows[0].id])
+      : await db.pool.query(`
+        INSERT INTO milestone_submissions
+        (milestone_id, project_milestone_id, project_id, project_registration_id, submitted_by, file_name, file_path, file_url, mime_type, status, review_status, is_late, remarks, submission_notes, version_no)
+        VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, 'submitted', $10, $11, $11, 1)
+        RETURNING *
+      `, [
+        project_milestone_id,
+        current.project_id,
+        current.project_registration_id,
+        req.user.id,
+        req.file.originalname,
+        req.file.filename,
+        fileUrl,
+        req.file.mimetype || null,
+        isLate ? 'late' : 'submitted',
+        isLate,
+        remarks || ''
+      ]);
+
+    await recordDocumentVersion(submissionResult.rows[0]);
+    await recordMilestoneSubmissionScore(submissionResult.rows[0]);
+
+    if (milestone.mentor_id) {
+      await db.pool.query(`
+        INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type, is_read)
+        VALUES ($1, 'New Document Submission', $2, 'milestone_submission', $3, 'milestone_submission', FALSE)
+      `, [milestone.mentor_id, `A team submitted ${milestone.title}.`, submissionResult.rows[0].id]);
+    }
+
+    res.status(201).json({
+      success: true,
+      status: isLate ? 'late' : 'submitted',
+      submission: submissionResult.rows[0]
+    });
+  } catch (error) {
+    console.error('submitMilestoneWorkspace error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getTemplateDownload = async (req, res) => {
+  try {
+    const { template_id } = req.query;
+    if (!template_id) {
+      return res.status(400).json({ message: 'template_id is required' });
+    }
+
+    const current = await getStudentProjectRegistrationId(req.user.id);
+    const template = await db.pool.query(`
+      SELECT dt.*
+      FROM document_templates dt
+      JOIN project_milestones pm ON pm.id = dt.project_milestone_id
+      WHERE dt.id = $1 AND pm.project_id = $2 AND dt.is_published = TRUE
+      LIMIT 1
+    `, [template_id, current?.project_id || null]);
+
+    if (template.rows.length === 0) {
+      return res.status(404).json({ message: 'Template not found' });
+    }
+
+    const row = template.rows[0];
+    res.json({
+      success: true,
+      template: row,
+      download_url: `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${row.file_path}`
+    });
+  } catch (error) {
+    console.error('getTemplateDownload error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // @desc    Get logged-in student's marks
 // @route   GET /api/student/marks
 // @access  Private (Student)
@@ -1050,7 +1362,7 @@ exports.getStudentMarks = async (req, res) => {
       JOIN milestone_submissions ms ON ms.id = msc.milestone_submission_id
       WHERE msc.project_registration_id = $1
         AND msc.student_user_id = $2
-      ORDER BY pm.sequence_order ASC, pm.deadline ASC
+      ORDER BY COALESCE(pm.sequence_no, pm.sequence_order) ASC, pm.deadline ASC
     `, [current.project_registration_id, req.user.id]);
 
     const contributions = await db.pool.query(`

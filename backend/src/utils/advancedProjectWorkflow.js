@@ -13,6 +13,72 @@ const MARKS_BREAKUP = {
 const ensureAdvancedWorkflowTables = async (client = db.pool) => {
   const query = (sql, params = []) => client.query(sql, params);
 
+  await query(`ALTER TABLE IF EXISTS mentor_assignments ADD COLUMN IF NOT EXISTS mentor_user_id INT REFERENCES users(id) ON DELETE CASCADE`);
+  await query(`
+    DO $$
+    BEGIN
+      IF to_regclass('mentor_assignments') IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'mentor_assignments' AND column_name = 'mentor_id'
+        )
+        AND EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'mentor_assignments' AND column_name = 'mentor_user_id'
+        )
+      THEN
+        UPDATE mentor_assignments
+        SET mentor_user_id = mentor_id
+        WHERE mentor_user_id IS NULL AND mentor_id IS NOT NULL;
+      END IF;
+    END $$;
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS project_milestones (
+      id SERIAL PRIMARY KEY,
+      project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+      project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE,
+      title VARCHAR(150) NOT NULL,
+      document_type VARCHAR(100),
+      description TEXT,
+      instructions TEXT,
+      allowed_formats TEXT,
+      max_marks NUMERIC(6,2) DEFAULT 10,
+      sequence_no INT,
+      sequence_order INT,
+      deadline TIMESTAMP NOT NULL,
+      status VARCHAR(30) DEFAULT 'published',
+      created_by INT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS milestone_submissions (
+      id SERIAL PRIMARY KEY,
+      milestone_id INT REFERENCES project_milestones(id) ON DELETE CASCADE,
+      project_milestone_id INT REFERENCES project_milestones(id) ON DELETE CASCADE,
+      project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+      project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE,
+      submitted_by INT REFERENCES users(id) ON DELETE CASCADE,
+      file_name VARCHAR(255),
+      file_path VARCHAR(500),
+      file_url VARCHAR(1000),
+      mime_type VARCHAR(100),
+      submission_notes TEXT,
+      version_no INT DEFAULT 1,
+      status VARCHAR(50) DEFAULT 'submitted',
+      review_status VARCHAR(30) DEFAULT 'submitted',
+      feedback TEXT,
+      marks NUMERIC(6,2) DEFAULT 0,
+      is_late BOOLEAN DEFAULT FALSE,
+      submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      remarks TEXT
+    )
+  `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS project_scores (
       id SERIAL PRIMARY KEY,
@@ -106,6 +172,13 @@ const ensureAdvancedWorkflowTables = async (client = db.pool) => {
   await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS review_status VARCHAR(30) DEFAULT 'submitted'`);
   await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS feedback TEXT`);
   await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS marks NUMERIC(6,2) DEFAULT 0`);
+  await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS project_milestone_id INT REFERENCES project_milestones(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS mime_type VARCHAR(100)`);
+  await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS submission_notes TEXT`);
+  await query(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS version_no INT DEFAULT 1`);
+  await query(`UPDATE milestone_submissions SET project_milestone_id = milestone_id WHERE project_milestone_id IS NULL AND milestone_id IS NOT NULL`);
+  await query(`UPDATE milestone_submissions SET submission_notes = remarks WHERE submission_notes IS NULL AND remarks IS NOT NULL`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS document_versions (
@@ -114,12 +187,59 @@ const ensureAdvancedWorkflowTables = async (client = db.pool) => {
       version_no INT NOT NULL,
       file_name VARCHAR(255) NOT NULL,
       file_path VARCHAR(500) NOT NULL,
+      mime_type VARCHAR(100),
       uploaded_by INT REFERENCES users(id) ON DELETE SET NULL,
       uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       status VARCHAR(50) DEFAULT 'submitted',
       UNIQUE(milestone_submission_id, version_no)
     )
   `);
+  await query(`ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS submission_id INT REFERENCES milestone_submissions(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS mime_type VARCHAR(100)`);
+  await query(`ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  await query(`UPDATE document_versions SET submission_id = milestone_submission_id WHERE submission_id IS NULL AND milestone_submission_id IS NOT NULL`);
+
+  await query(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS description TEXT`);
+  await query(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS sequence_no INT`);
+  await query(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS max_marks NUMERIC(6,2) DEFAULT 10`);
+  await query(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'published'`);
+  await query(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS instructions TEXT`);
+  await query(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS allowed_formats TEXT`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS document_templates (
+      id SERIAL PRIMARY KEY,
+      project_milestone_id INT REFERENCES project_milestones(id) ON DELETE CASCADE,
+      mentor_id INT REFERENCES users(id) ON DELETE SET NULL,
+      template_name VARCHAR(255) NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      file_type VARCHAR(100),
+      instructions TEXT,
+      allowed_formats TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS project_milestone_id INT REFERENCES project_milestones(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS mentor_user_id INT REFERENCES users(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS document_name VARCHAR(255)`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS document_type VARCHAR(100)`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS template_name VARCHAR(255)`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS file_path VARCHAR(500)`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS file_type VARCHAR(100)`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS mime_type VARCHAR(100)`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS deadline TIMESTAMP`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS max_marks NUMERIC(6,2) DEFAULT 10`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS instructions TEXT`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS allowed_formats TEXT`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE`);
+  await query(`ALTER TABLE document_templates ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  await query(`UPDATE document_templates SET mentor_user_id = mentor_id WHERE mentor_user_id IS NULL AND mentor_id IS NOT NULL`);
+  await query(`UPDATE document_templates SET document_name = template_name WHERE document_name IS NULL AND template_name IS NOT NULL`);
+  await query(`UPDATE document_templates SET file_name = template_name WHERE file_name IS NULL AND template_name IS NOT NULL`);
+  await query(`UPDATE document_templates SET mime_type = file_type WHERE mime_type IS NULL AND file_type IS NOT NULL`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS student_contributions (
@@ -149,10 +269,19 @@ const ensureAdvancedWorkflowTables = async (client = db.pool) => {
   await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS milestone_submission_id INT REFERENCES milestone_submissions(id) ON DELETE CASCADE`);
   await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE`);
   await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS mentor_user_id INT REFERENCES users(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS feedback TEXT`);
   await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS marks NUMERIC(6,2) DEFAULT 0`);
   await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS review_status VARCHAR(30) DEFAULT 'submitted'`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS submission_id INT REFERENCES milestone_submissions(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS status VARCHAR(50)`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS remarks TEXT`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS comments TEXT`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS quality_marks NUMERIC(6,2) DEFAULT 0`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP`);
   await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  await query(`UPDATE mentor_reviews SET mentor_user_id = mentor_id WHERE mentor_user_id IS NULL AND mentor_id IS NOT NULL`);
+  await query(`UPDATE mentor_reviews SET reviewed_at = updated_at WHERE reviewed_at IS NULL AND updated_at IS NOT NULL`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS final_evaluations (
@@ -417,14 +546,15 @@ const recordDocumentVersion = async (submission, client = db.pool) => {
 
   const result = await client.query(`
     INSERT INTO document_versions
-    (milestone_submission_id, version_no, file_name, file_path, uploaded_by, status)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    (milestone_submission_id, submission_id, version_no, file_name, file_path, mime_type, uploaded_by, status)
+    VALUES ($1, $1, $2, $3, $4, $5, $6, $7)
     RETURNING *
   `, [
     submission.id,
     versionResult.rows[0].next_version,
     submission.file_name,
     submission.file_path,
+    submission.mime_type || null,
     submission.submitted_by,
     String(submission.status || 'submitted').toLowerCase()
   ]);

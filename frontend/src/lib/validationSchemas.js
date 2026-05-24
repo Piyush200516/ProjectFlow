@@ -29,7 +29,7 @@ export const hodRegistrationFormSchema = z.object({
   title: z.string().trim().min(3, 'Title is required'),
   academic_year: z.string().trim().min(1, 'Academic year is required'),
   semester: z.coerce.number().int().min(1).max(8),
-  section: z.string().trim().min(1, 'Section is required'),
+  section: z.string().trim().optional().default('ALL'),
   subsection: z.string().trim().optional(),
   team_size_min: z.coerce.number().int().min(1).max(4),
   team_size_max: z.coerce.number().int().min(1).max(4),

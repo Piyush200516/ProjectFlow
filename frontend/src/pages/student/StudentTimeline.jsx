@@ -15,6 +15,12 @@ const statusVariant = {
   Submitted: 'success',
   Late: 'error',
   Pending: 'info',
+  submitted: 'success',
+  approved: 'success',
+  late: 'error',
+  pending: 'info',
+  rejected: 'error',
+  'needs revision': 'warning',
 };
 
 const StudentTimeline = () => {
@@ -27,8 +33,8 @@ const StudentTimeline = () => {
     try {
       const { data } = await api.get('/student/timeline');
       console.log('Student timeline:', data);
-      setForm(data.form || null);
-      setMilestones(data.timeline || []);
+      setForm(data.project || data.form || null);
+      setMilestones(data.milestones || data.timeline || []);
     } catch (error) {
       console.error('Failed to fetch project timeline:', error);
       toast.error('Failed to load project timeline');
@@ -125,7 +131,7 @@ const StudentTimeline = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
               {milestones.map((milestone) => {
-                const status = milestone.timeline_status || milestone.status || 'Pending';
+                const status = milestone.display_status || milestone.timeline_status || milestone.status || 'Pending';
                 const sequenceNo = milestone.sequence_no || milestone.display_sequence_no || milestone.sequence_order;
                 const isUploading = uploadingId === milestone.id;
 

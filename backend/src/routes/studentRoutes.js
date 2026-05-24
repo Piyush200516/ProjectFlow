@@ -1,10 +1,16 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 const { 
   getProfile,
   updateProfile,
   getActiveRegistrationForms,
   getMyProject,
+  getDocumentWorkspace,
+  submitMilestoneWorkspace,
+  getTemplateDownload,
   getStudentMarks,
   getStudentCalendar,
   getStudentTimeline,
@@ -15,10 +21,30 @@ const {
 } = require('../controllers/studentController');
 const { protect } = require('../middleware/authMiddleware');
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../public/uploads');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = `${Date.now()}_${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${uniqueSuffix}_${file.originalname}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+});
+
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
 router.get('/registration-forms/active', protect, getActiveRegistrationForms);
 router.get('/my-project', protect, getMyProject);
+router.get('/document-workspace', protect, getDocumentWorkspace);
+router.post('/milestone-submit', protect, upload.single('file'), submitMilestoneWorkspace);
+router.get('/templates/download', protect, getTemplateDownload);
 router.get('/marks', protect, getStudentMarks);
 router.get('/calendar', protect, getStudentCalendar);
 router.post('/registration-forms/:id/submit', protect, submitRegistrationForm);

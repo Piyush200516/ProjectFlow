@@ -17,6 +17,17 @@ const defaultMilestones = [
   'GitHub Final Submission'
 ];
 
+const fileMatchesAllowedFormats = (fileName, allowedFormats) => {
+  if (!allowedFormats) return true;
+  const formats = String(allowedFormats)
+    .split(',')
+    .map((format) => format.trim().replace(/^\./, '').toLowerCase())
+    .filter(Boolean);
+  if (formats.length === 0) return true;
+  const extension = String(fileName || '').split('.').pop().toLowerCase();
+  return formats.includes(extension);
+};
+
 const ensureMilestoneTables = async () => {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS project_milestones (
@@ -34,10 +45,15 @@ const ensureMilestoneTables = async () => {
   `);
 
   await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS project_id INT REFERENCES projects(id) ON DELETE CASCADE`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS sequence_no INT`);
   await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS sequence_order INT`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS description TEXT`);
   await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS document_type VARCHAR(100)`);
   await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS instructions TEXT`);
   await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS max_marks NUMERIC(6,2) DEFAULT 10`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'published'`);
+  await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS allowed_formats TEXT`);
   await db.execute(`ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
   await db.execute(`
     DO $$
@@ -93,11 +109,41 @@ const ensureMilestoneTables = async () => {
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)`);
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS file_path VARCHAR(500)`);
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS file_url VARCHAR(1000)`);
+  await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS mime_type VARCHAR(100)`);
+  await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS submission_notes TEXT`);
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS is_late BOOLEAN DEFAULT FALSE`);
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS review_status VARCHAR(30) DEFAULT 'submitted'`);
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS feedback TEXT`);
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS marks NUMERIC(6,2) DEFAULT 0`);
+  await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS project_milestone_id INT REFERENCES project_milestones(id) ON DELETE CASCADE`);
+  await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE`);
+  await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS version_no INT DEFAULT 1`);
   await db.execute(`ALTER TABLE milestone_submissions ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  await db.execute(`UPDATE milestone_submissions SET project_milestone_id = milestone_id WHERE project_milestone_id IS NULL AND milestone_id IS NOT NULL`);
+  await db.execute(`UPDATE milestone_submissions SET submission_notes = remarks WHERE submission_notes IS NULL AND remarks IS NOT NULL`);
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS document_templates (
+      id SERIAL PRIMARY KEY,
+      project_milestone_id INT REFERENCES project_milestones(id) ON DELETE CASCADE,
+      project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE,
+      mentor_id INT REFERENCES users(id) ON DELETE SET NULL,
+      mentor_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      document_name VARCHAR(255),
+      document_type VARCHAR(100),
+      template_name VARCHAR(255) NOT NULL,
+      file_name VARCHAR(255),
+      file_path VARCHAR(500) NOT NULL,
+      file_type VARCHAR(100),
+      mime_type VARCHAR(100),
+      deadline TIMESTAMP,
+      max_marks NUMERIC(6,2) DEFAULT 10,
+      instructions TEXT,
+      allowed_formats TEXT,
+      is_published BOOLEAN DEFAULT FALSE,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
   await db.execute(`
     DO $$
     BEGIN
@@ -209,6 +255,7 @@ exports.createTimeline = async (req, res) => {
     try {
       await client.query('BEGIN');
       await client.query('DELETE FROM project_milestones WHERE project_id = $1', [project_id]);
+      const registration = await getProjectRegistrationForProject(project_id, client);
 
       for (let index = 0; index < milestones.length; index += 1) {
         const title = typeof milestones[index] === 'string' ? milestones[index] : milestones[index].title;
@@ -216,23 +263,30 @@ exports.createTimeline = async (req, res) => {
         const documentType = typeof milestones[index] === 'string' ? title.toLowerCase().replace(/\s+/g, '_') : milestones[index].document_type || milestones[index].documentType || '';
         const instructions = typeof milestones[index] === 'string' ? '' : milestones[index].instructions || '';
         const maxMarks = Number(typeof milestones[index] === 'string' ? 10 : milestones[index].max_marks || milestones[index].maxMarks || 10);
-        const deadline = new Date(baseDate);
-        deadline.setDate(baseDate.getDate() + intervalDays * (index + 1));
+        const allowedFormats = typeof milestones[index] === 'string' ? '' : milestones[index].allowed_formats || milestones[index].allowedFormats || '';
+        const deadline = typeof milestones[index] === 'string' || !milestones[index].deadline
+          ? new Date(baseDate)
+          : new Date(milestones[index].deadline);
+        if (typeof milestones[index] === 'string' || !milestones[index].deadline) {
+          deadline.setDate(baseDate.getDate() + intervalDays * (index + 1));
+        }
 
         if (!title) {
           throw new Error('Milestone title is required');
         }
+        if (Number.isNaN(deadline.getTime())) {
+          throw new Error(`Invalid deadline for ${title}`);
+        }
 
         const result = await client.query(
-          `INSERT INTO project_milestones (project_id, title, description, document_type, instructions, max_marks, sequence_order, deadline, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `INSERT INTO project_milestones (project_id, project_registration_id, title, description, document_type, instructions, max_marks, allowed_formats, sequence_no, sequence_order, deadline, status, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, 'published', $11)
            RETURNING *`,
-          [project_id, title, description, documentType, instructions, maxMarks, index + 1, deadline.toISOString(), req.user.id]
+          [project_id, registration?.project_registration_id || null, title, description, documentType, instructions, maxMarks, allowedFormats, index + 1, deadline.toISOString(), req.user.id]
         );
         created.push(result.rows[0]);
       }
 
-      const registration = await getProjectRegistrationForProject(project_id, client);
       if (registration?.project_registration_id) {
         const values = created.flatMap((milestone) => [
           registration.project_registration_id,
@@ -257,6 +311,16 @@ exports.createTimeline = async (req, res) => {
       }
 
       await client.query('COMMIT');
+      if (registration?.project_registration_id) {
+        await notifyProjectTeam({
+          projectRegistrationId: registration.project_registration_id,
+          title: 'Document Timeline Published',
+          message: 'Your mentor published the document workspace timeline.',
+          type: 'project_timeline',
+          referenceId: Number(project_id),
+          referenceType: 'project_timeline'
+        });
+      }
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -283,10 +347,12 @@ exports.getStudentTimeline = async (req, res) => {
     const [milestones] = await db.execute(
       `SELECT pm.*,
               ms.id as submission_id,
-              ms.file_name,
-              ms.file_path,
-              ms.file_url,
-              ms.status as submission_status,
+             ms.file_name,
+             ms.file_path,
+             ms.file_url,
+             ms.mime_type,
+             ms.submission_notes,
+             ms.status as submission_status,
               ms.is_late,
               ms.submitted_at,
               CASE
@@ -296,11 +362,16 @@ exports.getStudentTimeline = async (req, res) => {
                 ELSE 'Pending'
               END as timeline_status
        FROM project_milestones pm
-       LEFT JOIN milestone_submissions ms
-         ON ms.milestone_id = pm.id AND ms.submitted_by = ?
+       LEFT JOIN LATERAL (
+         SELECT *
+         FROM milestone_submissions
+         WHERE milestone_id = pm.id
+         ORDER BY submitted_at DESC, id DESC
+         LIMIT 1
+       ) ms ON TRUE
        WHERE pm.project_id = ?
-       ORDER BY pm.sequence_order ASC`,
-      [req.user.id, project.id]
+       ORDER BY COALESCE(pm.sequence_no, pm.sequence_order) ASC`,
+      [project.id]
     );
 
     res.json({ project, milestones });
@@ -327,7 +398,7 @@ exports.getProjectTimeline = async (req, res) => {
        LEFT JOIN milestone_submissions ms ON ms.milestone_id = pm.id
        WHERE pm.project_id = ?
        GROUP BY pm.id
-       ORDER BY pm.sequence_order ASC`,
+       ORDER BY COALESCE(pm.sequence_no, pm.sequence_order) ASC`,
       [project.id]
     );
 
@@ -362,37 +433,100 @@ exports.submitMilestone = async (req, res) => {
     }
 
     const milestone = milestones[0];
+    if (!fileMatchesAllowedFormats(req.file.originalname, milestone.allowed_formats)) {
+      return res.status(400).json({ message: `Allowed formats: ${milestone.allowed_formats}` });
+    }
     const isLate = new Date() > new Date(milestone.deadline);
     const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${req.file.filename}`;
 
-    const result = await db.pool.query(
-      `INSERT INTO milestone_submissions
-       (milestone_id, project_id, submitted_by, file_name, file_path, file_url, status, is_late, remarks)
-       VALUES ($1, $2, $3, $4, $5, $6, 'Submitted', $7, $8)
-       ON CONFLICT (milestone_id, submitted_by)
-       DO UPDATE SET
-         file_name = EXCLUDED.file_name,
-         file_path = EXCLUDED.file_path,
-         file_url = EXCLUDED.file_url,
-         status = 'Submitted',
-         is_late = EXCLUDED.is_late,
-         remarks = EXCLUDED.remarks,
-         submitted_at = CURRENT_TIMESTAMP
-       RETURNING *`,
-      [
-        milestoneId,
-        milestone.project_id,
-        req.user.id,
-        req.file.originalname,
-        req.file.filename,
-        fileUrl,
-        isLate,
-        req.body.remarks || ''
-      ]
+    const registration = await getProjectRegistrationForProject(milestone.project_id);
+    const existingSubmission = await db.pool.query(
+      `SELECT id, COALESCE(version_no, 1) AS version_no
+       FROM milestone_submissions
+       WHERE milestone_id = $1 AND project_id = $2
+       ORDER BY submitted_at DESC, id DESC
+       LIMIT 1`,
+      [milestoneId, milestone.project_id]
     );
+
+    const nextVersion = Number(existingSubmission.rows[0]?.version_no || 0) + 1;
+    const result = existingSubmission.rows[0]
+      ? await db.pool.query(
+        `UPDATE milestone_submissions
+         SET submitted_by = $1,
+             file_name = $2,
+             file_path = $3,
+             file_url = $4,
+             mime_type = $5,
+             status = $6,
+             review_status = 'submitted',
+             is_late = $7,
+             remarks = $8,
+             submission_notes = $8,
+             feedback = NULL,
+             version_no = $9,
+             submitted_at = CURRENT_TIMESTAMP,
+             project_milestone_id = milestone_id,
+             project_registration_id = COALESCE(project_registration_id, $10)
+         WHERE id = $11
+         RETURNING *`,
+        [
+          req.user.id,
+          req.file.originalname,
+          req.file.filename,
+          fileUrl,
+          req.file.mimetype || null,
+          isLate ? 'late' : 'submitted',
+          isLate,
+          req.body.remarks || '',
+          nextVersion,
+          registration?.project_registration_id || null,
+          existingSubmission.rows[0].id
+        ]
+      )
+      : await db.pool.query(
+        `INSERT INTO milestone_submissions
+         (milestone_id, project_milestone_id, project_id, project_registration_id, submitted_by, file_name, file_path, file_url, mime_type, status, review_status, is_late, remarks, submission_notes, version_no)
+         VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, 'submitted', $10, $11, $11, 1)
+         RETURNING *`,
+        [
+          milestoneId,
+          milestone.project_id,
+          registration?.project_registration_id || null,
+          req.user.id,
+          req.file.originalname,
+          req.file.filename,
+          fileUrl,
+          req.file.mimetype || null,
+          isLate ? 'late' : 'submitted',
+          isLate,
+          req.body.remarks || ''
+        ]
+      );
 
     await recordDocumentVersion(result.rows[0]);
     await recordMilestoneSubmissionScore(result.rows[0]);
+    if (milestone.project_id) {
+      const mentorResult = await db.pool.query(`
+        SELECT COALESCE(p.mentor_id, ma.mentor_user_id, ma.mentor_id) AS mentor_id, p.title
+        FROM projects p
+        LEFT JOIN mentor_assignments ma ON ma.project_id = p.id
+        WHERE p.id = $1
+        LIMIT 1
+      `, [milestone.project_id]);
+      const mentorId = mentorResult.rows[0]?.mentor_id;
+      if (mentorId) {
+        await db.pool.query(`
+          INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type, is_read)
+          VALUES ($1, $2, $3, 'milestone_submission', $4, 'milestone_submission', FALSE)
+        `, [
+          mentorId,
+          'New Document Submission',
+          `A team submitted ${milestone.title}.`,
+          result.rows[0].id
+        ]);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -424,13 +558,14 @@ exports.reviewMilestoneSubmission = async (req, res) => {
       const submissionResult = await client.query(`
         SELECT ms.*,
                pm.project_id,
+               pm.max_marks,
                p.registration_id as project_registration_id
         FROM milestone_submissions ms
         JOIN project_milestones pm ON pm.id = ms.milestone_id
         JOIN projects p ON p.id = pm.project_id
         JOIN mentor_assignments ma ON ma.project_id = p.id
         WHERE ms.id = $1
-          AND ma.mentor_id = $2
+          AND COALESCE(ma.mentor_user_id, ma.mentor_id) = $2
         LIMIT 1
       `, [id, req.user.id]);
 
@@ -444,12 +579,12 @@ exports.reviewMilestoneSubmission = async (req, res) => {
         ? { project_registration_id: submission.project_registration_id }
         : await getProjectRegistrationForProject(submission.project_id, client);
 
-      const boundedMarks = Math.max(0, Math.min(Number(marks) || 0, 10));
+      const boundedMarks = Math.max(0, Math.min(Number(marks) || 0, Number(submission.max_marks || 10)));
       const statusLabel = {
-        submitted: 'Submitted',
-        approved: 'Approved',
-        rejected: 'Rejected',
-        needs_revision: 'Needs Work'
+        submitted: 'submitted',
+        approved: 'approved',
+        rejected: 'rejected',
+        needs_revision: 'needs_revision'
       }[normalizedStatus];
       const updatedResult = await client.query(`
         UPDATE milestone_submissions
@@ -464,8 +599,8 @@ exports.reviewMilestoneSubmission = async (req, res) => {
 
       await client.query(`
         INSERT INTO mentor_reviews
-        (submission_id, milestone_submission_id, project_registration_id, mentor_id, status, remarks, comments, quality_marks, feedback, marks, review_status, updated_at)
-        VALUES ($1, $1, $2, $3, $4, $5, $5, $6, $5, $6, $7, NOW())
+        (submission_id, milestone_submission_id, project_registration_id, mentor_id, mentor_user_id, status, remarks, comments, quality_marks, feedback, marks, review_status, reviewed_at, updated_at)
+        VALUES ($1, $1, $2, $3, $3, $4, $5, $5, $6, $5, $6, $7, NOW(), NOW())
       `, [id, registration?.project_registration_id, req.user.id, statusLabel, feedback || '', boundedMarks, normalizedStatus]);
 
       await client.query(`

@@ -496,7 +496,7 @@ exports.createRegistrationForm = async (req, res) => {
   try {
     console.log("HOD publish payload:", req.body);
     const {
-      title, instructions, branch, branch_id, academic_year, semester, section, subsection,
+      title, instructions, branch, branch_id, academic_year, semester,
       team_size_min, team_size_max, project_type, start_date, deadline, status
     } = req.body;
     const created_by = req.user.id;
@@ -508,9 +508,9 @@ exports.createRegistrationForm = async (req, res) => {
       resolvedBranch = branchResult.rows[0]?.name;
     }
 
-    if (!title || !resolvedBranch || !academic_year || !semester || !section || !project_type || !start_date || !deadline) {
+    if (!title || !resolvedBranch || !academic_year || !semester || !project_type || !start_date || !deadline) {
       return res.status(400).json({
-        message: 'Title, branch, academic year, semester, section, project type, start date, and deadline are required.'
+        message: 'Title, branch, academic year, semester, project type, start date, and deadline are required.'
       });
     }
 
@@ -568,12 +568,15 @@ exports.createRegistrationForm = async (req, res) => {
       else finalBranchId = 1;
     }
 
+    const finalSection = 'ALL';
+    const finalSubsection = 'ALL';
+
     const result = await db.pool.query(`
       INSERT INTO registration_forms 
       (title, instructions, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type, start_date, deadline, status, created_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
-    `, [title, instructions, resolvedBranch, finalBranchId, academic_year, parsedSemester, section, subsection || null, parsedTeamSizeMin, parsedTeamSizeMax, project_type, start_date, deadline, finalStatus, created_by]);
+    `, [title, instructions, resolvedBranch, finalBranchId, academic_year, parsedSemester, finalSection, finalSubsection, parsedTeamSizeMin, parsedTeamSizeMax, project_type, start_date, deadline, finalStatus, created_by]);
     
     const newForm = result.rows[0];
     console.log("Created registration form:", newForm);
@@ -1160,10 +1163,12 @@ exports.assignMentor = async (req, res) => {
       WHERE id = $2
     `, [mentor_id, syncedProject.project_id]);
 
+    await client.query(`ALTER TABLE IF EXISTS mentor_assignments ADD COLUMN IF NOT EXISTS mentor_user_id INT REFERENCES users(id) ON DELETE CASCADE`);
+
     const result = await client.query(`
       INSERT INTO mentor_assignments
-      (mentor_id, project_id, registration_id, submission_id, assigned_by, section, academic_year, branch, domain)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      (mentor_id, mentor_user_id, project_id, registration_id, submission_id, assigned_by, section, academic_year, branch, domain)
+      VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
       mentor_id,

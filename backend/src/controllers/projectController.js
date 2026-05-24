@@ -46,7 +46,7 @@ exports.getProjects = async (req, res) => {
         SELECT DISTINCT p.*
         FROM projects p
         JOIN mentor_assignments ma ON ma.project_id = p.id
-        WHERE ma.mentor_id = ?
+        WHERE COALESCE(ma.mentor_user_id, ma.mentor_id) = ?
         ORDER BY p.created_at DESC
       `;
       params = [id];

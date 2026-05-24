@@ -152,12 +152,14 @@ exports.assignMentor = async (req, res) => {
       [submission_id]
     );
 
+    await db.execute(`ALTER TABLE IF EXISTS mentor_assignments ADD COLUMN IF NOT EXISTS mentor_user_id INT REFERENCES users(id) ON DELETE CASCADE`);
+
     // Save mapping in mentor_assignments table
     await db.execute(
       `INSERT INTO mentor_assignments 
-       (mentor_id, project_id, submission_id, assigned_by, section, academic_year, branch, domain) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [selectedMentorId, newProjectId, submission_id, hodId, sub.section, sub.academic_year, sub.branch, sub.domain]
+       (mentor_id, mentor_user_id, project_id, submission_id, assigned_by, section, academic_year, branch, domain) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [selectedMentorId, selectedMentorId, newProjectId, submission_id, hodId, sub.section, sub.academic_year, sub.branch, sub.domain]
     );
 
     // Link team members to the newly created project
