@@ -369,7 +369,7 @@ http://127.0.0.1:5173
 
 ```env
 PORT=5000
-DATABASE_URL=postgresql://postgres:password@localhost:5432/projectflow_edu
+DATABASE_URL= databases URL
 JWT_SECRET=your_jwt_secret
 ```
 
