@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   FileText, 
   Users, 
@@ -19,6 +20,7 @@ import { PageHeader, SectionCard, StatusBadge } from '../../components/common/Pr
 
 const StudentProjectForm = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeForms, setActiveForms] = useState([]);
   const [selectedForm, setSelectedForm] = useState(null);
@@ -102,7 +104,7 @@ const StudentProjectForm = () => {
     });
     // Initialize required minimum members minus leader
     const initialMembers = [];
-    const minOthers = Math.max(1, (form.team_size_min || 2) - 1);
+    const minOthers = Math.max(0, (form.team_size_min || 1) - 1);
     for(let i=0; i<minOthers; i++){
       initialMembers.push(createEmptyMember());
     }
@@ -246,11 +248,12 @@ const StudentProjectForm = () => {
         team_members: submittedMembers.map(({ originalIndex, ...member }) => member)
       });
 
-      toast.success('Project and team details registered successfully!');
+      toast.success('Project registration submitted successfully');
       
       // Update UI
       fetchActiveForms();
       setSelectedForm(prev => ({...prev, has_submitted: true}));
+      navigate('/student/dashboard', { replace: true });
     } catch (error) {
       console.error('Registration failed:', error);
       toast.error(error.response?.data?.message || 'Failed to submit registration form.');

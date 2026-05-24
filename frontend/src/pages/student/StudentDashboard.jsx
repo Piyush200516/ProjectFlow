@@ -19,7 +19,10 @@ import {
   Layout,
   TestTube,
   RefreshCw,
-  Calendar
+  Calendar,
+  Users,
+  UserCheck,
+  MessageSquare
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -37,16 +40,23 @@ const StudentDashboard = () => {
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [activeForms, setActiveForms] = useState([]);
+  const [myProject, setMyProject] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [refreshingRegistration, setRefreshingRegistration] = useState(false);
   const [lastRegistrationRefresh, setLastRegistrationRefresh] = useState(null);
 
+  const fetchMyProject = useCallback(async () => {
+    const { data } = await api.get('/student/my-project');
+    setMyProject(data?.project || null);
+  }, []);
+
   const fetchFormsAndNotifications = useCallback(async () => {
     setRefreshingRegistration(true);
     try {
-      const [formsRes, notificationsRes] = await Promise.all([
+      const [formsRes, notificationsRes, myProjectRes] = await Promise.all([
         api.get('/student/registration-forms/active'),
-        api.get('/student/notifications', { params: { limit: 10 } })
+        api.get('/student/notifications', { params: { limit: 10 } }),
+        api.get('/student/my-project')
       ]);
       const forms = formsRes.data?.forms || [];
       const latestNotifications = notificationsRes.data?.notifications || [];
@@ -54,6 +64,7 @@ const StudentDashboard = () => {
       console.log('Notifications loaded:', latestNotifications.length);
       setActiveForms(forms);
       setNotifications(latestNotifications);
+      setMyProject(myProjectRes.data?.project || null);
       setLastRegistrationRefresh(new Date());
     } catch (error) {
       console.error('Failed to load registration updates:', error);
@@ -65,7 +76,11 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const { data: projectData } = await api.get('/projects');
+        const [projectRes] = await Promise.all([
+          api.get('/projects'),
+          fetchMyProject()
+        ]);
+        const projectData = projectRes.data;
         setProjects(projectData);
         if (projectData.length > 0) {
           const { data: taskData } = await api.get(`/tasks/project/${projectData[0].id}`);
@@ -80,7 +95,7 @@ const StudentDashboard = () => {
     fetchFormsAndNotifications();
     const interval = window.setInterval(fetchFormsAndNotifications, 60000);
     return () => window.clearInterval(interval);
-  }, [fetchFormsAndNotifications]);
+  }, [fetchFormsAndNotifications, fetchMyProject]);
 
   const activeProject = projects[0];
   const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'Completed').length, [tasks]);
@@ -128,11 +143,11 @@ const StudentDashboard = () => {
         description="Monitor your academic project progress and feedback."
         actions={
           <button 
-            onClick={() => navigate('/student/projects')}
+            onClick={() => navigate('/student/project-form')}
             className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all active:scale-95"
           >
             <Plus size={16} />
-            New Project
+            Project Form
           </button>
         }
       />
@@ -146,7 +161,7 @@ const StudentDashboard = () => {
       </div>
 
       <SectionCard
-        title="Project Registration"
+        title={myProject ? 'My Assigned Project' : 'Project Registration'}
         subtitle={lastRegistrationRefresh ? `Latest forms refreshed at ${lastRegistrationRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Latest HOD registration forms from PostgreSQL'}
         headerActions={
           <button
@@ -160,9 +175,96 @@ const StudentDashboard = () => {
         }
       >
         <div className="space-y-4">
+          {myProject ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <StatusBadge status={myProject.status || 'Pending'} variant={myProject.status === 'Approved' ? 'success' : myProject.status === 'Rejected' ? 'error' : 'warning'} />
+                  <h3 className="mt-3 text-lg font-black text-slate-900">{myProject.title}</h3>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{myProject.domain} / {myProject.project_type}</p>
+                </div>
+                <button
+                  onClick={() => navigate('/student/project-form')}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50"
+                >
+                  View Registration
+                </button>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Team Leader</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">{myProject.team_leader?.full_name || 'Pending'}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Team Members</p>
+                  <p className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-slate-800">
+                    <Users size={14} /> {myProject.team_members?.length || 1}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Submitted Date</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">{formatDeadline(myProject.submitted_at)}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Assigned Mentor</p>
+                  <p className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-slate-800">
+                    <UserCheck size={14} /> {myProject.mentor?.name || 'Not assigned'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                  <p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                    <Users size={14} /> Team
+                  </p>
+                  <div className="space-y-2">
+                    {(myProject.team_members || []).map((member) => (
+                      <div key={member.id || member.email} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800">{member.full_name}</p>
+                          <p className="font-semibold text-slate-400">{member.email}</p>
+                        </div>
+                        <span className="rounded bg-slate-100 px-2 py-1 font-black uppercase text-slate-500">
+                          {member.is_leader ? 'Leader' : 'Member'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                  <p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                    <Clock size={14} /> Timeline / Milestones
+                  </p>
+                  {myProject.timeline?.length ? (
+                    <div className="space-y-2">
+                      {myProject.timeline.slice(0, 4).map((milestone) => (
+                        <div key={milestone.id} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs">
+                          <p className="font-bold text-slate-800">{milestone.title}</p>
+                          <p className="font-semibold text-slate-400">{formatDeadline(milestone.deadline)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm font-semibold text-slate-400">Timeline will appear after HOD or mentor publishes milestones.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50 p-4">
+                <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                  <MessageSquare size={14} /> HOD Remarks
+                </p>
+                <p className="text-sm font-semibold text-slate-600">{myProject.hod_remarks || 'No remarks yet.'}</p>
+              </div>
+            </div>
+          ) : (
+          <>
           {latestRegistrationNotification && (
             <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
-              {latestRegistrationNotification.title || 'New Project Registration Form'}
+              {latestRegistrationNotification.title || 'New Project Registration Campaign Published'}
             </div>
           )}
 
@@ -213,6 +315,8 @@ const StudentDashboard = () => {
                 </div>
               ))}
             </div>
+          )}
+          </>
           )}
         </div>
       </SectionCard>

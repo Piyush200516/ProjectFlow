@@ -284,15 +284,15 @@ const StudentTeamWorkspace = () => {
           <div>
             <h2 className="text-xl font-bold text-slate-900">No Active Team Workspace</h2>
             <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
-              You are not currently enrolled in any active project team. You can either accept one of your pending team invitations (if any) or create a new project proposal to start your own team!
+              You are not currently enrolled in any active project team. Submit a matching HOD Project Registration Campaign to start your assigned workspace.
             </p>
           </div>
           <div className="flex gap-3">
             <a 
-              href="/student/projects" 
+              href="/student/project-form" 
               className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all shadow-sm"
             >
-              Create Project Proposal
+              View Project Campaigns
             </a>
           </div>
         </div>
@@ -311,14 +311,9 @@ const StudentTeamWorkspace = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          {isTeamLeader && (
-            <button 
-              onClick={() => setShowInviteModal(true)}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-white rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center gap-1.5"
-            >
-              <Plus size={16} /> Add Member
-            </button>
-          )}
+          <span className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-500">
+            Team locked by HOD campaign
+          </span>
         </div>
       </div>
 

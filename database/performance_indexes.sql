@@ -52,6 +52,17 @@ ON project_team_members(UPPER(roll_number));
 CREATE INDEX IF NOT EXISTS idx_project_milestones_form
 ON project_milestones(registration_form_id, deadline);
 
+ALTER TABLE registration_forms
+DROP CONSTRAINT IF EXISTS chk_team_size;
+
+ALTER TABLE registration_forms
+ADD CONSTRAINT chk_team_size
+CHECK (
+    team_size_min >= 1
+    AND team_size_max <= 4
+    AND team_size_min <= team_size_max
+);
+
 CREATE INDEX IF NOT EXISTS idx_project_milestones_project
 ON project_milestones(project_id, deadline);
 

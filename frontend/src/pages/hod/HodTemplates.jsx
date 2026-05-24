@@ -61,7 +61,7 @@ const HodRegistrationForms = () => {
     semester: '',
     section: 'A',
     subsection: '',
-    team_size_min: 2,
+    team_size_min: 1,
     team_size_max: 4,
     project_type: 'Minor Project',
     start_date: '',
@@ -476,6 +476,7 @@ const HodRegistrationForms = () => {
                 onChange={(e) => setFormData({...formData, team_size_min: parseInt(e.target.value)})}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
+                <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>
@@ -488,6 +489,7 @@ const HodRegistrationForms = () => {
                 onChange={(e) => setFormData({...formData, team_size_max: parseInt(e.target.value)})}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
+                <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>

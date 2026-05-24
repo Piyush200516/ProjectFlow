@@ -6,7 +6,8 @@ const {
   createTimeline,
   getStudentTimeline,
   getProjectTimeline,
-  submitMilestone
+  submitMilestone,
+  reviewMilestoneSubmission
 } = require('../controllers/milestoneController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -33,5 +34,6 @@ router.post('/timeline', protect, authorize('mentor', 'hod', 'admin'), createTim
 router.get('/student/timeline', protect, authorize('student'), getStudentTimeline);
 router.get('/project/:projectId/timeline', protect, authorize('mentor', 'hod', 'admin'), getProjectTimeline);
 router.post('/:milestoneId/submit', protect, authorize('student'), upload.single('file'), submitMilestone);
+router.patch('/submissions/:id/review', protect, authorize('mentor', 'hod', 'admin'), reviewMilestoneSubmission);
 
 module.exports = router;

@@ -40,7 +40,6 @@ import { toast } from 'sonner';
 import { cn } from '../../utils/utils';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { queryKeys } from '../../lib/queryKeys';
-import { useHodStatsChartOptions } from '../../hooks/useEChartOptions';
 
 const HodDashboard = () => {
   const [exporting, setExporting] = useState(false);
@@ -49,7 +48,6 @@ const HodDashboard = () => {
     '/hod/dashboard-stats',
     { staleTime: 60_000 }
   );
-  useHodStatsChartOptions(stats);
 
   const handleExport = async (type) => {
     try {
@@ -106,6 +104,8 @@ const HodDashboard = () => {
     { label: 'Approved Projects', value: stats?.approvedProjects || 0, icon: ShieldCheck, color: 'emerald' },
     { label: 'Rejected Projects', value: stats?.rejectedProjects || 0, icon: TrendingUp, color: 'rose' },
     { label: 'Mentor Assigned', value: stats?.mentorAssignedProjects || 0, icon: UserCheck, color: 'violet' },
+    { label: 'Late Submissions', value: stats?.lateSubmissions || 0, icon: Clock, color: 'rose' },
+    { label: 'Average Marks', value: stats?.averageMarks || 0, icon: Award, color: 'green' },
   ];
 
   return (
@@ -138,6 +138,14 @@ const HodDashboard = () => {
              >
                 <FileDown size={18} />
                 Mentors
+             </button>
+             <button 
+               onClick={() => handleExport('marks')}
+               disabled={exporting}
+               className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+             >
+                <FileDown size={18} />
+                Marks
              </button>
           </div>
         }

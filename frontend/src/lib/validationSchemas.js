@@ -31,8 +31,8 @@ export const hodRegistrationFormSchema = z.object({
   semester: z.coerce.number().int().min(1).max(8),
   section: z.string().trim().min(1, 'Section is required'),
   subsection: z.string().trim().optional(),
-  team_size_min: z.coerce.number().int().min(1),
-  team_size_max: z.coerce.number().int().min(1),
+  team_size_min: z.coerce.number().int().min(1).max(4),
+  team_size_max: z.coerce.number().int().min(1).max(4),
 }).refine((data) => data.team_size_max >= data.team_size_min, {
   path: ['team_size_max'],
   message: 'Max team size must be greater than or equal to min team size',

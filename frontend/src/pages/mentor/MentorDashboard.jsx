@@ -72,7 +72,7 @@ const MentorDashboard = () => {
     { label: 'Assigned', value: stats?.assigned || '0', icon: Users, color: 'blue' },
     { label: 'Pending', value: stats?.pending || '0', icon: Clock, color: 'amber' },
     { label: 'Completed', value: stats?.completed || '0', icon: CheckCircle, color: 'green' },
-    { label: 'Feedback', value: stats?.feedback || '0', icon: MessageCircle, color: 'indigo' },
+    { label: 'Late', value: stats?.lateSubmissions || '0', icon: AlertCircle, color: 'rose' },
   ];
 
   const submissionData = [

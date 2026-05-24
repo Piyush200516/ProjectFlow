@@ -16,24 +16,17 @@ import {
   ProgressCard 
 } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
 
 const StudentScore = () => {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [evaluation, setEvaluation] = useState(null);
+  const [marksData, setMarksData] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: projects } = await api.get('/projects');
-        if (projects.length > 0) {
-          const { data: projectDetails } = await api.get(`/projects/${projects[0].id}`);
-          if (projectDetails.evaluations && projectDetails.evaluations.length > 0) {
-            setEvaluation(projectDetails.evaluations[0]);
-          }
-        }
+        const { data } = await api.get('/student/marks');
+        setMarksData(data);
       } catch (error) {
         console.error('Failed to fetch scores:', error);
         toast.error('Failed to load performance analytics');
@@ -52,6 +45,10 @@ const StudentScore = () => {
     );
   }
 
+  const score = marksData?.marks || {};
+  const projectScore = marksData?.project_score || {};
+  const milestoneScores = marksData?.milestone_scores || [];
+
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       <PageHeader 
@@ -66,10 +63,10 @@ const StudentScore = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Trophy} label="Total Credits" value={evaluation?.total_credits || '0'} trend="up" trendValue={evaluation?.total_credits} color="blue" />
-        <StatCard icon={Target} label="Innovation" value={`${evaluation?.innovation_score || 0}%`} color="green" />
-        <StatCard icon={Star} label="Technical" value={`${evaluation?.technical_score || 0}%`} color="amber" />
-        <StatCard icon={Shield} label="Verified Tier" value={evaluation?.tier || 'N/A'} color="indigo" />
+        <StatCard icon={Trophy} label="Final Marks" value={score.final_marks || '0'} trend="up" trendValue="/50" color="blue" />
+        <StatCard icon={Target} label="Team Marks" value={projectScore.total_marks || '0'} color="green" />
+        <StatCard icon={Star} label="Contribution" value={`${score.contribution_percent || 100}%`} color="amber" />
+        <StatCard icon={Shield} label="Timeliness" value={score.timeliness_score || '0'} color="indigo" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -79,10 +76,21 @@ const StudentScore = () => {
           className="lg:col-span-2"
         >
           <div className="space-y-8 mt-6">
-            <ProgressCard label="Innovation Score" value={evaluation?.innovation_score || 0} color="blue" />
-            <ProgressCard label="Technical Depth" value={evaluation?.technical_score || 0} color="indigo" />
-            <ProgressCard label="Documentation" value={evaluation?.documentation_score || 0} color="emerald" />
-            <ProgressCard label="Presentation" value={evaluation?.presentation_score || 0} color="amber" />
+            <ProgressCard label="Timely Submission" value={Number(projectScore.timely_submission_marks || 0) * 5} color="blue" />
+            <ProgressCard label="Documentation Completion" value={Number(projectScore.documentation_marks || 0) * 10} color="indigo" />
+            <ProgressCard label="Mentor Review" value={Number(projectScore.mentor_review_marks || 0) * 10} color="emerald" />
+            <ProgressCard label="Final Demo / Innovation" value={(Number(projectScore.final_demo_marks || 0) + Number(projectScore.innovation_marks || 0)) * 10} color="amber" />
+            <div className="space-y-3">
+              {milestoneScores.map((item) => (
+                <div key={item.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm">
+                  <div>
+                    <p className="font-bold text-slate-900">{item.milestone_title}</p>
+                    <p className="text-xs font-semibold text-slate-400">{item.review_status || 'submitted'}</p>
+                  </div>
+                  <p className="font-black text-slate-900">{item.total_marks}/40</p>
+                </div>
+              ))}
+            </div>
           </div>
         </SectionCard>
 
@@ -92,7 +100,7 @@ const StudentScore = () => {
               <p className="text-[10px] text-white/60 font-black uppercase tracking-[0.2em]">Current Academic Tier</p>
               <p className="text-2xl font-black text-white mt-2 tracking-tighter italic flex items-center justify-center gap-3">
                 <Award className="text-amber-400" size={28} />
-                {evaluation?.tier || 'PREMIER A+'}
+                {Number(score.final_marks || 0) >= 40 ? 'PREMIER A+' : 'IN PROGRESS'}
               </p>
             </div>
             <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">

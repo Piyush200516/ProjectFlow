@@ -16,6 +16,8 @@ const {
   rejectRegistrationSubmission,
   assignMentor,
   exportReport,
+  getMarksReport,
+  createFinalEvaluation,
   getMentors
 } = require('../controllers/hodController');
 const { protect, authorize } = require('../middleware/authMiddleware');
@@ -43,6 +45,8 @@ router.patch('/registration-submissions/:id/reject', ...hodOnly, rejectRegistrat
 
 // 3. Mentor Assignment
 router.post('/assign-mentor', ...hodOnly, assignMentor);
+router.get('/marks-report', ...hodOnly, getMarksReport);
+router.post('/final-evaluation', ...hodOnly, createFinalEvaluation);
 
 // 4. Mentors
 router.get('/mentors', ...hodOnly, getMentors);

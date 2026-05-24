@@ -4,6 +4,10 @@ const {
   createTeamNotifications,
   ensureNotificationsTable
 } = require('../utils/studentNotifications');
+const {
+  ensureAdvancedWorkflowTables,
+  recalculateProjectScores
+} = require('../utils/advancedProjectWorkflow');
 
 // Lazy initialize tables just in case they don't exist (since sandboxing prevents migrations)
 (async () => {
@@ -17,7 +21,7 @@ const {
                 academic_year VARCHAR(20),
                 semester INT NOT NULL,
                 section VARCHAR(10) NOT NULL,
-                team_size_min INT DEFAULT 2,
+                team_size_min INT DEFAULT 1,
                 team_size_max INT DEFAULT 4,
                 project_type VARCHAR(50) NOT NULL CHECK (project_type IN ('Minor Project', 'Major Project', 'Research Project', 'Hackathon Project')),
                 start_date TIMESTAMP NOT NULL,
@@ -49,6 +53,18 @@ const {
         await db.execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;`);
         await db.execute(`ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(50);`);
         await db.execute(`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;`);
+        await db.execute(`ALTER TABLE registration_forms ALTER COLUMN team_size_min SET DEFAULT 1;`);
+        await db.execute(`ALTER TABLE registration_forms ALTER COLUMN team_size_max SET DEFAULT 4;`);
+        await db.execute(`ALTER TABLE registration_forms DROP CONSTRAINT IF EXISTS chk_team_size;`);
+        await db.execute(`
+            ALTER TABLE registration_forms
+            ADD CONSTRAINT chk_team_size
+            CHECK (
+                team_size_min >= 1
+                AND team_size_max <= 4
+                AND team_size_min <= team_size_max
+            );
+        `);
 
         // Remove the old constraint safely to allow lowercase statuses
         try {
@@ -84,8 +100,8 @@ const {
     }
 })();
 
-const REGISTRATION_FORM_NOTIFICATION_TITLE = 'New Project Registration Form';
-const REGISTRATION_FORM_NOTIFICATION_MESSAGE = 'HOD has published a new project registration form. Please fill your project and team details before the deadline.';
+const REGISTRATION_FORM_NOTIFICATION_TITLE = 'New Project Registration Campaign Published';
+const REGISTRATION_FORM_NOTIFICATION_MESSAGE = 'New Project Registration Campaign Published';
 const PROJECT_TIMELINE_NOTIFICATION_TITLE = 'Project Timeline Published';
 const PROJECT_TIMELINE_NOTIFICATION_MESSAGE = 'Your project document submission timeline has been published.';
 
@@ -112,13 +128,178 @@ const defaultTimelineMilestones = [
   { title: 'GitHub Final Submission', document_type: 'github' }
 ];
 
+const syncApprovedProjectForSubmission = async (client, submissionId, mentorId = null) => {
+  const submissionResult = await client.query(`
+    SELECT s.id,
+           s.form_id,
+           s.project_title,
+           s.project_domain,
+           s.abstract,
+           s.problem_statement,
+           s.tech_stack,
+           s.leader_id,
+           f.project_type,
+           f.branch,
+           f.academic_year,
+           f.semester,
+           f.section,
+           f.subsection,
+           pr.id as project_registration_id
+    FROM registration_form_submissions s
+    JOIN registration_forms f ON f.id = s.form_id
+    LEFT JOIN project_registrations pr
+      ON pr.created_by = s.leader_id
+     AND pr.title = s.project_title
+    WHERE s.id = $1
+    ORDER BY pr.id DESC NULLS LAST
+    LIMIT 1
+  `, [submissionId]);
+
+  if (submissionResult.rows.length === 0) {
+    return null;
+  }
+
+  const submission = submissionResult.rows[0];
+  let projectRegistrationId = submission.project_registration_id;
+
+  if (!projectRegistrationId) {
+    const registrationResult = await client.query(`
+      INSERT INTO project_registrations
+      (title, description, project_type, branch, academic_year, semester, section, domain, abstract, created_by, status, problem_statement, tech_stack)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Approved', $11, $12)
+      RETURNING id
+    `, [
+      submission.project_title,
+      submission.abstract || submission.problem_statement || '',
+      submission.project_type || 'Minor Project',
+      submission.branch || 'CSE',
+      submission.academic_year,
+      submission.semester,
+      submission.section,
+      submission.project_domain,
+      submission.abstract || '',
+      submission.leader_id,
+      submission.problem_statement || '',
+      submission.tech_stack || ''
+    ]);
+    projectRegistrationId = registrationResult.rows[0].id;
+  } else {
+    await client.query(
+      `UPDATE project_registrations SET status = 'Approved', updated_at = NOW() WHERE id = $1`,
+      [projectRegistrationId]
+    );
+  }
+
+  await client.query(`
+    UPDATE project_team_members
+    SET project_registration_id = $1
+    WHERE submission_id = $2
+      AND (project_registration_id IS NULL OR project_registration_id = $1)
+  `, [projectRegistrationId, submission.id]);
+
+  const existingProject = await client.query(`
+    SELECT id
+    FROM projects
+    WHERE registration_id = $1
+       OR (created_by = $2 AND title = $3)
+    ORDER BY id DESC
+    LIMIT 1
+  `, [projectRegistrationId, submission.leader_id, submission.project_title]);
+
+  let projectId = existingProject.rows[0]?.id || null;
+  const projectStatus = 'In Progress';
+
+  if (projectId) {
+    await client.query(`
+      UPDATE projects
+      SET registration_id = $1,
+          type = $2,
+          description = $3,
+          status = $4,
+          branch = $5,
+          academic_year = $6,
+          semester = $7,
+          section = $8,
+          mentor_id = COALESCE($9, mentor_id),
+          updated_at = NOW()
+      WHERE id = $10
+    `, [
+      projectRegistrationId,
+      submission.project_type || 'Minor Project',
+      submission.abstract || submission.problem_statement || '',
+      projectStatus,
+      submission.branch,
+      submission.academic_year,
+      submission.semester,
+      submission.section,
+      mentorId,
+      projectId
+    ]);
+  } else {
+    const projectResult = await client.query(`
+      INSERT INTO projects
+      (registration_id, title, type, team_name, description, status, progress_percent, branch, academic_year, semester, section, created_by, mentor_id)
+      VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, $9, $10, $11, $12)
+      RETURNING id
+    `, [
+      projectRegistrationId,
+      submission.project_title,
+      submission.project_type || 'Minor Project',
+      submission.project_title,
+      submission.abstract || submission.problem_statement || '',
+      projectStatus,
+      submission.branch,
+      submission.academic_year,
+      submission.semester,
+      submission.section,
+      submission.leader_id,
+      mentorId
+    ]);
+    projectId = projectResult.rows[0].id;
+  }
+
+  const membersResult = await client.query(`
+    SELECT DISTINCT COALESCE(user_id, student_id, student_user_id) as student_id,
+           COALESCE(is_leader, is_team_leader, false) as is_leader
+    FROM project_team_members
+    WHERE submission_id = $1
+      AND COALESCE(user_id, student_id, student_user_id) IS NOT NULL
+  `, [submission.id]);
+
+  const members = membersResult.rows.length > 0
+    ? membersResult.rows
+    : [{ student_id: submission.leader_id, is_leader: true }];
+
+  for (const member of members) {
+    await client.query(`
+      INSERT INTO project_members (project_id, registration_id, student_id, role, is_leader)
+      SELECT $1, $2, $3, $4, $5
+      WHERE NOT EXISTS (
+        SELECT 1 FROM project_members WHERE project_id = $1 AND student_id = $3
+      )
+    `, [
+      projectId,
+      projectRegistrationId,
+      member.student_id,
+      member.is_leader ? 'Leader' : 'Member',
+      member.is_leader
+    ]);
+  }
+
+  return {
+    ...submission,
+    project_id: projectId,
+    project_registration_id: projectRegistrationId
+  };
+};
+
 const ensureRegistrationNotificationTable = async () => {
   await ensureNotificationsTable();
 };
 
 const notifyMatchingStudentsForRegistrationForm = async (form) => {
   return createStudentNotifications({
-    title: 'New Project Registration Form',
+    title: REGISTRATION_FORM_NOTIFICATION_TITLE,
     message: REGISTRATION_FORM_NOTIFICATION_MESSAGE,
     type: 'registration_form',
     referenceId: form.id,
@@ -208,6 +389,7 @@ const ensureRegistrationTimelineColumns = async () => {
 // @access  Private (HOD)
 exports.getHodStats = async (req, res) => {
   try {
+    await ensureAdvancedWorkflowTables();
     const [statsRows] = await db.execute(`
       SELECT
         (SELECT COUNT(*)::int FROM registration_forms) AS total_forms,
@@ -216,9 +398,20 @@ exports.getHodStats = async (req, res) => {
         (SELECT COUNT(*)::int FROM registration_form_submissions WHERE status = 'Pending') AS pending_approvals,
         (SELECT COUNT(*)::int FROM registration_form_submissions WHERE status = 'Approved') AS approved_projects,
         (SELECT COUNT(*)::int FROM registration_form_submissions WHERE status = 'Rejected') AS rejected_projects,
-        (SELECT COUNT(DISTINCT project_id)::int FROM mentor_assignments) AS mentor_assigned_projects
+        (SELECT COUNT(DISTINCT project_id)::int FROM mentor_assignments) AS mentor_assigned_projects,
+        (SELECT COUNT(*)::int FROM milestone_scores WHERE is_late = TRUE) AS late_submissions,
+        (SELECT COUNT(*)::int FROM projects WHERE status = 'Completed') AS completed_projects,
+        (SELECT ROUND(COALESCE(AVG(final_marks), 0), 2) FROM student_scores) AS average_marks
     `);
     const stats = statsRows[0] || {};
+    const topTeams = await db.pool.query(`
+      SELECT pr.title,
+             ps.total_marks
+      FROM project_scores ps
+      JOIN project_registrations pr ON pr.id = ps.project_registration_id
+      ORDER BY ps.total_marks DESC NULLS LAST
+      LIMIT 5
+    `);
     
     res.json({
       totalForms: stats.total_forms || 0,
@@ -227,7 +420,11 @@ exports.getHodStats = async (req, res) => {
       pendingApprovals: stats.pending_approvals || 0,
       approvedProjects: stats.approved_projects || 0,
       rejectedProjects: stats.rejected_projects || 0,
-      mentorAssignedProjects: stats.mentor_assigned_projects || 0
+      mentorAssignedProjects: stats.mentor_assigned_projects || 0,
+      lateSubmissions: stats.late_submissions || 0,
+      completedProjects: stats.completed_projects || 0,
+      averageMarks: stats.average_marks || 0,
+      topTeams: topTeams.rows
     });
   } catch (error) {
     console.error('getHodStats error:', error);
@@ -357,8 +554,8 @@ exports.createRegistrationForm = async (req, res) => {
       return res.status(400).json({ message: 'Invalid semester for Major Project. Must be 7 or 8.' });
     }
 
-    if (parsedTeamSizeMin < 2 || parsedTeamSizeMax > 4 || parsedTeamSizeMin > parsedTeamSizeMax) {
-      return res.status(400).json({ message: 'Team size must be between 2 and 4 members.' });
+    if (parsedTeamSizeMin < 1 || parsedTeamSizeMax > 4 || parsedTeamSizeMin > parsedTeamSizeMax) {
+      return res.status(400).json({ message: 'Team size must be between 1 and 4 members.' });
     }
 
     let finalStatus = status || 'published';
@@ -497,8 +694,8 @@ exports.updateRegistrationForm = async (req, res) => {
     let notification = null;
     if (statusEntry?.[1] === 'published' && (existingForm.status || '').toLowerCase() !== 'published') {
       notification = {
-        title: 'New Project Registration Form',
-        message: 'HOD has published a new project registration form. Please fill your project and team details before the deadline.',
+        title: REGISTRATION_FORM_NOTIFICATION_TITLE,
+        message: REGISTRATION_FORM_NOTIFICATION_MESSAGE,
         type: 'registration_form',
         referenceType: 'registration_form'
       };
@@ -723,7 +920,26 @@ exports.createRegistrationFormTimeline = async (req, res) => {
 exports.getRegistrationSubmissions = async (req, res) => {
   try {
     const { limit, offset } = getPagination(req.query);
-    const [submissions] = await db.execute(`
+    const filters = [];
+    const values = [];
+    const addFilter = (field, value) => {
+      if (value !== undefined && value !== null && value !== '') {
+        values.push(value);
+        filters.push(`${field} = $${values.length}`);
+      }
+    };
+
+    addFilter('f.branch_id', req.query.branch_id);
+    addFilter('f.academic_year', req.query.academic_year);
+    addFilter('f.semester', req.query.semester ? Number(req.query.semester) : null);
+    addFilter('f.section', req.query.section);
+    addFilter('f.subsection', req.query.subsection);
+    addFilter('s.status', req.query.status);
+
+    const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    values.push(limit, offset);
+
+    const submissionsResult = await db.pool.query(`
       SELECT s.id,
              s.form_id,
              s.project_title,
@@ -737,16 +953,52 @@ exports.getRegistrationSubmissions = async (req, res) => {
              s.remarks,
              s.submitted_at,
              s.updated_at,
-             f.title as form_title, f.branch, f.semester, f.section,
-             u.full_name as leader_name, u.email as leader_email
+             f.title as form_title,
+             f.branch,
+             f.branch_id,
+             f.academic_year,
+             f.semester,
+             f.section,
+             f.subsection,
+             u.full_name as leader_name,
+             u.email as leader_email,
+             st.roll_number as leader_roll_number,
+             COALESCE(
+               jsonb_agg(
+                 jsonb_build_object(
+                   'id', ptm.id,
+                   'full_name', ptm.full_name,
+                   'email', ptm.email,
+                   'roll_number', ptm.roll_number,
+                   'role', ptm.role,
+                   'is_leader', COALESCE(ptm.is_leader, ptm.is_team_leader, false)
+                 )
+                 ORDER BY COALESCE(ptm.is_leader, ptm.is_team_leader, false) DESC, ptm.full_name
+               ) FILTER (WHERE ptm.id IS NOT NULL),
+               '[]'::jsonb
+             ) as team_members_list
       FROM registration_form_submissions s
       JOIN registration_forms f ON s.form_id = f.id
       JOIN users u ON s.leader_id = u.id
+      LEFT JOIN students st ON st.user_id = s.leader_id
+      LEFT JOIN project_team_members ptm ON ptm.submission_id = s.id
+      ${whereClause}
+      GROUP BY s.id, f.id, u.id, st.roll_number
       ORDER BY s.submitted_at DESC
-      LIMIT ? OFFSET ?
-    `, [limit, offset]);
-    const [counts] = await db.execute(`SELECT COUNT(*)::int AS total FROM registration_form_submissions`);
-    res.json({ data: submissions, pagination: { limit, offset, total: counts[0]?.total || 0 } });
+      LIMIT $${values.length - 1} OFFSET $${values.length}
+    `, values);
+
+    const countResult = await db.pool.query(`
+      SELECT COUNT(DISTINCT s.id)::int AS total
+      FROM registration_form_submissions s
+      JOIN registration_forms f ON s.form_id = f.id
+      ${whereClause}
+    `, values.slice(0, -2));
+
+    res.json({
+      data: submissionsResult.rows,
+      pagination: { limit, offset, total: countResult.rows[0]?.total || 0 }
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -772,22 +1024,27 @@ exports.getRegistrationSubmissionById = async (req, res) => {
 };
 
 exports.approveRegistrationSubmission = async (req, res) => {
+  const client = await db.pool.connect();
   try {
     const { id } = req.params;
     const { remarks } = req.body;
-    const result = await db.pool.query(`
+
+    await client.query('BEGIN');
+    const result = await client.query(`
       UPDATE registration_form_submissions 
       SET status = 'Approved', remarks = $1, updated_at = NOW() 
       WHERE id = $2 
       RETURNING *
     `, [remarks || null, id]);
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Submission not found' });
     }
-    
-    // Note: To fully integrate with the app, we would also create an entry in 'projects' table here
-    // but the prompt focused on HOD portal and assign mentor. We can assume we might create the project here later.
+
     const submission = result.rows[0];
+    const syncedProject = await syncApprovedProjectForSubmission(client, submission.id);
+    await client.query('COMMIT');
+
     const notifiedStudents = await createTeamNotifications({
       projectRegistrationId: submission.id,
       title: 'Project Registration Approved',
@@ -800,11 +1057,22 @@ exports.approveRegistrationSubmission = async (req, res) => {
     res.json({
       success: true,
       notifiedStudents,
-      data: submission
+      data: {
+        ...submission,
+        project_id: syncedProject?.project_id,
+        project_registration_id: syncedProject?.project_registration_id
+      }
     });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('approveRegistrationSubmission rollback error:', rollbackError);
+    }
     console.error('approveRegistrationSubmission error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -852,9 +1120,17 @@ exports.assignMentor = async (req, res) => {
     await client.query('BEGIN');
 
     const submissionResult = await client.query(`
-      SELECT id, project_title, abstract, leader_id
-      FROM registration_form_submissions
-      WHERE id = $1
+      SELECT s.id,
+             s.project_title,
+             s.abstract,
+             s.leader_id,
+             s.project_domain,
+             f.branch,
+             f.academic_year,
+             f.section
+      FROM registration_form_submissions s
+      JOIN registration_forms f ON f.id = s.form_id
+      WHERE s.id = $1
       FOR UPDATE
     `, [submission_id]);
     if (submissionResult.rows.length === 0) {
@@ -862,30 +1138,44 @@ exports.assignMentor = async (req, res) => {
       return res.status(404).json({ message: 'Submission not found' });
     }
     const submission = submissionResult.rows[0];
-    
-    // Find or create project
-    const existingProjects = await client.query(
-      `SELECT id FROM projects WHERE title = $1 AND created_by = $2 LIMIT 1`,
-      [submission.project_title, submission.leader_id]
-    );
-    let projectId = null;
-    if (existingProjects.rows.length > 0) {
-      projectId = existingProjects.rows[0].id;
-      await client.query(`UPDATE projects SET mentor_id = $1, updated_at = NOW() WHERE id = $2`, [mentor_id, projectId]);
-    } else {
-      const newProject = await client.query(`
-        INSERT INTO projects (title, description, created_by, mentor_id, status)
-        VALUES ($1, $2, $3, $4, 'In Progress')
-        RETURNING id
-      `, [submission.project_title, submission.abstract, submission.leader_id, mentor_id]);
-      projectId = newProject.rows[0].id;
+
+    const syncedProject = await syncApprovedProjectForSubmission(client, submission.id, mentor_id);
+    if (!syncedProject) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Submission not found' });
     }
-    
+
+    await client.query(`
+      UPDATE registration_form_submissions
+      SET status = CASE WHEN status = 'Rejected' THEN status ELSE 'Approved' END,
+          updated_at = NOW()
+      WHERE id = $1
+    `, [submission.id]);
+
+    await client.query(`
+      UPDATE projects
+      SET mentor_id = $1,
+          status = CASE WHEN status = 'Rejected' THEN status ELSE 'In Progress' END,
+          updated_at = NOW()
+      WHERE id = $2
+    `, [mentor_id, syncedProject.project_id]);
+
     const result = await client.query(`
-      INSERT INTO mentor_assignments (mentor_id, project_id, assigned_by)
-      VALUES ($1, $2, $3)
+      INSERT INTO mentor_assignments
+      (mentor_id, project_id, registration_id, submission_id, assigned_by, section, academic_year, branch, domain)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
-    `, [mentor_id, projectId, assigned_by]);
+    `, [
+      mentor_id,
+      syncedProject.project_id,
+      syncedProject.project_registration_id,
+      submission.id,
+      assigned_by,
+      submission.section,
+      submission.academic_year,
+      submission.branch,
+      submission.project_domain
+    ]);
 
     const mentorResult = await client.query('SELECT full_name FROM users WHERE id = $1', [mentor_id]);
     const mentorName = mentorResult.rows[0]?.full_name || 'your mentor';
@@ -895,7 +1185,7 @@ exports.assignMentor = async (req, res) => {
     const notifiedStudents = await createTeamNotifications({
       projectRegistrationId: submission.id,
       title: 'Mentor Assigned',
-      message: `${mentorName} has been assigned as mentor for your project "${submission.project_title}".`,
+      message: 'Mentor assigned to your project.',
       type: 'mentor_assignment',
       referenceId: result.rows[0].id,
       referenceType: 'mentor_assignment'
@@ -904,6 +1194,7 @@ exports.assignMentor = async (req, res) => {
     res.status(201).json({
       success: true,
       notifiedStudents,
+      mentorName,
       data: result.rows[0]
     });
   } catch (error) {
@@ -933,6 +1224,32 @@ exports.exportReport = async (req, res) => {
                FROM mentor_assignments m
                JOIN users u ON m.mentor_id = u.id
                JOIN projects p ON m.project_id = p.id`;
+    } else if (type === 'marks') {
+      query = `SELECT pr.title as project_title,
+                      u.full_name as student_name,
+                      u.email,
+                      ss.base_project_marks,
+                      ss.contribution_percent,
+                      ss.final_marks,
+                      ss.updated_at
+               FROM student_scores ss
+               JOIN project_registrations pr ON pr.id = ss.project_registration_id
+               JOIN users u ON u.id = ss.student_user_id
+               ORDER BY pr.title, u.full_name`;
+    } else if (type === 'late-submissions') {
+      query = `SELECT pr.title as project_title,
+                      pm.title as milestone_title,
+                      u.full_name as submitted_by,
+                      ms.submitted_at,
+                      pm.deadline,
+                      msc.late_days
+               FROM milestone_scores msc
+               JOIN milestone_submissions ms ON ms.id = msc.milestone_submission_id
+               JOIN project_milestones pm ON pm.id = msc.milestone_id
+               JOIN project_registrations pr ON pr.id = msc.project_registration_id
+               JOIN users u ON u.id = msc.student_user_id
+               WHERE msc.is_late = TRUE
+               ORDER BY ms.submitted_at DESC`;
     } else {
       return res.status(400).json({ message: 'Invalid type' });
     }
@@ -941,6 +1258,79 @@ exports.exportReport = async (req, res) => {
     // In a real app we'd convert this to CSV using json2csv, but for now we'll just send JSON which the frontend can convert
     res.json(data);
   } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getMarksReport = async (req, res) => {
+  try {
+    await ensureAdvancedWorkflowTables();
+    const result = await db.pool.query(`
+      SELECT pr.id as project_registration_id,
+             pr.title as project_title,
+             p.id as project_id,
+             u.id as student_user_id,
+             u.full_name as student_name,
+             u.email,
+             ptm.roll_number,
+             ps.total_marks as team_marks,
+             ss.contribution_percent,
+             ss.final_marks,
+             ss.updated_at
+      FROM student_scores ss
+      JOIN project_registrations pr ON pr.id = ss.project_registration_id
+      LEFT JOIN projects p ON p.registration_id = pr.id
+      JOIN users u ON u.id = ss.student_user_id
+      LEFT JOIN project_team_members ptm
+        ON ptm.project_registration_id = pr.id
+       AND COALESCE(ptm.user_id, ptm.student_id, ptm.student_user_id) = u.id
+      LEFT JOIN project_scores ps ON ps.project_registration_id = pr.id
+      ORDER BY pr.title ASC, u.full_name ASC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('getMarksReport error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.createFinalEvaluation = async (req, res) => {
+  const {
+    project_registration_id,
+    mentor_id,
+    viva_marks = 0,
+    demo_marks = 0,
+    presentation_marks = 0,
+    innovation_marks = 0,
+    remarks
+  } = req.body;
+
+  if (!project_registration_id) {
+    return res.status(400).json({ message: 'project_registration_id is required' });
+  }
+
+  try {
+    await ensureAdvancedWorkflowTables();
+    const result = await db.pool.query(`
+      INSERT INTO final_evaluations
+      (project_registration_id, mentor_id, hod_id, viva_marks, demo_marks, presentation_marks, innovation_marks, remarks)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      project_registration_id,
+      mentor_id || null,
+      req.user.id,
+      Math.max(0, Number(viva_marks) || 0),
+      Math.max(0, Number(demo_marks) || 0),
+      Math.max(0, Number(presentation_marks) || 0),
+      Math.max(0, Number(innovation_marks) || 0),
+      remarks || ''
+    ]);
+
+    const projectScore = await recalculateProjectScores(project_registration_id);
+    res.status(201).json({ success: true, evaluation: result.rows[0], project_score: projectScore });
+  } catch (error) {
+    console.error('createFinalEvaluation error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

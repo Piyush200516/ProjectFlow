@@ -256,15 +256,20 @@ exports.getActiveForms = async (req, res) => {
   }
 };
 
-// @desc    Student registers a new project & adds 4 team details
+// @desc    Student registers a new project & adds optional team details
 // @route   POST /api/projects/forms/submit
 // @access  Private (Student)
 exports.submitProjectForm = async (req, res) => {
+  return res.status(410).json({
+    message: 'This legacy student project submission flow is disabled. Use the HOD Project Registration Campaign submission API.'
+  });
+
   const { form_id, title, description, domain, github_link, team_member_emails } = req.body;
   const studentId = req.user.id;
 
-  if (!form_id || !title || !domain || !team_member_emails || team_member_emails.length !== 3) {
-    return res.status(400).json({ message: 'Title, domain, and exactly 3 team member emails are required' });
+  const memberEmails = Array.isArray(team_member_emails) ? team_member_emails.filter(Boolean) : [];
+  if (!form_id || !title || !domain || memberEmails.length > 3) {
+    return res.status(400).json({ message: 'Title and domain are required. Total team size must be between 1 and 4 members.' });
   }
 
   try {
@@ -281,7 +286,7 @@ exports.submitProjectForm = async (req, res) => {
       return res.status(400).json({ message: 'Form submission deadline has passed' });
     }
 
-    // 2. Validate team size = exactly 4 (Leader + 3 members)
+    // 2. Validate active membership for leader and optional members
     // Check if the student leader is already in an active project or team
     const [leaderActiveProjects] = await db.execute(
       `SELECT p.id FROM projects p
@@ -302,19 +307,24 @@ exports.submitProjectForm = async (req, res) => {
     }
 
     // Find all team member user profiles based on emails
-    const uniqueEmails = [...new Set(team_member_emails)];
+    const uniqueEmails = [...new Set(memberEmails.map((email) => String(email).trim().toLowerCase()))];
     if (uniqueEmails.includes(req.user.email)) {
       return res.status(400).json({ message: 'Do not include your own email in the team member emails list' });
     }
 
-    const [teamUsers] = await db.execute(
-      'SELECT id, email, full_name FROM users WHERE email IN (?, ?, ?)',
-      uniqueEmails
-    );
+    let teamUsers = [];
+    if (uniqueEmails.length > 0) {
+      const placeholders = uniqueEmails.map(() => '?').join(', ');
+      const [rows] = await db.execute(
+        `SELECT id, email, full_name FROM users WHERE LOWER(email) IN (${placeholders})`,
+        uniqueEmails
+      );
+      teamUsers = rows;
+    }
 
-    if (teamUsers.length !== 3) {
+    if (teamUsers.length !== uniqueEmails.length) {
       return res.status(400).json({ 
-        message: 'All 3 team members must be registered users on ProjectFlow. Please check their emails.' 
+        message: 'All team members must be registered users on ProjectFlow. Please check their emails.' 
       });
     }
 
@@ -363,7 +373,7 @@ exports.submitProjectForm = async (req, res) => {
     }
 
     res.status(201).json({
-      message: 'Project registration form submitted successfully with 4 team members',
+      message: 'Project registration form submitted successfully',
       submissionId
     });
   } catch (error) {

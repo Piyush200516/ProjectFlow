@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
 import { 
   PageHeader, 
   SectionCard, 
@@ -9,7 +8,6 @@ import {
 } from '../../components/common/PremiumComponents';
 import { SearchFilterBar } from '../../components/common/DataDisplay';
 import { 
-  Plus, 
   FolderOpen,
   ArrowUpRight,
   MoreVertical,
@@ -19,7 +17,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { Modal } from '../../components/common/PremiumComponents';
 import { cn } from '../../utils/utils';
 
 const ProjectCard = ({ project, onNavigate }) => (
@@ -64,13 +61,13 @@ const ProjectCard = ({ project, onNavigate }) => (
 
     <div className="grid grid-cols-2 gap-3 mt-6">
       <button 
-        onClick={() => onNavigate(`/student/kanban?projectId=${project.id}`)}
+        onClick={() => onNavigate(project.project_id ? `/student/kanban?projectId=${project.project_id}` : '/student/dashboard')}
         className="py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-900 font-semibold rounded-lg text-xs transition-all active:scale-[0.98]"
       >
         Kanban
       </button>
       <button 
-        onClick={() => onNavigate(`/student/projects/${project.id}`)}
+        onClick={() => onNavigate(project.project_id ? `/student/projects/${project.project_id}` : '/student/dashboard')}
         className="py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-xs shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
       >
         Details <ArrowUpRight size={12} />
@@ -80,29 +77,33 @@ const ProjectCard = ({ project, onNavigate }) => (
 );
 
 const StudentProjects = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
-  
-  const [newProject, setNewProject] = useState({
-    title: '',
-    type: 'Mini Project',
-    description: ''
-  });
 
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const fetchProjects = async () => {
     setIsLoading(true);
     try {
-      const { data } = await api.get('/projects');
-      setProjects(data);
+      const { data } = await api.get('/student/my-project');
+      const assignedProject = data?.project
+        ? [{
+            id: data.project.project_id || data.project.id,
+            project_id: data.project.project_id,
+            title: data.project.title,
+            type: data.project.project_type,
+            description: data.project.abstract || data.project.problem_statement,
+            progress: data.project.progress_percent || 0,
+            created_at: data.project.submitted_at,
+            members: data.project.team_members || [],
+            status: data.project.status,
+          }]
+        : [];
+      setProjects(assignedProject);
     } catch (error) {
       console.error('Error fetching projects:', error);
-      toast.error('Failed to load projects.');
+      toast.error('Failed to load assigned project.');
     } finally {
       setIsLoading(false);
     }
@@ -110,38 +111,13 @@ const StudentProjects = () => {
 
   useEffect(() => {
     fetchProjects();
-  }, [user]);
-
-  const handleCreateProject = async () => {
-    if (!newProject.title || !newProject.description) {
-      toast.error('Please fill in all required fields.');
-      return;
-    }
-    
-    setIsCreating(true);
-    try {
-      const { data } = await api.post('/projects', {
-        title: newProject.title,
-        type: newProject.type,
-        description: newProject.description,
-      });
-      setProjects(prev => [...prev, data]);
-      toast.success('Project initialized!');
-      setIsModalOpen(false);
-      setNewProject({ title: '', type: 'Mini Project', description: '' });
-    } catch (error) {
-      console.error('Error creating project:', error);
-      toast.error(error.response?.data?.message || 'Failed to create project.');
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  }, []);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <PageHeader 
-        title="Projects" 
-        description="Access and manage all your active academic work."
+        title="My Assigned Project" 
+        description="Access the project registered through the HOD campaign workflow."
         actions={
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex bg-slate-50 border border-slate-200 p-0.5 rounded-lg">
@@ -158,13 +134,6 @@ const StudentProjects = () => {
                 <ListIcon size={16} />
               </button>
             </div>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-all active:scale-95"
-            >
-              <Plus size={16} />
-              New Project
-            </button>
           </div>
         }
       />
@@ -177,7 +146,7 @@ const StudentProjects = () => {
         </div>
       ) : projects.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-slate-500 font-medium">No projects found. Create one to get started!</p>
+          <p className="text-slate-500 font-medium">No assigned project yet. Submit a matching HOD Project Registration Campaign to begin.</p>
         </div>
       ) : (
         <div className={cn(
@@ -189,59 +158,6 @@ const StudentProjects = () => {
           ))}
         </div>
       )}
-
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)}
-        title="New Project"
-        footer={
-          <>
-            <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 rounded-lg transition-all">Cancel</button>
-            <button onClick={handleCreateProject} disabled={isCreating} className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-95 flex items-center gap-2">
-              {isCreating && <Loader2 size={14} className="animate-spin" />}
-              Create
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-900 ml-1">Title</label>
-              <input 
-                type="text" 
-                value={newProject.title}
-                onChange={e => setNewProject({...newProject, title: e.target.value})}
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm" 
-                placeholder="Project name" 
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-900 ml-1">Category</label>
-              <select 
-                value={newProject.type}
-                onChange={e => setNewProject({...newProject, type: e.target.value})}
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm appearance-none"
-              >
-                <option>Mini Project</option>
-                <option>Major Project</option>
-                <option>Hackathon</option>
-                <option>Final Year</option>
-              </select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-900 ml-1">Description</label>
-            <textarea 
-              rows="4" 
-              value={newProject.description}
-              onChange={e => setNewProject({...newProject, description: e.target.value})}
-              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm" 
-              placeholder="Short summary..."
-            ></textarea>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

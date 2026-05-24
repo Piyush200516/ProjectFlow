@@ -1,5 +1,12 @@
 const db = require('../config/db');
-const { ensureNotificationsTable } = require('../utils/studentNotifications');
+const {
+  ensureNotificationsTable,
+  createTeamNotifications
+} = require('../utils/studentNotifications');
+const {
+  ensureAdvancedWorkflowTables,
+  recalculateProjectScores
+} = require('../utils/advancedProjectWorkflow');
 
 const ensureStudentProfileCompatibility = async () => {
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS full_name VARCHAR(100)`);
@@ -742,6 +749,12 @@ exports.submitRegistrationForm = async (req, res) => {
         problem_statement || '',
         tech_stack || ''
       ]);
+      if (github_link) {
+        await client.query(
+          `UPDATE project_registrations SET github_link = $1 WHERE id = $2`,
+          [github_link, legacyRegistration.rows[0]?.id]
+        );
+      }
       legacyProjectRegistrationId = legacyRegistration.rows[0]?.id || submission.id;
     } catch (error) {
       if (error.code !== '42P01') {
@@ -783,9 +796,19 @@ exports.submitRegistrationForm = async (req, res) => {
 
     await client.query('COMMIT');
 
+    const notifiedStudents = await createTeamNotifications({
+      projectRegistrationId: submission.id,
+      title: 'Team Project Registered',
+      message: 'Your team project has been registered.',
+      type: 'team_project_registered',
+      referenceId: submission.id,
+      referenceType: 'registration_submission'
+    });
+
     res.status(201).json({
       success: true,
       message: 'Project and team details registered successfully',
+      notifiedStudents,
       submission: {
         ...submission,
         team_leader: leaderPayload,
@@ -802,6 +825,295 @@ exports.submitRegistrationForm = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   } finally {
     client.release();
+  }
+};
+
+// @desc    Get logged-in student's current project registration
+// @route   GET /api/student/my-project
+// @access  Private (Student)
+exports.getMyProject = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    await ensureProjectTeamMembersCompatibility();
+
+    const submissionResult = await db.pool.query(`
+      SELECT s.id,
+             s.form_id,
+             s.project_title,
+             s.project_domain,
+             s.problem_statement,
+             s.abstract,
+             s.tech_stack,
+             s.status,
+             s.remarks,
+             s.submitted_at,
+             s.updated_at,
+             s.leader_id,
+             f.project_type,
+             f.title as form_title,
+             f.branch,
+             f.academic_year,
+             f.semester,
+             f.section,
+             f.subsection,
+             pr.id as project_registration_id,
+             pr.github_link,
+             p.id as project_id,
+             p.team_name,
+             p.progress_percent,
+             p.mentor_id,
+             mentor.full_name as mentor_name,
+             mentor.email as mentor_email
+      FROM registration_form_submissions s
+      JOIN registration_forms f ON f.id = s.form_id
+      LEFT JOIN project_team_members ptm
+        ON ptm.submission_id = s.id
+       AND (ptm.user_id = $1 OR ptm.student_id = $1 OR ptm.student_user_id = $1)
+      LEFT JOIN project_registrations pr
+        ON pr.id = ptm.project_registration_id
+        OR (pr.created_by = s.leader_id AND pr.title = s.project_title)
+      LEFT JOIN projects p
+        ON p.registration_id = pr.id
+        OR (p.created_by = s.leader_id AND p.title = s.project_title)
+      LEFT JOIN users mentor ON mentor.id = p.mentor_id
+      WHERE s.leader_id = $1 OR ptm.id IS NOT NULL
+      ORDER BY
+        CASE s.status WHEN 'Pending' THEN 1 WHEN 'Approved' THEN 2 WHEN 'Rejected' THEN 3 ELSE 4 END,
+        s.submitted_at DESC,
+        s.id DESC
+      LIMIT 1
+    `, [studentId]);
+
+    if (submissionResult.rows.length === 0) {
+      return res.json({ success: true, project: null });
+    }
+
+    const project = submissionResult.rows[0];
+
+    const teamResult = await db.pool.query(`
+      SELECT id,
+             COALESCE(user_id, student_id, student_user_id) as user_id,
+             full_name,
+             email,
+             roll_number,
+             branch_name,
+             academic_year,
+             semester,
+             section,
+             subsection,
+             role,
+             COALESCE(is_leader, is_team_leader, false) as is_leader,
+             created_at
+      FROM project_team_members
+      WHERE submission_id = $1
+      ORDER BY COALESCE(is_leader, is_team_leader, false) DESC, full_name ASC
+    `, [project.id]);
+
+    const assignmentResult = await db.pool.query(`
+      SELECT ma.id,
+             ma.mentor_id,
+             ma.project_id,
+             ma.assigned_at,
+             u.full_name as mentor_name,
+             u.email as mentor_email
+      FROM mentor_assignments ma
+      JOIN users u ON u.id = ma.mentor_id
+      WHERE ma.submission_id = $1
+         OR ma.registration_id = $2
+         OR ma.project_id = $3
+      ORDER BY ma.assigned_at DESC NULLS LAST, ma.id DESC
+      LIMIT 1
+    `, [project.id, project.project_registration_id, project.project_id]);
+
+    const timelineResult = await db.pool.query(`
+      SELECT id,
+             title,
+             description,
+             document_type,
+             sequence_no,
+             sequence_order,
+             deadline,
+             status,
+             created_at
+      FROM project_milestones
+      WHERE registration_form_id = $1
+         OR project_registration_id = $2
+         OR project_id = $3
+      ORDER BY COALESCE(sequence_no, sequence_order, id), deadline ASC
+    `, [project.form_id, project.project_registration_id, project.project_id]);
+
+    const assignment = assignmentResult.rows[0] || null;
+    const mentor = assignment
+      ? {
+          id: assignment.mentor_id,
+          name: assignment.mentor_name,
+          email: assignment.mentor_email,
+          assigned_at: assignment.assigned_at,
+        }
+      : project.mentor_id
+        ? {
+            id: project.mentor_id,
+            name: project.mentor_name,
+            email: project.mentor_email,
+            assigned_at: null,
+          }
+        : null;
+
+    res.json({
+      success: true,
+      project: {
+        id: project.project_registration_id || project.id,
+        submission_id: project.id,
+        project_id: project.project_id,
+        title: project.project_title,
+        domain: project.project_domain,
+        project_type: project.project_type,
+        status: project.status,
+        submitted_at: project.submitted_at,
+        hod_remarks: project.remarks,
+        problem_statement: project.problem_statement,
+        abstract: project.abstract,
+        tech_stack: project.tech_stack,
+        github_link: project.github_link,
+        form: {
+          id: project.form_id,
+          title: project.form_title,
+          branch: project.branch,
+          academic_year: project.academic_year,
+          semester: project.semester,
+          section: project.section,
+          subsection: project.subsection,
+        },
+        team_leader: teamResult.rows.find((member) => member.is_leader) || null,
+        team_members: teamResult.rows,
+        mentor,
+        timeline: timelineResult.rows,
+        progress_percent: project.progress_percent || 0,
+        team_name: project.team_name,
+      }
+    });
+  } catch (error) {
+    console.error('getMyProject error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+const getStudentProjectRegistrationId = async (studentId) => {
+  await ensureAdvancedWorkflowTables();
+  const result = await db.pool.query(`
+    SELECT DISTINCT COALESCE(ptm.project_registration_id, p.registration_id) as project_registration_id,
+           p.id as project_id
+    FROM project_team_members ptm
+    LEFT JOIN projects p
+      ON p.registration_id = ptm.project_registration_id
+    WHERE COALESCE(ptm.user_id, ptm.student_id, ptm.student_user_id) = $1
+      AND COALESCE(ptm.project_registration_id, p.registration_id) IS NOT NULL
+    UNION
+    SELECT DISTINCT pm.registration_id as project_registration_id,
+           pm.project_id
+    FROM project_members pm
+    WHERE pm.student_id = $1
+      AND pm.registration_id IS NOT NULL
+    ORDER BY project_registration_id DESC NULLS LAST
+    LIMIT 1
+  `, [studentId]);
+  return result.rows[0] || null;
+};
+
+// @desc    Get logged-in student's marks
+// @route   GET /api/student/marks
+// @access  Private (Student)
+exports.getStudentMarks = async (req, res) => {
+  try {
+    const current = await getStudentProjectRegistrationId(req.user.id);
+    if (!current?.project_registration_id) {
+      return res.json({ success: true, marks: null, milestone_scores: [], contributions: [], project_score: null });
+    }
+
+    await recalculateProjectScores(current.project_registration_id);
+
+    const studentScore = await db.pool.query(`
+      SELECT *
+      FROM student_scores
+      WHERE project_registration_id = $1 AND student_user_id = $2
+      LIMIT 1
+    `, [current.project_registration_id, req.user.id]);
+
+    const milestoneScores = await db.pool.query(`
+      SELECT msc.*,
+             pm.title as milestone_title,
+             ms.file_name,
+             ms.review_status,
+             ms.feedback
+      FROM milestone_scores msc
+      JOIN project_milestones pm ON pm.id = msc.milestone_id
+      JOIN milestone_submissions ms ON ms.id = msc.milestone_submission_id
+      WHERE msc.project_registration_id = $1
+        AND msc.student_user_id = $2
+      ORDER BY pm.sequence_order ASC, pm.deadline ASC
+    `, [current.project_registration_id, req.user.id]);
+
+    const contributions = await db.pool.query(`
+      SELECT *
+      FROM student_contributions
+      WHERE project_registration_id = $1 AND student_user_id = $2
+      ORDER BY created_at DESC
+    `, [current.project_registration_id, req.user.id]);
+
+    const projectScore = await db.pool.query(`
+      SELECT *
+      FROM project_scores
+      WHERE project_registration_id = $1
+      LIMIT 1
+    `, [current.project_registration_id]);
+
+    res.json({
+      success: true,
+      marks: studentScore.rows[0] || null,
+      milestone_scores: milestoneScores.rows,
+      contributions: contributions.rows,
+      project_score: projectScore.rows[0] || null
+    });
+  } catch (error) {
+    console.error('getStudentMarks error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// @desc    Get logged-in student's calendar events
+// @route   GET /api/student/calendar
+// @access  Private (Student)
+exports.getStudentCalendar = async (req, res) => {
+  try {
+    const current = await getStudentProjectRegistrationId(req.user.id);
+    if (!current?.project_registration_id) {
+      return res.json({ success: true, events: [] });
+    }
+
+    const result = await db.pool.query(`
+      SELECT *
+      FROM calendar_events
+      WHERE project_registration_id = $1
+      ORDER BY event_date ASC
+    `, [current.project_registration_id]);
+
+    const meetings = await db.pool.query(`
+      SELECT id,
+             project_registration_id,
+             'Mentor Meeting' as title,
+             'mentor_meeting' as event_type,
+             meeting_date as event_date,
+             agenda,
+             remarks
+      FROM meeting_logs
+      WHERE project_registration_id = $1
+      ORDER BY meeting_date ASC
+    `, [current.project_registration_id]);
+
+    res.json({ success: true, events: [...result.rows, ...meetings.rows] });
+  } catch (error) {
+    console.error('getStudentCalendar error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 

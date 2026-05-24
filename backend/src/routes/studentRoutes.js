@@ -4,6 +4,9 @@ const {
   getProfile,
   updateProfile,
   getActiveRegistrationForms,
+  getMyProject,
+  getStudentMarks,
+  getStudentCalendar,
   getStudentTimeline,
   submitRegistrationForm,
   getNotifications,
@@ -15,6 +18,9 @@ const { protect } = require('../middleware/authMiddleware');
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
 router.get('/registration-forms/active', protect, getActiveRegistrationForms);
+router.get('/my-project', protect, getMyProject);
+router.get('/marks', protect, getStudentMarks);
+router.get('/calendar', protect, getStudentCalendar);
 router.post('/registration-forms/:id/submit', protect, submitRegistrationForm);
 router.get('/timeline', protect, getStudentTimeline);
 

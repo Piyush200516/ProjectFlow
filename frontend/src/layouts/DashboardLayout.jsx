@@ -168,8 +168,9 @@ const DashboardLayout = ({ children }) => {
       project_timeline: '/student/timeline',
       project_timeline_updated: '/student/timeline',
       mentor_assignment: '/student/dashboard',
-      approval: '/student/projects',
-      rejection: '/student/projects'
+      approval: '/student/dashboard',
+      rejection: '/student/dashboard',
+      team_project_registered: '/student/dashboard'
     };
     return targets[key] || null;
   };
@@ -228,7 +229,7 @@ const DashboardLayout = ({ children }) => {
     student: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/student/dashboard' },
       { icon: FileText, label: 'Project Form', href: '/student/project-form' },
-      { icon: Briefcase, label: 'Projects', href: '/student/projects' },
+      { icon: Briefcase, label: 'Assigned Project', href: '/student/projects' },
       { icon: CheckSquare, label: 'Kanban', href: '/student/kanban' },
       { icon: Clock, label: 'Timeline', href: '/student/timeline' },
       { icon: FileText, label: 'Documentation', href: '/student/documentation' },

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import '../lib/echarts';
 
 export const useHodStatsChartOptions = (stats) => {
   return useMemo(() => ({

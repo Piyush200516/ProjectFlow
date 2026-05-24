@@ -27,14 +27,28 @@ exports.getProjects = async (req, res) => {
 
     if (role === 'student') {
       query = `
-        SELECT p.* FROM projects p
+        SELECT p.*,
+               rf.deadline as registration_deadline,
+               rfs.status as registration_status
+        FROM projects p
         JOIN project_members pm ON p.id = pm.project_id
+        LEFT JOIN project_registrations pr ON pr.id = p.registration_id
+        LEFT JOIN registration_form_submissions rfs
+          ON rfs.leader_id = p.created_by
+         AND rfs.project_title = p.title
+        LEFT JOIN registration_forms rf ON rf.id = rfs.form_id
         WHERE pm.student_id = ?
         ORDER BY p.created_at DESC
       `;
       params = [id];
     } else if (role === 'mentor') {
-      query = 'SELECT * FROM projects WHERE mentor_id = ? ORDER BY created_at DESC';
+      query = `
+        SELECT DISTINCT p.*
+        FROM projects p
+        JOIN mentor_assignments ma ON ma.project_id = p.id
+        WHERE ma.mentor_id = ?
+        ORDER BY p.created_at DESC
+      `;
       params = [id];
     } else if (role === 'hod' || role === 'admin') {
       query = 'SELECT * FROM projects ORDER BY created_at DESC';
@@ -56,6 +70,12 @@ exports.getProjects = async (req, res) => {
 exports.createProject = async (req, res) => {
   const { title, type, description } = req.body;
   const userId = req.user.id;
+
+  if (req.user.role === 'student') {
+    return res.status(403).json({
+      message: 'Students cannot create independent projects. Please use the HOD Project Registration Campaign.'
+    });
+  }
 
   if (!title) {
     return res.status(400).json({ message: 'Project title is required' });
