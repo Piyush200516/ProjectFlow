@@ -24,6 +24,20 @@ const tableExists = async (tableName) => {
   return Boolean(result.rows[0]?.table_name);
 };
 
+const ensureTeamInvitationsCompatibility = async () => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS team_invitations (
+      invite_id SERIAL PRIMARY KEY,
+      project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      inviter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      invited_student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Accepted', 'Rejected')),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT unique_invitation UNIQUE (project_id, invited_student_id)
+    )
+  `);
+};
+
 // @desc    Invite a student to the team
 // @route   POST /api/team/invite
 // @access  Private (Student)
@@ -36,6 +50,8 @@ exports.inviteMember = async (req, res) => {
   }
 
   try {
+    await ensureTeamInvitationsCompatibility();
+
     // 1. Find the inviter's active project where they are the leader
     const [inviterProjects] = await db.execute(
       `SELECT p.id, p.title, p.team_name 
@@ -191,6 +207,8 @@ exports.getInvitations = async (req, res) => {
   const studentId = req.user.id;
 
   try {
+    await ensureTeamInvitationsCompatibility();
+
     const [invitations] = await db.execute(
       `SELECT ti.invite_id, ti.project_id, ti.inviter_id, ti.status, ti.created_at,
               p.title as project_title, p.team_name,
@@ -222,6 +240,8 @@ exports.acceptInvitation = async (req, res) => {
   }
 
   try {
+    await ensureTeamInvitationsCompatibility();
+
     // 1. Find the invitation
     const [invitations] = await db.execute(
       `SELECT ti.*, p.title as project_title, p.team_name, u.full_name as inviter_name
@@ -332,6 +352,8 @@ exports.rejectInvitation = async (req, res) => {
   }
 
   try {
+    await ensureTeamInvitationsCompatibility();
+
     // 1. Find the invitation
     const [invitations] = await db.execute(
       `SELECT ti.*, p.team_name 

@@ -1,10 +1,31 @@
 const db = require('../config/db');
 
+const ensureTasksTable = async () => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      status VARCHAR(100) DEFAULT 'Requirements',
+      priority VARCHAR(20) DEFAULT 'Medium',
+      project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+      members JSONB DEFAULT '[]'::jsonb,
+      comments INT DEFAULT 0,
+      attachments INT DEFAULT 0,
+      created_by INT REFERENCES users(id) ON DELETE SET NULL,
+      due_date DATE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+};
+
 // @desc    Get all tasks for a project
 // @route   GET /api/tasks/project/:projectId
 // @access  Private
 exports.getTasksByProject = async (req, res) => {
   try {
+    await ensureTasksTable();
     const [tasks] = await db.execute(
       `SELECT * FROM tasks
        WHERE project_id = ?
@@ -40,6 +61,7 @@ exports.createTask = async (req, res) => {
   }
 
   try {
+    await ensureTasksTable();
     const [result] = await db.execute(
       `INSERT INTO tasks (title, status, priority, project_id, members, comments, attachments, created_by, due_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -83,6 +105,7 @@ exports.updateTask = async (req, res) => {
   const { title, status, priority, members, comments, attachments, due_date } = req.body;
 
   try {
+    await ensureTasksTable();
     const fields = [];
     const values = [];
 
@@ -126,6 +149,7 @@ exports.updateTask = async (req, res) => {
 // @access  Private
 exports.deleteTask = async (req, res) => {
   try {
+    await ensureTasksTable();
     const [result] = await db.execute('DELETE FROM tasks WHERE id = ?', [req.params.id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Task not found' });

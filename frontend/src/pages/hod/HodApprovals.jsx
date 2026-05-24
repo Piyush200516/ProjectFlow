@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -15,14 +15,14 @@ import {
 import { PageHeader, SectionCard, StatusBadge, Modal } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
 import { toast } from 'sonner';
+import { useApiQuery } from '../../hooks/useApiQuery';
+import { queryKeys } from '../../lib/queryKeys';
+import { queryClient } from '../../lib/queryClient';
 
 const HodApprovals = () => {
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
   
   // States
-  const [submissions, setSubmissions] = useState([]);
-  const [mentors, setMentors] = useState([]);
   const [selectedMentor, setSelectedMentor] = useState({});
   const [processingId, setProcessingId] = useState(null);
   
@@ -31,27 +31,38 @@ const HodApprovals = () => {
   const [activeSubmission, setActiveSubmission] = useState(null);
   const [remarks, setRemarks] = useState('');
   const [actionType, setActionType] = useState('approve');
-
-  const fetchInitData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [subsRes, mentorsRes] = await Promise.all([
-        api.get('/hod/registration-submissions', { params: { limit: 50 } }),
-        api.get('/hod/mentors')
-      ]);
-      setSubmissions(subsRes.data?.data || subsRes.data || []);
-      setMentors(mentorsRes.data?.data || mentorsRes.data || []);
-    } catch (error) {
-      console.error('Failed to load HOD admin data:', error);
-      toast.error('Failed to load submissions and mentors');
-    } finally {
-      setLoading(false);
+  const { data: submissions = [], isLoading: submissionsLoading, isError: submissionsError } = useApiQuery(
+    queryKeys.hodSubmissions({ limit: 50 }),
+    '/hod/registration-submissions',
+    {
+      params: { limit: 50 },
+      select: (data) => data?.data || data || [],
+      staleTime: 60_000,
     }
-  }, []);
+  );
+  const { data: mentors = [], isLoading: mentorsLoading, isError: mentorsError } = useApiQuery(
+    ['hodMentors'],
+    '/hod/mentors',
+    {
+      select: (data) => data?.data || data || [],
+      staleTime: 5 * 60_000,
+    }
+  );
 
   useEffect(() => {
-    fetchInitData();
-  }, [fetchInitData]);
+    if (submissionsError || mentorsError) toast.error('Failed to load submissions and mentors');
+  }, [submissionsError, mentorsError]);
+
+  const refreshInitData = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['hodSubmissions'] }),
+      queryClient.invalidateQueries({ queryKey: ['hodMentors'] }),
+    ]);
+  };
+
+  const pendingSubmissions = useMemo(() => submissions.filter(s => s.status === 'Pending'), [submissions]);
+  const approvedSubmissions = useMemo(() => submissions.filter(s => s.status === 'Approved'), [submissions]);
+  const rejectedSubmissions = useMemo(() => submissions.filter(s => s.status === 'Rejected'), [submissions]);
 
   const handleActionClick = (submission, type) => {
     setActiveSubmission(submission);
@@ -71,7 +82,7 @@ const HodApprovals = () => {
         await api.patch(`/hod/registration-submissions/${activeSubmission.id}/reject`, { remarks });
         toast.success('Submission rejected');
       }
-      fetchInitData();
+      refreshInitData();
     } catch (error) {
       toast.error(`Failed to ${actionType} submission`);
     } finally {
@@ -96,7 +107,7 @@ const HodApprovals = () => {
       });
 
       toast.success('Mentor assigned successfully!');
-      fetchInitData();
+      refreshInitData();
     } catch (error) {
       console.error('Mentor assignment failed:', error);
       toast.error(error.response?.data?.message || 'Failed to complete mentor assignment');
@@ -109,17 +120,13 @@ const HodApprovals = () => {
     setSelectedMentor(prev => ({ ...prev, [subId]: val }));
   };
 
-  if (loading) {
+  if (submissionsLoading || mentorsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
-
-  const pendingSubmissions = useMemo(() => submissions.filter(s => s.status === 'Pending'), [submissions]);
-  const approvedSubmissions = useMemo(() => submissions.filter(s => s.status === 'Approved'), [submissions]);
-  const rejectedSubmissions = useMemo(() => submissions.filter(s => s.status === 'Rejected'), [submissions]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

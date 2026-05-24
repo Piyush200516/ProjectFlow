@@ -89,8 +89,10 @@ const ensureProjectTeamMembersCompatibility = async (client = db.pool) => {
 
   const statements = [
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS submission_id INT`,
+    `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS project_registration_id INT`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS form_id INT`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS user_id INT`,
+    `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS student_user_id INT`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS student_id INT`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS full_name VARCHAR(100)`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS email VARCHAR(150)`,
@@ -103,12 +105,15 @@ const ensureProjectTeamMembersCompatibility = async (client = db.pool) => {
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'Member'`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS is_leader BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS is_team_leader BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
     `ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
     `ALTER TABLE project_team_members ALTER COLUMN submission_id DROP NOT NULL`,
+    `ALTER TABLE project_team_members ALTER COLUMN project_registration_id DROP NOT NULL`,
     `ALTER TABLE project_team_members ALTER COLUMN form_id DROP NOT NULL`,
     `ALTER TABLE project_team_members ALTER COLUMN project_id DROP NOT NULL`,
     `ALTER TABLE project_team_members ALTER COLUMN user_id DROP NOT NULL`,
+    `ALTER TABLE project_team_members ALTER COLUMN student_user_id DROP NOT NULL`,
     `ALTER TABLE project_team_members ALTER COLUMN student_id DROP NOT NULL`
   ];
 
@@ -574,7 +579,7 @@ exports.submitRegistrationForm = async (req, res) => {
 
     // Get form details
     const formResult = await client.query(`
-      SELECT id, status, team_size_min, team_size_max
+      SELECT id, title, status, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type
       FROM registration_forms
       WHERE id = $1
     `, [id]);
@@ -716,12 +721,42 @@ exports.submitRegistrationForm = async (req, res) => {
     `, [id, project_title, project_domain, problem_statement, abstract, tech_stack, leaderId, JSON.stringify(teamMembersPayload)]);
 
     const submission = result.rows[0];
+    let legacyProjectRegistrationId = submission.id;
+    try {
+      const legacyRegistration = await client.query(`
+        INSERT INTO project_registrations
+        (title, description, project_type, branch, academic_year, semester, section, domain, abstract, created_by, status, problem_statement, tech_stack)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Pending', $11, $12)
+        RETURNING id
+      `, [
+        project_title,
+        abstract || problem_statement || '',
+        project_type || form.project_type || 'Minor Project',
+        form.branch || form.branch_id || leaderProfile.branch_name || 'CSE',
+        form.academic_year || leaderProfile.academic_year,
+        form.semester || leaderProfile.semester,
+        form.section || leaderProfile.section,
+        project_domain,
+        abstract || '',
+        leaderId,
+        problem_statement || '',
+        tech_stack || ''
+      ]);
+      legacyProjectRegistrationId = legacyRegistration.rows[0]?.id || submission.id;
+    } catch (error) {
+      if (error.code !== '42P01') {
+        throw error;
+      }
+    }
+
     const allMembersForInsert = [leaderPayload, ...teamMembersPayload];
     const insertValues = [];
     const insertPlaceholders = allMembersForInsert.map((member, index) => {
-      const offset = index * 14;
+      const offset = index * 16;
+      const isLeader = member.role === 'Team Leader';
       insertValues.push(
         submission.id,
+        legacyProjectRegistrationId,
         id,
         member.user_id,
         member.full_name,
@@ -734,14 +769,15 @@ exports.submitRegistrationForm = async (req, res) => {
         member.section,
         member.subsection,
         member.role,
-        member.role === 'Team Leader'
+        isLeader,
+        isLeader
       );
-      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14})`;
+      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 4}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14}, $${offset + 15}, $${offset + 16})`;
     }).join(', ');
 
     await client.query(`
       INSERT INTO project_team_members
-      (submission_id, form_id, user_id, student_id, full_name, email, roll_number, branch_id, branch_name, academic_year, semester, section, subsection, role, is_leader)
+      (submission_id, project_registration_id, form_id, user_id, student_id, student_user_id, full_name, email, roll_number, branch_id, branch_name, academic_year, semester, section, subsection, role, is_leader, is_team_leader)
       VALUES ${insertPlaceholders}
     `, insertValues);
 

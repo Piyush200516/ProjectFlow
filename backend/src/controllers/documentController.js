@@ -2,11 +2,28 @@ const db = require('../config/db');
 const path = require('path');
 const fs = require('fs');
 
+const ensureDocumentsTable = async () => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+      uploaded_by INT REFERENCES users(id) ON DELETE SET NULL,
+      original_name VARCHAR(255),
+      file_path VARCHAR(255),
+      file_type VARCHAR(50),
+      file_size VARCHAR(50),
+      url TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+};
+
 // @desc    Get all documents for a project
 // @route   GET /api/documents/project/:projectId
 // @access  Private
 exports.getDocumentsByProject = async (req, res) => {
   try {
+    await ensureDocumentsTable();
     const [docs] = await db.execute(
       'SELECT * FROM documents WHERE project_id = ? ORDER BY created_at DESC',
       [req.params.projectId]
@@ -23,6 +40,7 @@ exports.getDocumentsByProject = async (req, res) => {
 // @access  Private
 exports.uploadDocument = async (req, res) => {
   try {
+    await ensureDocumentsTable();
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
@@ -66,6 +84,7 @@ exports.uploadDocument = async (req, res) => {
 // @access  Private
 exports.deleteDocument = async (req, res) => {
   try {
+    await ensureDocumentsTable();
     const [rows] = await db.execute('SELECT * FROM documents WHERE id = ?', [req.params.id]);
     const doc = rows[0];
 

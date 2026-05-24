@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as Sentry from '@sentry/react';
 
 const getBaseURL = () => {
   if (import.meta.env.VITE_API_URL) {
@@ -28,6 +29,19 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (import.meta.env.VITE_SENTRY_DSN) {
+      Sentry.captureException(error, {
+        tags: {
+          feature: 'api',
+          status: error.response?.status || 'network',
+        },
+        extra: {
+          url: error.config?.url,
+          method: error.config?.method,
+        },
+      });
+    }
+
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       const requestUrl = error.config?.url || '';
       const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');

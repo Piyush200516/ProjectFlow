@@ -811,12 +811,28 @@ exports.getMentorSubmissions = async (req, res) => {
   const mentorId = req.user.id;
   try {
     const [submissions] = await db.execute(
-      `SELECT ds.*, p.title as project_title, p.team_name, u.full_name as student_name, u.email as student_email
+      `SELECT ds.id,
+              ds.project_id,
+              ds.submission_id,
+              ds.student_id,
+              ds.template_id,
+              ds.document_type,
+              ds.file_name,
+              ds.file_path,
+              ds.status,
+              ds.submitted_at,
+              ds.is_late,
+              ds.late_days,
+              ds.marks_awarded,
+              p.title as project_title,
+              p.team_name,
+              u.full_name as student_name,
+              u.email as student_email
        FROM document_submissions ds
        JOIN projects p ON ds.project_id = p.id
        JOIN users u ON ds.student_id = u.id
        WHERE p.mentor_id = ?
-       ORDER BY ds.created_at DESC`,
+       ORDER BY ds.submitted_at DESC, ds.id DESC`,
       [mentorId]
     );
     res.json(submissions);
@@ -832,12 +848,28 @@ exports.getMentorSubmissions = async (req, res) => {
 exports.getGlobalSubmissionTracking = async (req, res) => {
   try {
     const [tracking] = await db.execute(
-      `SELECT ds.*, p.title as project_title, p.team_name, u.full_name as student_name, m.full_name as mentor_name
+      `SELECT ds.id,
+              ds.project_id,
+              ds.submission_id,
+              ds.student_id,
+              ds.template_id,
+              ds.document_type,
+              ds.file_name,
+              ds.file_path,
+              ds.status,
+              ds.submitted_at,
+              ds.is_late,
+              ds.late_days,
+              ds.marks_awarded,
+              p.title as project_title,
+              p.team_name,
+              u.full_name as student_name,
+              m.full_name as mentor_name
        FROM document_submissions ds
        JOIN projects p ON ds.project_id = p.id
        JOIN users u ON ds.student_id = u.id
        LEFT JOIN users m ON p.mentor_id = m.id
-       ORDER BY ds.created_at DESC`
+       ORDER BY ds.submitted_at DESC, ds.id DESC`
     );
     res.json(tracking);
   } catch (error) {

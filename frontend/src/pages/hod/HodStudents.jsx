@@ -1,42 +1,57 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Search, Filter, Loader2, Mail } from 'lucide-react';
 import { PageHeader, SectionCard } from '../../components/common/PremiumComponents';
-import api from '../../lib/api';
 import { toast } from 'sonner';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useApiQuery } from '../../hooks/useApiQuery';
+import { useFuzzySearch } from '../../hooks/useFuzzySearch';
+import { queryKeys } from '../../lib/queryKeys';
 
 const HodStudents = () => {
-  const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-
-  useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const { data } = await api.get('/hod/students', { params: { limit: 50 } });
-        setStudents(data?.data || data || []);
-      } catch (error) {
-        console.error('Failed to fetch students:', error);
-        toast.error('Failed to load student registry');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStudents();
-  }, []);
+  const tableContainerRef = useRef(null);
+  const { data: students = [], isLoading, isError } = useApiQuery(
+    queryKeys.hodStudents({ limit: 50 }),
+    '/hod/students',
+    {
+      params: { limit: 50 },
+      select: (data) => data?.data || data || [],
+      staleTime: 2 * 60_000,
+    }
+  );
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
     return () => window.clearTimeout(timeout);
   }, [searchTerm]);
 
-  const filteredStudents = useMemo(() => students.filter((student) =>
-    `${student.full_name || ''} ${student.email || ''} ${student.roll_number || ''}`
-      .toLowerCase()
-      .includes(debouncedSearchTerm.toLowerCase())
-  ), [students, debouncedSearchTerm]);
+  useEffect(() => {
+    if (isError) toast.error('Failed to load student registry');
+  }, [isError]);
 
-  if (loading) {
+  const searchKeys = useMemo(() => ['full_name', 'email', 'roll_number', 'branch_name'], []);
+  const filteredStudents = useFuzzySearch(students, debouncedSearchTerm, searchKeys);
+  const columns = useMemo(() => [
+    { accessorKey: 'full_name' },
+    { accessorKey: 'email' },
+    { accessorKey: 'is_active' },
+  ], []);
+  const table = useReactTable({
+    data: filteredStudents,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+  const rows = table.getRowModel().rows;
+  useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 72,
+    overscan: 8,
+  });
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -67,7 +82,7 @@ const HodStudents = () => {
       </div>
 
       <SectionCard title="Department Students" subtitle="Active student database">
-        <div className="overflow-x-auto">
+        <div ref={tableContainerRef} className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
@@ -78,7 +93,9 @@ const HodStudents = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredStudents.map((student) => (
+              {rows.map((row) => {
+                const student = row.original;
+                return (
                 <tr key={student.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer">
                   <td className="py-5">
                      <div className="flex items-center gap-3">
@@ -102,7 +119,7 @@ const HodStudents = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

@@ -1,10 +1,31 @@
 const db = require('../config/db');
 
+const ensureTasksTable = async () => {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id SERIAL PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      status VARCHAR(100) DEFAULT 'Requirements',
+      priority VARCHAR(20) DEFAULT 'Medium',
+      project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+      members JSONB DEFAULT '[]'::jsonb,
+      comments INT DEFAULT 0,
+      attachments INT DEFAULT 0,
+      created_by INT REFERENCES users(id) ON DELETE SET NULL,
+      due_date DATE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+};
+
 // @desc    Get mentor dashboard stats
 // @route   GET /api/mentor/dashboard
 // @access  Private (Mentor)
 exports.getMentorStats = async (req, res) => {
   try {
+    await ensureTasksTable();
     const mentorId = req.user.id;
 
     // Count assigned projects
@@ -44,6 +65,7 @@ exports.getMentorStats = async (req, res) => {
 // @access  Private (Mentor)
 exports.getReviewQueue = async (req, res) => {
   try {
+    await ensureTasksTable();
     const mentorId = req.user.id;
     const [tasks] = await db.execute(
       `SELECT t.*, p.title as project_title, p.team_name

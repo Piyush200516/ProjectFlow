@@ -1,25 +1,33 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import api from '../lib/api';
 import logo from '../assets/projectflow-logo.png';
+import { clearSession, selectUser, setSession, updateUser } from '../store/authSlice';
+import { connectSocket, disconnectSocket } from '../lib/socket';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const dispatch = useDispatch();
+  const user = useSelector(selectUser);
   const [loading, setLoading] = useState(true);
 
-  // Fetch current user if token exists
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    disconnectSocket();
+    dispatch(clearSession());
+  };
+
   const fetchMe = async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
       const { data } = await api.get('/auth/me');
       const userData = data.user || data;
-      setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
+      dispatch(setSession({ user: userData, token }));
+      connectSocket();
     } catch (err) {
       console.error('Failed to fetch user:', err);
       logout();
@@ -31,10 +39,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const handleAuthLogout = () => setUser(null);
+    const handleAuthLogout = () => dispatch(clearSession());
     window.addEventListener('auth:logout', handleAuthLogout);
     return () => window.removeEventListener('auth:logout', handleAuthLogout);
-  }, []);
+  }, [dispatch]);
 
   const login = async (email, password, expectedRole) => {
     const { data } = await api.post('/auth/login', { email, password });
@@ -43,7 +51,8 @@ export const AuthProvider = ({ children }) => {
     }
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
-    setUser(data.user);
+    dispatch(setSession({ user: data.user, token: data.token }));
+    connectSocket();
     return data.user;
   };
 
@@ -58,35 +67,26 @@ export const AuthProvider = ({ children }) => {
       section,
       subsection,
     });
-    // Auto‑login after registration
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
-    setUser(data.user);
+    dispatch(setSession({ user: data.user, token: data.token }));
+    connectSocket();
     return data.user;
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-  };
-
-  // expose both names so Signup.jsx (which calls signup) still works
   const signup = register;
 
   return (
-    <AuthContext.Provider value={{ user, login, register, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, signup, logout, loading, updateUser: (nextUser) => dispatch(updateUser(nextUser)) }}>
       {loading ? (
         <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-[9999] transition-all duration-500">
           <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-500">
             <div className="relative flex items-center justify-center">
-              {/* Outer pulsing ring */}
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 rounded-full animate-ping duration-1000 opacity-75"></div>
-              {/* Logo with bounce animation */}
-              <img 
-                src={logo} 
-                alt="ProjectFlow Logo" 
-                className="w-32 h-auto object-contain relative z-10 animate-pulse" 
+              <img
+                src={logo}
+                alt="ProjectFlow Logo"
+                className="w-32 h-auto object-contain relative z-10 animate-pulse"
               />
             </div>
             <div className="flex items-center gap-2 mt-2">

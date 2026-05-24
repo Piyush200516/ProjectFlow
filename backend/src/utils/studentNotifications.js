@@ -73,6 +73,7 @@ const createStudentNotifications = async ({
     filters.academic_year,
     filters.semester,
     filters.section,
+    filters.subsection || null,
     title,
     message,
     type,

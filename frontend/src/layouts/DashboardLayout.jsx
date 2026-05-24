@@ -26,6 +26,11 @@ import { useAuth } from '../context/AuthContext';
 import { cn } from '../utils/utils';
 import { toast } from 'sonner';
 import logo from '../assets/projectflow-logo.png';
+import { useApiQuery } from '../hooks/useApiQuery';
+import { queryKeys } from '../lib/queryKeys';
+import { useUiStore } from '../store/uiStore';
+import { queryClient } from '../lib/queryClient';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
   <Link 
@@ -58,8 +63,6 @@ const NotificationDropdown = ({ isOpen, onClose, notifications, onRead, onReadAl
     })
     .slice(0, 3), [notifications]);
 
-  if (!isOpen) return null;
-
   const formatNotificationDateTime = (notification) => {
     if (notification.notification_date && notification.notification_time) {
       return `${notification.notification_date} at ${notification.notification_time}`;
@@ -77,9 +80,17 @@ const NotificationDropdown = ({ isOpen, onClose, notifications, onRead, onReadAl
   };
 
   return (
-    <>
+    <AnimatePresence>
+      {isOpen && (
+      <>
       <div className="fixed inset-0 z-40" onClick={onClose}></div>
-      <div className="absolute top-12 right-0 w-80 bg-white border border-slate-200 shadow-xl rounded-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+      <motion.div
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.16 }}
+        className="absolute top-12 right-0 w-80 bg-white border border-slate-200 shadow-xl rounded-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200"
+      >
         <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <span className="font-bold text-slate-800 text-sm">Notifications</span>
           {notifications.some((n) => !n.is_read) && (
@@ -114,39 +125,37 @@ const NotificationDropdown = ({ isOpen, onClose, notifications, onRead, onReadAl
             ))
           )}
         </div>
-      </div>
-    </>
+      </motion.div>
+      </>
+      )}
+    </AnimatePresence>
   );
 };
 
 const DashboardLayout = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [isCollapsed, setCollapsed] = useState(false);
-  const [isNotifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
+  const isCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const setCollapsed = useUiStore((state) => state.setSidebarCollapsed);
+  const isNotifOpen = useUiStore((state) => state.notificationPanelOpen);
+  const setNotifOpen = useUiStore((state) => state.setNotificationPanelOpen);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const notificationEndpoint = user?.role === 'student' ? '/student/notifications' : '/notifications';
+  const { data: notifications = [] } = useApiQuery(
+    queryKeys.studentNotifications({ role: user?.role, limit: 10 }),
+    notificationEndpoint,
+    {
+      params: { limit: 10 },
+      enabled: Boolean(user),
+      refetchInterval: 60_000,
+      select: (data) => data?.notifications || data || [],
+    }
+  );
 
   const fetchNotifications = useCallback(async () => {
-    if (user) {
-      try {
-        const endpoint = user.role === 'student' ? '/student/notifications' : '/notifications';
-        const res = await api.get(endpoint, { params: { limit: 10 } });
-        setNotifications(res.data.notifications || res.data);
-      } catch (error) {
-        console.error("Failed to fetch notifications");
-      }
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchNotifications();
-    if (!user) return undefined;
-
-    const interval = window.setInterval(fetchNotifications, 60000);
-    return () => window.clearInterval(interval);
-  }, [fetchNotifications, user]);
+    await queryClient.invalidateQueries({ queryKey: ['studentNotifications'] });
+  }, []);
 
   const getNotificationTarget = (notif) => {
     const key = notif.reference_type || notif.type;
@@ -172,7 +181,7 @@ const DashboardLayout = ({ children }) => {
           ? `/student/notifications/${notif.id}/read`
           : `/notifications/${notif.id}/read`;
         await api.patch(endpoint);
-        fetchNotifications();
+        await fetchNotifications();
       }
       setNotifOpen(false);
       if (user?.role === 'student') {
@@ -192,7 +201,7 @@ const DashboardLayout = ({ children }) => {
         ? '/student/notifications/read-all'
         : '/notifications/read-all';
       await api.patch(endpoint);
-      fetchNotifications();
+      await fetchNotifications();
     } catch (error) {
       console.error("Failed to mark all notifications as read");
     }
@@ -213,7 +222,7 @@ const DashboardLayout = ({ children }) => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [setCollapsed]);
 
   const menuItems = useMemo(() => ({
     student: [

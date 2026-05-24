@@ -1,254 +1,478 @@
-# Local Development Completion Plan
+<p align="center">
+  <img src="frontend/src/assets/projectflow-logo.png" alt="ProjectFlow Edu Logo" width="180" />
+</p>
 
-## Goal Description
+<h1 align="center">ProjectFlow Edu</h1>
 
-Set up ProjectFlow Edu to run entirely on the local machine (frontend on `http://localhost:5173`, backend on `http://localhost:5000`, PostgreSQL local DB). Ensure database connectivity, seed required demo users, and fix all backend API endpoints and frontend integration so that the full user flow works without any deployment or Firebase dependencies.
+<p align="center">
+  <strong>AI-Powered Academic Project Management Platform</strong>
+</p>
 
-## User Review Required
-
-> [!IMPORTANT]
-> The plan involves stopping any current Render deployment and focusing solely on the local environment. Confirm that you are okay with terminating the deployed services for the duration of this work.
-
-> [!NOTE]
-> No UI redesign will be performed; only functional fixes are included.
-
-## Open Questions
-
-> [!WARNING]
-> 1. **Database Credentials**: The `.env` file currently contains Neon DB credentials. Should we replace them with the local PostgreSQL credentials (`DB_HOST=localhost`, `DB_PORT=5432`, `DB_USER=postgres`, `DB_PASSWORD` from your local setup, and `DB_NAME=projectflow_edu`)?
-> 2. **Password Hashing**: The seed script uses bcrypt hashes generated for `password123`. Do you want to keep the existing hashes or regenerate them after switch to local DB?
-> 3. **Port Conflicts**: Backend is currently running on port 5000. Is this ok, or do you prefer a different port?
-> 4. **Team Invitation Flow**: The invite acceptance endpoint expects an email token. Do you have a sample invite token to test, or should we generate a dummy one during seeding?
-> 5. **Document Upload Storage**: Current code stores uploads in a `uploads/` folder. Confirm that the folder exists and is writable in the local repo.
-
-## Proposed Changes
-
----
-### 1. Environment Configuration
-
-- **Modify `backend/.env`**: Replace Neon `DATABASE_URL` with local connection string:
-  `DATABASE_URL=postgresql://postgres:YOUR_LOCAL_PASSWORD@localhost:5432/projectflow_edu`
-- **Add missing DB variables** (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`) if the code uses them.
-- **Update `frontend/.env`**: Set `VITE_API_URL=http://localhost:5000/api`.
-
----
-### 2. Database Setup
-
-- **Run schema**: Execute `psql -f database/projectflow_edu_postgres_schema.sql` against the local DB.
-- **Create seed script** (`backend/scripts/seed_local.js`): Insert demo users with bcrypt-hashed password `password123` and corresponding `students`, `mentors`, and `hod` rows.
-- **Add script to `package.json`** for easy execution: `npm run seed`.
-
----
-### 3. Backend Fixes
-
-| File | Issue | Fix |
-|------|-------|-----|
-| `src/app.js` | Missing health route or incorrect path | Ensure `app.get('/api/health', ...)` returns `{ success:true, message:'OK' }` and logs DB connection status. |
-| `controllers/authController.js` | MySQL‑style `db.execute` and `result.insertId` | Replace with `pg` client queries using `RETURNING id`. Adjust register logic to insert into `users` then create role‑specific rows. |
-| `controllers/authController.js` | Password compare may use wrong field name | Verify query selects `password_hash` and compare with `bcrypt.compare`. |
-| `controllers/authController.js` | `/me` endpoint not returning user correctly | Query user by `req.user.id` and send sanitized user object. |
-| Project, Task, Invite, Document controllers | Still referencing MySQL helper functions | Switch all DB calls to `pg` pool (`pool.query`) with parameterized queries. Add proper error handling and status codes. |
-| CORS config | Allow only localhost origins | Update `cors` whitelist to include `http://localhost:5173` and `http://127.0.0.1:5173`. |
-
----
-### 4. Frontend Adjustments
-
-- **API Client** (`src/lib/api.js`): Ensure base URL reads from `import.meta.env.VITE_API_URL`. Remove any hard‑coded Render URLs.
-- **Auth Flows**: Verify login, signup forms POST to `${API_URL}/auth/login` and `/auth/register`. Map role returned (`user.role`) to correct dashboard route (`/student`, `/mentor`, `/hod`).
-- **Redirect Logic**: Update router guards to use local role mapping.
-- **Dashboard Components**: Ensure they fetch data from local endpoints (`/projects`, `/tasks`, etc.).
-- **Invite Flow**: Mock token generation on backend seed; frontend should read token from query param and call accept API.
-- **Document Upload**: Ensure the form posts `multipart/form-data` to `/api/documents/upload` and the response URL is used to display the file.
-
----
-### 5. Testing Procedure
-
-1. **Start PostgreSQL locally** and confirm connection with `psql -U postgres -d projectflow_edu`.
-2. **Run seed script**.
-3. **Start backend**: `npm run dev` in `backend` (port 5000).
-4. **Start frontend**: `npm run dev` in `frontend` (port 5173).
-5. **Manual Test Checklist** (record results in `task.md`):
-   - Student signup → success, token stored.
-   - Student login → redirects to student dashboard.
-   - Mentor/HOD login → respective dashboards.
-   - Create a project → appears in list.
-   - Invite a teammate → email token generated (log to console), accept via `/api/invites/accept?token=...`.
-   - Add a task to a project → shows on kanban board.
-   - Upload a document → file appears in documents view.
-   - Submit final GitHub link → stored and displayed.
-6. **Automated Checks**: Write a small script `tests/local_api.test.js` using `node-fetch` to hit each endpoint and assert HTTP 200/201 responses.
-
----
-## Verification Plan
-
-### Automated Tests
-- Run `npm test` (Jest) for the backend test suite.
-- Use `npm run lint` to ensure no lint errors.
-
-### Manual Verification
-- The user will follow the manual checklist above and report any failures.
-- Capture screenshots of successful dashboard loads and API responses.
-
----
-**Next Steps**
-
-- Update environment files.
-- Create/adjust seed script.
-- Refactor backend DB calls.
-- Adjust frontend API usage.
-- Run schema and seed.
-- Perform testing.
-
-Please review the plan, answer the open questions, and approve to proceed.
-
---- 🚀
-
-**AI‑Powered Jira‑Inspired Academic Project Lifecycle Management SaaS Platform**
+<p align="center">
+  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" />
+  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" />
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img alt="Redux" src="https://img.shields.io/badge/Redux_Toolkit-State-764ABC?style=for-the-badge&logo=redux&logoColor=white" />
+  <img alt="Socket.IO" src="https://img.shields.io/badge/Socket.IO-Realtime-010101?style=for-the-badge&logo=socket.io&logoColor=white" />
+  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-UI-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+</p>
 
 ---
 
-## 1. Project Overview
-ProjectFlow Edu is a full-stack SaaS platform built for a single college to manage final-year project lifecycles. It provides role-based portals for students, mentors, and heads of department (HOD/Admin), enabling collaborative project planning, execution, and evaluation.
+## Project Overview
 
-## 2. Problem Statement
-Traditional academic project management relies on ad‑hoc spreadsheets, email threads, and manual grading, leading to:
-- Poor team coordination
-- Inconsistent evaluation criteria
-- Lack of analytics for departments and industry partners
-- No single source of truth for project artefacts
+**ProjectFlow Edu** is an AI-powered academic project workflow automation platform for engineering colleges. It converts the traditional offline student project lifecycle into a structured, transparent, and fully digital workflow for students, mentors, and Heads of Department.
 
-## 3. Why ProjectFlow Edu?
-- **Academic-focused**: Tailored workflows for student teams, mentor reviews, HOD approvals, and department analytics.
-- **Jira‑inspired**: Kanban boards, sprint‑like stages, and real‑time analytics.
-- **All‑in‑one**: Authentication, project management, document workspace, chat, calendar, and analytics in a single SaaS solution.
+The platform is designed for academic project registration, team formation, HOD approval, mentor assignment, milestone tracking, document submission, review, marks tracking, and departmental visibility.
 
-## 4. Features
-- Role‑based JWT authentication
-- Student signup & role‑based login
-- Team creation (max 5 members) & invitation via email + roll number
-- Invitation accept / reject workflow
-- Shared team workspace with Kanban board
-- Document workspace with version history and GitHub final‑submission validation
-- Mentor‑provided project templates
-- Real‑time notifications & activity timeline
-- Calendar with academic deadlines
-- Chat UI for team communication
-- Analytics dashboards for contribution, timeliness, and department metrics
-- Automated scoring & grading rubrics
+### Core Workflow
 
-## 5. User Roles
-| Role | Capabilities |
-|------|--------------|
-| **Student** | Create / join teams, manage tasks, submit documents, view analytics |
-| **Mentor** | Define templates, review documents, assign marks, view team progress |
-| **HOD** | Oversight of all projects, enforce deadlines, department‑wide analytics |
+```mermaid
+flowchart LR
+  A["HOD creates registration form"] --> B["Students receive notifications"]
+  B --> C["Students create team and register project"]
+  C --> D["HOD approves or rejects"]
+  D --> E["Mentor gets assigned"]
+  E --> F["Timeline and milestones are created"]
+  F --> G["Students submit documents"]
+  G --> H["Mentor reviews submissions"]
+  H --> I["Marks and progress are tracked"]
+```
 
-## 6. Implemented Features
-- **Backend**: Node.js + Express, JWT auth, PostgreSQL (Neon) with SSL, extensive REST API (auth, projects, tasks, documents, invitations, notifications, calendar, chat)
-- **Frontend**: React 18, Vite, Tailwind CSS, shadcn/ui, Recharts, Lucide Icons – deployed on Vercel
-- **Deployment**: Frontend on Vercel, backend on Render, database on Neon PostgreSQL
-- **Branding**: ProjectFlow logo & colour scheme throughout UI
+---
 
-## 7. Live Deployment
+## Problem Statement
+
+Most engineering colleges still manage student project workflows using paper forms, spreadsheets, messaging groups, and manual approval chains. This creates avoidable delays and poor visibility across departments.
+
+Common offline workflow issues include:
+
+- Manual project registration forms
+- No centralized tracking
+- Delayed approvals and mentor assignment
+- No real-time student notifications
+- Poor mentor-student coordination
+- Document submission delays
+- Limited transparency for HODs and departments
+- Difficulty tracking project progress, reviews, and marks
+
+ProjectFlow Edu solves these problems with a role-based digital project workflow built on React, Node.js, Express, and PostgreSQL.
+
+---
+
+## Features Implemented
+
+### Auth
+
+- ✅ Student signup and login
+- ✅ Mentor login
+- ✅ HOD login
+- ✅ Role-based authentication
+- ✅ JWT-based protected sessions
+- ✅ Role-based frontend routing
+
+### Student
+
+- ✅ Profile settings
+- ✅ Semester update
+- ✅ View active HOD registration forms
+- ✅ Fill project registration form
+- ✅ Team creation
+- ✅ Duplicate email and roll number validation
+- ✅ Team member validation against registered students
+- ✅ Notifications
+- ✅ Timeline view
+- ✅ Dashboard
+- ✅ Document submission workflow foundation
+
+### HOD
+
+- ✅ Create registration form
+- ✅ Publish form
+- ✅ Send matching student notifications
+- ✅ View registration submissions
+- ✅ Approve or reject submissions
+- ✅ Assign mentor
+- ✅ Create project timeline
+- ✅ Dashboard statistics
+- ✅ Department project and student views
+
+### Mentor
+
+- ✅ Mentor login
+- ✅ View assigned teams and projects
+- ✅ Review workflow foundation
+- ✅ Document review routes
+- ✅ Milestone and template workflow foundation
+
+### System
+
+- ✅ PostgreSQL integration
+- ✅ Notifications system
+- ✅ Protected backend APIs
+- ✅ Protected frontend routes
+- ✅ Role-based routing
+- ✅ Frontend architecture upgraded with modern state, query, validation, table, realtime, analytics, and monitoring libraries
+
+---
+
+## In Progress / Remaining Work
+
+- 🚧 Real-time Socket.IO integration verification with production backend events
+- 🚧 Mentor feedback workflow completion and polishing
+- 🚧 Marks automation and scoring rules
+- 🚧 Report export polishing
+- 🚧 Analytics dashboard polishing
+- 🚧 Document upload final verification across all roles
+- 🚧 Production deployment stabilization
+- 🚧 AI feature implementation and model integration
+
+---
+
+## Tech Stack
+
 ### Frontend
-- **Live App**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app
-- **Student Login**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/student/login
-- **Student Signup**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/student/register
-- **Mentor Login**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/mentor/login
-- **HOD Login**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/hod/login
+
+- React.js
+- Vite
+- Tailwind CSS
+- Redux Toolkit
+- React Redux
+- Zustand
+- TanStack Query / React Query
+- React Hook Form
+- Zod
+- TanStack Table
+- TanStack Virtual
+- Socket.IO Client
+- Apache ECharts
+- ECharts for React
+- Framer Motion
+- Fuse.js
+- Axios
+- React Router DOM
+- Lucide React
 
 ### Backend
-- **API URL**: https://projectflow-backend-lsvr.onrender.com/api
-- **Health Check**: https://projectflow-backend-lsvr.onrender.com/api/health
+
+- Node.js
+- Express.js
+- JWT
+- bcrypt
+- PostgreSQL
+- pg
+- Socket.IO-ready architecture
+- Express Rate Limit
+- CORS
+- dotenv
 
 ### Database
-- **Neon PostgreSQL** – cloud‑hosted, SSL‑enabled, fully seeded with demo users.
+
+- PostgreSQL
+
+### Monitoring
+
+- Sentry, enabled through `VITE_SENTRY_DSN`
 
 ---
 
-## 8. Architecture Diagram
+## Architecture
+
+ProjectFlow Edu follows a role-based full-stack architecture.
+
 ```mermaid
-flowchart TD
-    A[College Firewall] --> B[Vercel Edge Routers]
-    B --> C[Auth App]
-    B --> D[Student/Mentor Portal]
-    B --> E[HOD/Admin]
-    C & D & E --> F[Central API Gateway (Express)]
-    F --> G[PostgreSQL (Neon)]
-    F --> H[Redis / BullMQ]
-    F --> I[Socket.io (future real‑time)]
+flowchart TB
+  subgraph Frontend["Frontend - React + Vite"]
+    UI["Role-based UI"]
+    Redux["Redux Toolkit Auth Session"]
+    Zustand["Zustand UI State"]
+    Query["TanStack Query API Cache"]
+    Forms["React Hook Form + Zod"]
+  end
+
+  subgraph Backend["Backend - Node.js + Express"]
+    Routes["REST API Routes"]
+    Auth["JWT Auth Middleware"]
+    Controllers["Controllers and Services"]
+    Notifications["Notification Service"]
+  end
+
+  subgraph Realtime["Real-time Layer"]
+    SocketClient["Socket.IO Client"]
+    SocketServer["Socket.IO Backend Events - Ready"]
+  end
+
+  subgraph Database["Database - PostgreSQL"]
+    Tables["Academic Workflow Tables"]
+    Indexes["Performance Indexes"]
+  end
+
+  UI --> Redux
+  UI --> Zustand
+  UI --> Query
+  UI --> Forms
+  Query --> Routes
+  Routes --> Auth
+  Auth --> Controllers
+  Controllers --> Notifications
+  Controllers --> Tables
+  Tables --> Indexes
+  SocketClient -.fallback polling.-> Query
+  SocketClient -.future events.-> SocketServer
+  SocketServer -.invalidate cache.-> Query
 ```
 
-## 9. Database Tables
-- `users`, `students`, `mentors`, `hods`
-- `projects`, `project_members`, `team_invitations`
-- `tasks`, `sdlc_stages`
-- `document_templates`, `document_submissions`, `document_versions`
-- `evaluations`, `notifications`
-- `calendar_events`, `chat_messages`
-- `activity_logs`, `hackathons`, `startups`, `industry_collaborations`
+### Frontend Architecture
 
-## 10. ProjectFlow Edu vs Jira
-| Feature | ProjectFlow Edu | Jira |
-|---|---|---|
-| Academic lifecycle | ✅ Built‑in | ❌ Generic |
-| Student team formation (email + roll) | ✅ | ❌ |
-| Mentor review workflow | ✅ | ⚠️ Requires add‑on |
-| HOD approval | ✅ | ❌ |
-| Contribution‑based scoring | ✅ | ❌ |
-| Timeliness auto‑scoring | ✅ | ❌ |
-| GitHub repo validation | ✅ | ⚠️ Plugin |
-| Document workspace | ✅ | ❌ |
-| Role‑based dashboards | ✅ | ⚠️ Custom |
+- Redux Toolkit stores global auth/session state: `user`, `token`, `role`, and permissions.
+- Zustand stores lightweight UI state such as sidebar collapsed state, notification panel state, selected form, selected project, and modal state.
+- TanStack Query handles server state caching, retries, loading state, and polling fallback.
+- React Hook Form and Zod provide structured validation.
+- TanStack Table and Virtual provide scalable table foundations.
+- Socket.IO Client is wired for realtime readiness with polling fallback.
+- Sentry captures runtime and API failures when configured.
+
+### Backend Architecture
+
+- Express REST APIs with role-protected routes.
+- JWT authentication middleware.
+- PostgreSQL queries through `pg`.
+- Transaction usage in critical workflows such as project registration and team creation.
+- Notification utilities for batch notification creation.
+
+### Database Architecture
+
+- PostgreSQL relational schema.
+- Indexed workflow tables for faster lookups.
+- Team validation and one-active-team rules separated from payload duplicate validation.
+
+### Real-time Layer
+
+- Socket.IO Client is installed and wired.
+- Frontend cache invalidation is ready for notification, timeline, mentor feedback, form publish, and submission status events.
+- Polling fallback remains active until backend realtime events are finalized.
 
 ---
 
-## 11. Installation Guide
+## Database Modules
+
+Core PostgreSQL modules include:
+
+- `users`
+- `students`
+- `registration_forms`
+- `project_registrations`
+- `project_team_members`
+- `project_milestones`
+- `milestone_submissions`
+- `notifications`
+- `mentor_assignments`
+- `mentor_reviews`
+- `project_scores`
+- `activity_logs`
+
+Additional workflow tables may exist for compatibility and active modules, including project members, document submissions, tasks, forms, and timeline-related records.
+
+---
+
+## Folder Structure
+
+```text
+ProjectFlow/
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   ├── utils/
+│   │   ├── app.js
+│   │   └── server.js
+│   ├── scripts/
+│   ├── uploads/
+│   └── package.json
+├── database/
+│   ├── performance_indexes.sql
+│   └── *.sql
+├── frontend/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── hooks/
+│   │   ├── layouts/
+│   │   ├── lib/
+│   │   ├── pages/
+│   │   ├── store/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   └── package.json
+└── README.md
+```
+
+---
+
+## Installation
+
+### Prerequisites
+
+- Node.js
+- npm
+- PostgreSQL
+- Git
+
+### Backend
+
 ```bash
-# Clone repository
-git clone https://github.com/Piyush200516/ProjectFlow.git
-cd ProjectFlow
-
-# Backend setup
 cd backend
-cp .env.example .env   # configure Neon DATABASE_URL and JWT_SECRET
 npm install
-npm run dev   # http://localhost:5000
+npm run dev
+```
 
-# Frontend setup
-cd ../frontend
-cp .env.example .env   # optional VITE_API_URL for local dev
+Backend runs on:
+
+```text
+http://localhost:5000
+```
+
+Health check:
+
+```text
+http://localhost:5000/api/health
+```
+
+### Frontend
+
+```bash
+cd frontend
 npm install
-npm run dev   # http://localhost:5173
+npm run dev
 ```
 
-## 12. Demo Credentials
-```
-student@college.edu / password123
-mentor@college.edu   / password123
-hod@college.edu      / password123
+Frontend runs on:
+
+```text
+http://localhost:5173
 ```
 
-## 13. Current Project Status
-- **Frontend**: Live on Vercel, all portals functional.
-- **Backend**: Deployed on Render, health endpoint returns `{"status":"OK","database":"CONNECTED"}`.
-- **Database**: Neon PostgreSQL fully seeded, SSL enabled.
-- **Features**: Core SaaS workflows complete; AI‑doc review & real‑time Socket.io pending.
+or:
 
-## 14. Future Roadmap
-- Real‑time Socket.io chat & notifications
-- AI‑powered document quality review
-- Integration with external plagiarism checker
-- Advanced analytics dashboards with export to PDF
-- Mobile‑first responsive redesign
-- CI/CD pipelines for automated schema migrations
+```text
+http://127.0.0.1:5173
+```
 
 ---
 
-## 15. Author & License
-**Author**: Piyush Mishra (<https://github.com/Piyush200516>)
-**License**: MIT © 2026
+## Environment Variables
+
+### Backend `.env`
+
+```env
+PORT=5000
+DATABASE_URL=postgresql://postgres:password@localhost:5432/projectflow_edu
+JWT_SECRET=your_jwt_secret
+```
+
+Optional local PostgreSQL variables may also be used depending on setup:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=projectflow_edu
+```
+
+### Frontend `.env`
+
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_SENTRY_DSN=
+```
+
+Sentry is disabled automatically when `VITE_SENTRY_DSN` is empty.
 
 ---
 
-*Built with ❤️ for academic innovators.*
+## Performance Optimizations
+
+- React Query caching for server state
+- Polling fallback for notifications and realtime-ready features
+- TanStack Table foundation for large tables
+- TanStack Virtual integration for scalable table rendering
+- Fuse.js fuzzy search for client-side searching
+- Indexed PostgreSQL queries for project, student, notification, form, and milestone lookups
+- Efficient O(n) duplicate validation using `Set`
+- Batch notification insertion for matching students
+- Selective API columns instead of broad production `SELECT *` patterns where optimized
+- Transactions for critical registration and assignment workflows
+
+---
+
+## Security
+
+- JWT authentication
+- bcrypt password hashing
+- Protected backend APIs
+- Role-based access control
+- Protected frontend routes
+- Input validation with Zod on the frontend
+- Parameterized PostgreSQL queries
+- CORS configuration for localhost and approved origins
+- Rate-limit middleware support
+- Sentry-based runtime/API error monitoring when configured
+
+---
+
+## Deployment
+
+### Frontend
+
+- Target: Vercel
+- Current priority: localhost-first verification
+
+### Backend
+
+- Current: localhost
+- Future target: Render or equivalent Node.js hosting
+
+### Database
+
+- Current: local PostgreSQL
+- Future target: managed PostgreSQL if production deployment is required
+
+No Firebase and no CDC are used in the current architecture.
+
+---
+
+## Future Scope
+
+Planned AI-powered enhancements:
+
+- AI mentor suggestions based on project domain and faculty expertise
+- AI project recommendations for students
+- Plagiarism and similarity checks for submitted documents
+- Predictive project progress analytics
+- Smart deadline reminders
+- AI-generated review summaries
+- Intelligent risk detection for delayed teams
+- Automated rubric-based evaluation assistance
+
+---
+
+## Contributor
+
+**Piyush Mishra**
+
+---
+
+## License
+
+This project is licensed under the **MIT License**.
+
+---
+
+<p align="center">
+  <strong>ProjectFlow Edu</strong><br />
+  Built to modernize academic project workflows for engineering colleges.
+</p>

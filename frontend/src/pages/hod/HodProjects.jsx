@@ -1,40 +1,59 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Building2, Search, Filter, ExternalLink, Loader2 } from 'lucide-react';
 import { PageHeader, SectionCard, StatusBadge } from '../../components/common/PremiumComponents';
-import api from '../../lib/api';
 import { toast } from 'sonner';
+import { getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useApiQuery } from '../../hooks/useApiQuery';
+import { useFuzzySearch } from '../../hooks/useFuzzySearch';
+import { queryKeys } from '../../lib/queryKeys';
 
 const HodProjects = () => {
-  const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const { data } = await api.get('/hod/projects', { params: { limit: 50 } });
-        setProjects(data?.data || data || []);
-      } catch (error) {
-        console.error('Failed to fetch projects:', error);
-        toast.error('Failed to load project repository');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProjects();
-  }, []);
+  const tableContainerRef = useRef(null);
+  const { data: projects = [], isLoading, isError } = useApiQuery(
+    queryKeys.hodProjects({ limit: 50 }),
+    '/hod/projects',
+    {
+      params: { limit: 50 },
+      select: (data) => data?.data || data || [],
+      staleTime: 2 * 60_000,
+    }
+  );
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
     return () => window.clearTimeout(timeout);
   }, [searchTerm]);
 
-  const filteredProjects = useMemo(() => projects.filter(p =>
-    (p.title || '').toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-  ), [projects, debouncedSearchTerm]);
+  useEffect(() => {
+    if (isError) toast.error('Failed to load project repository');
+  }, [isError]);
 
-  if (loading) {
+  const searchKeys = useMemo(() => ['title', 'type', 'mentor_name', 'status'], []);
+  const filteredProjects = useFuzzySearch(projects, debouncedSearchTerm, searchKeys);
+  const columns = useMemo(() => [
+    { accessorKey: 'title' },
+    { accessorKey: 'type' },
+    { accessorKey: 'mentor_name' },
+    { accessorKey: 'status' },
+    { accessorKey: 'progress' },
+  ], []);
+  const table = useReactTable({
+    data: filteredProjects,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+  const rows = table.getRowModel().rows;
+  useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 72,
+    overscan: 8,
+  });
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -68,7 +87,7 @@ const HodProjects = () => {
       </div>
 
       <SectionCard title="All Projects" subtitle="Filter and monitor across all academic years">
-        <div className="overflow-x-auto">
+        <div ref={tableContainerRef} className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-100">
@@ -81,7 +100,9 @@ const HodProjects = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredProjects.length > 0 ? filteredProjects.map((project) => (
+              {rows.length > 0 ? rows.map((row) => {
+                const project = row.original;
+                return (
                 <tr key={project.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer">
                   <td className="py-5">
                      <span className="font-black text-slate-800 text-sm tracking-tight">{project.title}</span>
@@ -100,7 +121,7 @@ const HodProjects = () => {
                     </button>
                   </td>
                 </tr>
-              )) : (
+              )}) : (
                 <tr>
                    <td colSpan="6" className="py-20 text-center text-slate-400 font-bold">No projects found.</td>
                 </tr>

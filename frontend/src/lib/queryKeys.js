@@ -1,0 +1,15 @@
+export const queryKeys = {
+  authMe: ['auth', 'me'],
+  studentProfile: ['student', 'profile'],
+  registrationForms: (params = {}) => ['registrationForms', params],
+  studentNotifications: (params = {}) => ['studentNotifications', params],
+  hodSubmissions: (params = {}) => ['hodSubmissions', params],
+  hodStudents: (params = {}) => ['hodStudents', params],
+  hodProjects: (params = {}) => ['hodProjects', params],
+  hodStats: ['hodStats'],
+  mentorTeams: ['mentorTeams'],
+  mentorReviews: ['mentorReviews'],
+  timelines: ['timelines'],
+  milestones: ['milestones'],
+  projects: ['projects'],
+};

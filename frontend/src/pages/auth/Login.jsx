@@ -1,30 +1,32 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogIn, Mail, Lock, Loader2, Rocket, ShieldCheck, Zap, Briefcase, User } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '../../utils/utils';
 import logo from '../../assets/projectflow-logo.png';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { loginSchema } from '../../lib/validationSchemas';
 
 const Login = ({ role = 'student', title = 'Sign In' }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isLoading) return;
-    setIsLoading(true);
+  const onSubmit = async ({ email, password }) => {
     try {
       await login(email, password, role);
       toast.success('Welcome back!');
       navigate(`/${role}/dashboard`, { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.message || error.message || 'Invalid credentials');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -33,10 +35,10 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
       <div className="w-full max-w-[400px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="text-center space-y-2">
           <div className="flex justify-center mb-4">
-            <img 
-              src={logo} 
-              alt="ProjectFlow Logo" 
-              className="w-36 h-auto object-contain transition-transform duration-300 hover:scale-105" 
+            <img
+              src={logo}
+              alt="ProjectFlow Logo"
+              className="w-36 h-auto object-contain transition-transform duration-300 hover:scale-105"
             />
           </div>
           <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">{title}</h1>
@@ -44,16 +46,15 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
         </div>
 
         <div className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-900 ml-1">Email Address</label>
                 <input
                   type="email"
                   required
-                  disabled={isLoading}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSubmitting}
+                  {...register('email')}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
                   placeholder="name@university.edu"
                 />
@@ -69,9 +70,8 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
                 <input
                   type="password"
                   required
-                  disabled={isLoading}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isSubmitting}
+                  {...register('password')}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm"
                   placeholder="••••••••"
                 />
@@ -80,13 +80,13 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-70"
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : (
-                "Sign in"
+                'Sign in'
               )}
             </button>
           </form>
@@ -99,7 +99,7 @@ const Login = ({ role = 'student', title = 'Sign In' }) => {
           )}
         </div>
       </div>
-      
+
       <footer className="absolute bottom-8 text-xs text-slate-400 font-medium">
         &copy; 2026 ProjectFlow Edu Platform
       </footer>

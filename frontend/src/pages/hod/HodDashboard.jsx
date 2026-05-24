@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Building2, 
   Users, 
@@ -38,26 +38,18 @@ import {
 import api from '../../lib/api';
 import { toast } from 'sonner';
 import { cn } from '../../utils/utils';
+import { useApiQuery } from '../../hooks/useApiQuery';
+import { queryKeys } from '../../lib/queryKeys';
+import { useHodStatsChartOptions } from '../../hooks/useEChartOptions';
 
 const HodDashboard = () => {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
   const [exporting, setExporting] = useState(false);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const res = await api.get('/hod/dashboard-stats');
-        setStats(res.data);
-      } catch (error) {
-        console.error('Failed to fetch HOD dashboard:', error);
-        toast.error('Failed to load department dashboard');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
-  }, []);
+  const { data: stats = null, isLoading: loading } = useApiQuery(
+    queryKeys.hodStats,
+    '/hod/dashboard-stats',
+    { staleTime: 60_000 }
+  );
+  useHodStatsChartOptions(stats);
 
   const handleExport = async (type) => {
     try {

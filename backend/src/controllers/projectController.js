@@ -1,5 +1,20 @@
 const db = require('../config/db');
 
+const tableExists = async (tableName) => {
+  const result = await db.pool.query('SELECT to_regclass($1) as table_name', [tableName]);
+  return Boolean(result.rows[0]?.table_name);
+};
+
+const columnExists = async (tableName, columnName) => {
+  const result = await db.pool.query(`
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+    LIMIT 1
+  `, [tableName, columnName]);
+  return result.rows.length > 0;
+};
+
 // @desc    Get all projects for the logged-in user (based on role)
 // @route   GET /api/projects
 // @access  Private
@@ -92,7 +107,14 @@ exports.createProject = async (req, res) => {
 // @access  Private
 exports.getProjectById = async (req, res) => {
   try {
-    const [projects] = await db.execute('SELECT * FROM projects WHERE id = ?', [req.params.id]);
+    const [projects] = await db.execute(
+      `SELECT id, registration_id, title, type, team_name, description, start_date,
+              end_date, status, progress_percent, branch, academic_year, semester,
+              section, created_by, mentor_id, created_at, updated_at
+       FROM projects
+       WHERE id = ?`,
+      [req.params.id]
+    );
     const project = projects[0];
 
     if (!project) {
@@ -109,26 +131,55 @@ exports.getProjectById = async (req, res) => {
     );
 
     // Get tasks
-    const [tasks] = await db.execute(
-      'SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC',
-      [req.params.id]
-    );
+    let tasks = [];
+    if (await tableExists('tasks')) {
+      const [taskRows] = await db.execute(
+        `SELECT id, title, description, status, priority, project_id, members,
+                comments, attachments, created_by, due_date, created_at, updated_at
+         FROM tasks
+         WHERE project_id = ?
+         ORDER BY created_at DESC`,
+        [req.params.id]
+      );
+      tasks = taskRows;
+    }
 
     // Get feedback
-    const [feedback] = await db.execute(
-      `SELECT f.*, u.full_name as mentor_name
-       FROM mentor_feedback f
-       JOIN users u ON f.mentor_id = u.id
-       WHERE f.project_id = ?
-       ORDER BY f.created_at DESC`,
-      [req.params.id]
-    );
+    let feedback = [];
+    if (await tableExists('mentor_feedback')) {
+      const hasFeedbackColumn = await columnExists('mentor_feedback', 'feedback');
+      const feedbackTextColumn = hasFeedbackColumn ? 'f.feedback' : 'f.comment';
+      const [feedbackRows] = await db.execute(
+        `SELECT f.id,
+                f.project_id,
+                f.mentor_id,
+                ${feedbackTextColumn} as comment,
+                ${feedbackTextColumn} as feedback,
+                f.sentiment,
+                f.created_at,
+                u.full_name as mentor_name
+         FROM mentor_feedback f
+         JOIN users u ON f.mentor_id = u.id
+         WHERE f.project_id = ?
+         ORDER BY f.created_at DESC`,
+        [req.params.id]
+      );
+      feedback = feedbackRows;
+    }
 
     // Get evaluations
-    const [evaluations] = await db.execute(
-      'SELECT * FROM evaluations WHERE project_id = ?',
-      [req.params.id]
-    );
+    let evaluations = [];
+    if (await tableExists('evaluations')) {
+      const [evaluationRows] = await db.execute(
+        `SELECT id, project_id, student_id, evaluator_id, task_completion_score,
+                timeliness_score, documentation_score, technical_skill_score,
+                total_score, comments, created_at
+         FROM evaluations
+         WHERE project_id = ?`,
+        [req.params.id]
+      );
+      evaluations = evaluationRows;
+    }
 
     res.json({ 
       ...project, 
