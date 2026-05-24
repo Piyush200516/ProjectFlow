@@ -57,36 +57,31 @@ const createStudentNotifications = async ({
   await ensureNotificationsTable();
 
   const result = await db.pool.query(`
-    SELECT user_id
-    FROM students
-    WHERE branch_id = $1
-      AND academic_year = $2
-      AND semester = $3
-      AND section = $4
+    INSERT INTO notifications
+    (user_id, title, message, type, reference_id, reference_type, is_read)
+    SELECT s.user_id, $6, $7, $8, $9, $10, FALSE
+    FROM students s
+    WHERE s.branch_id = $1
+      AND s.academic_year = $2
+      AND s.semester = $3
+      AND s.section = $4
       AND (
-        subsection = $5 OR $5 IS NULL OR $5 = ''
+        s.subsection = $5 OR $5 IS NULL OR $5 = ''
       )
   `, [
     filters.branch_id,
     filters.academic_year,
     filters.semester,
     filters.section,
-    filters.subsection || null
-  ]);
-
-  const userIds = result.rows.map((student) => student.user_id);
-  console.log('Matching students for notification:', userIds.length);
-
-  const count = await insertNotifications({
-    userIds,
     title,
     message,
     type,
-    referenceId,
-    referenceType
-  });
-  console.log('Notifications inserted:', count);
-  return count;
+    referenceId || null,
+    referenceType || null
+  ]);
+
+  console.log('Notifications inserted:', result.rowCount);
+  return result.rowCount;
 };
 
 const getSubmissionTeamUserIds = async (projectRegistrationId) => {
@@ -123,25 +118,30 @@ const getSubmissionTeamUserIds = async (projectRegistrationId) => {
     ? submission.team_members
     : JSON.parse(submission.team_members || '[]');
 
-  for (const member of teamMembers) {
-    if (member.user_id) {
-      userIds.push(member.user_id);
-      continue;
-    }
+  const unresolvedMembers = teamMembers
+    .filter((member) => !member.user_id && (member.email || member.roll_number))
+    .map((member) => ({
+      email: String(member.email || '').trim().toLowerCase(),
+      roll_number: String(member.roll_number || '').trim().toUpperCase()
+    }));
 
-    if (member.email || member.roll_number) {
-      const studentResult = await db.pool.query(`
-        SELECT s.user_id
-        FROM students s
-        JOIN users u ON u.id = s.user_id
-        WHERE ($1::text IS NULL OR LOWER(COALESCE(s.email, u.email)) = LOWER($1))
-          AND ($2::text IS NULL OR LOWER(s.roll_number) = LOWER($2))
-        LIMIT 1
-      `, [member.email || null, member.roll_number || null]);
-      if (studentResult.rows[0]?.user_id) {
-        userIds.push(studentResult.rows[0].user_id);
-      }
-    }
+  userIds.push(...teamMembers.map((member) => member.user_id).filter(Boolean));
+
+  if (unresolvedMembers.length > 0) {
+    const studentResult = await db.pool.query(`
+      WITH input_members AS (
+        SELECT *
+        FROM jsonb_to_recordset($1::jsonb) AS x(email text, roll_number text)
+      )
+      SELECT DISTINCT s.user_id
+      FROM input_members i
+      JOIN students s ON TRUE
+      JOIN users u ON u.id = s.user_id AND LOWER(u.role) = 'student'
+      WHERE (i.email = '' OR LOWER(COALESCE(s.email, u.email)) = i.email)
+        AND (i.roll_number = '' OR UPPER(s.roll_number) = i.roll_number)
+    `, [JSON.stringify(unresolvedMembers)]);
+
+    userIds.push(...studentResult.rows.map((student) => student.user_id).filter(Boolean));
   }
 
   return userIds;

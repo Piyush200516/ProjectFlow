@@ -1,48 +1,47 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, Link } from 'react-router-dom';
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'sonner';
 
-import Login from './pages/auth/Login';
-import StudentDashboard from './pages/student/StudentDashboard';
-import StudentProjectForm from './pages/student/StudentProjectForm';
-import StudentProjects from './pages/student/StudentProjects';
-import ProjectDetails from './pages/student/ProjectDetails';
-import StudentKanban from './pages/student/StudentKanban';
-import StudentTimeline from './pages/student/StudentTimeline';
-import StudentDocumentation from './pages/student/StudentDocumentation';
-import StudentFeedback from './pages/student/StudentFeedback';
-import StudentScore from './pages/student/StudentScore';
-import StudentSettings from './pages/student/StudentSettings';
-import StudentFinalSubmission from './pages/student/StudentFinalSubmission';
-import StudentContribution from './pages/student/StudentContribution';
-import StudentActivity from './pages/student/StudentActivity';
-import StudentDocumentWorkspace from './pages/student/StudentDocumentWorkspace';
-import StudentTeamWorkspace from './pages/student/StudentTeamWorkspace';
-import StudentCalendar from './pages/student/StudentCalendar';
-import ProjectChat from './pages/student/ProjectChat';
-import MentorDashboard from './pages/mentor/MentorDashboard';
-import MentorProjects from './pages/mentor/MentorProjects';
-import MentorReviewRequests from './pages/mentor/MentorReviewRequests';
-import MentorStudentProgress from './pages/mentor/MentorStudentProgress';
-import MentorSchedule from './pages/mentor/MentorSchedule';
-import MentorSettings from './pages/mentor/MentorSettings';
-import MentorFinalSubmissions from './pages/mentor/MentorFinalSubmissions';
-import MentorContributionReview from './pages/mentor/MentorContributionReview';
-import MentorTemplates from './pages/mentor/MentorTemplates';
-import MentorDocumentReviews from './pages/mentor/MentorDocumentReviews';
-import HodDashboard from './pages/hod/HodDashboard';
-import HodProjects from './pages/hod/HodProjects';
-import HodStudents from './pages/hod/HodStudents';
-import HodApprovals from './pages/hod/HodApprovals';
-import HodTemplates from './pages/hod/HodTemplates';
-import HodSubmissionTracking from './pages/hod/HodSubmissionTracking';
-import CdcDashboard from './pages/cdc/CdcDashboard';
-import CdcStartups from './pages/cdc/CdcStartups';
-import CdcIndustryCollaboration from './pages/cdc/CdcIndustryCollaboration';
-import Signup from './pages/auth/Signup';
-import ForgotPassword from './pages/auth/ForgotPassword';
 import DashboardLayout from './layouts/DashboardLayout';
+
+const Login = lazy(() => import('./pages/auth/Login'));
+const Signup = lazy(() => import('./pages/auth/Signup'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
+const StudentProjectForm = lazy(() => import('./pages/student/StudentProjectForm'));
+const StudentProjects = lazy(() => import('./pages/student/StudentProjects'));
+const ProjectDetails = lazy(() => import('./pages/student/ProjectDetails'));
+const StudentKanban = lazy(() => import('./pages/student/StudentKanban'));
+const StudentTimeline = lazy(() => import('./pages/student/StudentTimeline'));
+const StudentDocumentation = lazy(() => import('./pages/student/StudentDocumentation'));
+const StudentFeedback = lazy(() => import('./pages/student/StudentFeedback'));
+const StudentScore = lazy(() => import('./pages/student/StudentScore'));
+const StudentSettings = lazy(() => import('./pages/student/StudentSettings'));
+const StudentFinalSubmission = lazy(() => import('./pages/student/StudentFinalSubmission'));
+const StudentContribution = lazy(() => import('./pages/student/StudentContribution'));
+const StudentActivity = lazy(() => import('./pages/student/StudentActivity'));
+const StudentDocumentWorkspace = lazy(() => import('./pages/student/StudentDocumentWorkspace'));
+const StudentTeamWorkspace = lazy(() => import('./pages/student/StudentTeamWorkspace'));
+const StudentCalendar = lazy(() => import('./pages/student/StudentCalendar'));
+const ProjectChat = lazy(() => import('./pages/student/ProjectChat'));
+const MentorDashboard = lazy(() => import('./pages/mentor/MentorDashboard'));
+const MentorProjects = lazy(() => import('./pages/mentor/MentorProjects'));
+const MentorReviewRequests = lazy(() => import('./pages/mentor/MentorReviewRequests'));
+const MentorStudentProgress = lazy(() => import('./pages/mentor/MentorStudentProgress'));
+const MentorSchedule = lazy(() => import('./pages/mentor/MentorSchedule'));
+const MentorSettings = lazy(() => import('./pages/mentor/MentorSettings'));
+const MentorFinalSubmissions = lazy(() => import('./pages/mentor/MentorFinalSubmissions'));
+const MentorContributionReview = lazy(() => import('./pages/mentor/MentorContributionReview'));
+const MentorTemplates = lazy(() => import('./pages/mentor/MentorTemplates'));
+const MentorDocumentReviews = lazy(() => import('./pages/mentor/MentorDocumentReviews'));
+const HodDashboard = lazy(() => import('./pages/hod/HodDashboard'));
+const HodProjects = lazy(() => import('./pages/hod/HodProjects'));
+const HodStudents = lazy(() => import('./pages/hod/HodStudents'));
+const HodApprovals = lazy(() => import('./pages/hod/HodApprovals'));
+const HodTemplates = lazy(() => import('./pages/hod/HodTemplates'));
+const HodSubmissionTracking = lazy(() => import('./pages/hod/HodSubmissionTracking'));
 
 const Unauthorized = () => {
   const { user } = useAuth();
@@ -124,7 +123,8 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
+        <Suspense fallback={null}>
+          <Routes>
           {/* Public / Generic Routes */}
           <Route path="/unauthorized" element={<Unauthorized />} />
           
@@ -156,12 +156,6 @@ function App() {
           <Route path="/auth/hod/login" element={
             <MicroFrontendGate allowedPortal="auth">
               <Login role="hod" title="HOD Sign In" />
-            </MicroFrontendGate>
-          } />
-
-          <Route path="/auth/cdc/login" element={
-            <MicroFrontendGate allowedPortal="auth">
-              <Login role="cdc" title="CDC Sign In" />
             </MicroFrontendGate>
           } />
 
@@ -230,22 +224,11 @@ function App() {
             <Route path="settings" element={<MentorSettings />} /> 
           </Route>
 
-          <Route path="/cdc" element={
-            <MicroFrontendGate allowedPortal="admin">
-              <ProtectedRoute allowedRoles={['cdc']} />
-            </MicroFrontendGate>
-          }>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<CdcDashboard />} />
-            <Route path="startups" element={<CdcStartups />} />
-            <Route path="industry-collaboration" element={<CdcIndustryCollaboration />} />
-            <Route path="settings" element={<MentorSettings />} />
-          </Route>
-
           {/* Default Redirect */}
           <Route path="/" element={<Navigate to="/auth/student/login" replace />} />
           <Route path="*" element={<Navigate to="/auth/student/login" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </Router>
       <Toaster position="top-right" richColors />
     </AuthProvider>

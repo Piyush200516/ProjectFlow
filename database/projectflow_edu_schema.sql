@@ -36,7 +36,7 @@ CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('student', 'mentor', 'hod', 'cdc', 'admin') NOT NULL,
+    role ENUM('student', 'mentor', 'hod', 'admin') NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     profile_image VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
@@ -211,10 +211,10 @@ CREATE TABLE evaluations (
 );
 
 -- ---------------------------------------------------------
--- 6. CDC & INNOVATION
+-- 6. INNOVATION
 -- ---------------------------------------------------------
 
--- Hackathons Table: Events managed by CDC
+-- Hackathons Table: Events managed by HOD/Admin
 CREATE TABLE hackathons (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -225,7 +225,7 @@ CREATE TABLE hackathons (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Startups Table: Incubated projects/startups under CDC
+-- Startups Table: Incubated projects/startups under HOD/Admin
 CREATE TABLE startups (
     id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NULL,
@@ -266,7 +266,7 @@ CREATE TABLE notifications (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Approvals Table: Generic approval workflow for HOD/CDC
+-- Approvals Table: Generic approval workflow for HOD
 CREATE TABLE approvals (
     id INT AUTO_INCREMENT PRIMARY KEY,
     target_type ENUM('Project', 'Budget', 'Document', 'Startup') NOT NULL,
@@ -347,7 +347,3 @@ INSERT INTO users (email, password_hash, role, full_name)
 VALUES ('hod@college.edu', '$2b$10$ON/35qvuSXlWMZcQZO.Nr.K.9DHwWrBHwR8eJ3b9gDoeGzXtOgq6y', 'hod', 'Dr. S. K. Singh');
 INSERT INTO mentors (user_id, department_id, designation) 
 VALUES (LAST_INSERT_ID(), 1, 'Head of Department');
-
--- Seed CDC User
-INSERT INTO users (email, password_hash, role, full_name) 
-VALUES ('cdc@college.edu', '$2b$10$ON/35qvuSXlWMZcQZO.Nr.K.9DHwWrBHwR8eJ3b9gDoeGzXtOgq6y', 'cdc', 'Amit Sharma');

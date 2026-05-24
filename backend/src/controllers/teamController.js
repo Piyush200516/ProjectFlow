@@ -381,7 +381,7 @@ exports.getTeamProject = async (req, res) => {
   const role = req.user.role;
 
   try {
-    // 1. Check access: user must be a member of this project, or be a mentor/hod/cdc/admin
+    // 1. Check access: user must be a member of this project, or be a mentor/hod/admin
     if (role === 'student') {
       const [memberships] = await db.execute(
         'SELECT 1 FROM project_members WHERE project_id = ? AND student_id = ?',

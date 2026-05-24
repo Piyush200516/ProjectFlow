@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -15,7 +15,6 @@ import {
   Menu,
   ChevronDown,
   Rocket,
-  Handshake,
   ShieldCheck,
   Building2,
   Users,
@@ -52,13 +51,14 @@ const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
 );
 
 const NotificationDropdown = ({ isOpen, onClose, notifications, onRead, onReadAll }) => {
-  if (!isOpen) return null;
-  const recentNotifications = [...notifications]
+  const recentNotifications = useMemo(() => [...notifications]
     .sort((a, b) => {
       const byDate = new Date(b.created_at || 0) - new Date(a.created_at || 0);
       return byDate || ((b.id || 0) - (a.id || 0));
     })
-    .slice(0, 3);
+    .slice(0, 3), [notifications]);
+
+  if (!isOpen) return null;
 
   const formatNotificationDateTime = (notification) => {
     if (notification.notification_date && notification.notification_time) {
@@ -128,25 +128,25 @@ const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (user) {
       try {
         const endpoint = user.role === 'student' ? '/student/notifications' : '/notifications';
-        const res = await api.get(endpoint);
+        const res = await api.get(endpoint, { params: { limit: 10 } });
         setNotifications(res.data.notifications || res.data);
       } catch (error) {
         console.error("Failed to fetch notifications");
       }
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchNotifications();
     if (!user) return undefined;
 
-    const interval = window.setInterval(fetchNotifications, 30000);
+    const interval = window.setInterval(fetchNotifications, 60000);
     return () => window.clearInterval(interval);
-  }, [user]);
+  }, [fetchNotifications, user]);
 
   const getNotificationTarget = (notif) => {
     const key = notif.reference_type || notif.type;
@@ -165,7 +165,7 @@ const DashboardLayout = ({ children }) => {
     return targets[key] || null;
   };
 
-  const handleReadNotification = async (notif) => {
+  const handleReadNotification = useCallback(async (notif) => {
     try {
       if (!notif.is_read) {
         const endpoint = user?.role === 'student'
@@ -184,9 +184,9 @@ const DashboardLayout = ({ children }) => {
     } catch (error) {
       console.error("Failed to read notification");
     }
-  };
+  }, [fetchNotifications, navigate, user?.role]);
 
-  const handleReadAllNotifications = async () => {
+  const handleReadAllNotifications = useCallback(async () => {
     try {
       const endpoint = user?.role === 'student'
         ? '/student/notifications/read-all'
@@ -196,9 +196,9 @@ const DashboardLayout = ({ children }) => {
     } catch (error) {
       console.error("Failed to mark all notifications as read");
     }
-  };
+  }, [fetchNotifications, user?.role]);
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
   const visibleUnreadCount = Math.min(unreadCount, 3);
 
   useEffect(() => {
@@ -215,7 +215,7 @@ const DashboardLayout = ({ children }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const menuItems = {
+  const menuItems = useMemo(() => ({
     student: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/student/dashboard' },
       { icon: FileText, label: 'Project Form', href: '/student/project-form' },
@@ -252,12 +252,7 @@ const DashboardLayout = ({ children }) => {
       { icon: FileText, label: 'Dept Templates', href: '/hod/templates' },
       { icon: CheckSquare, label: 'Doc Tracking', href: '/hod/submission-tracking' },
     ],
-    cdc: [
-      { icon: LayoutDashboard, label: 'Dashboard', href: '/cdc/dashboard' },
-      { icon: Rocket, label: 'Startups', href: '/cdc/startups' },
-      { icon: Handshake, label: 'Partnerships', href: '/cdc/industry-collaboration' },
-    ],
-  };
+  }), []);
 
   const currentMenu = menuItems[user?.role || 'student'] || [];
 

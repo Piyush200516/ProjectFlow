@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -32,26 +32,26 @@ const HodApprovals = () => {
   const [remarks, setRemarks] = useState('');
   const [actionType, setActionType] = useState('approve');
 
-  useEffect(() => {
-    fetchInitData();
-  }, []);
-
-  const fetchInitData = async () => {
+  const fetchInitData = useCallback(async () => {
     setLoading(true);
     try {
       const [subsRes, mentorsRes] = await Promise.all([
-        api.get('/hod/registration-submissions'),
+        api.get('/hod/registration-submissions', { params: { limit: 50 } }),
         api.get('/hod/mentors')
       ]);
-      setSubmissions(subsRes.data);
-      setMentors(mentorsRes.data);
+      setSubmissions(subsRes.data?.data || subsRes.data || []);
+      setMentors(mentorsRes.data?.data || mentorsRes.data || []);
     } catch (error) {
       console.error('Failed to load HOD admin data:', error);
       toast.error('Failed to load submissions and mentors');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchInitData();
+  }, [fetchInitData]);
 
   const handleActionClick = (submission, type) => {
     setActiveSubmission(submission);
@@ -117,9 +117,9 @@ const HodApprovals = () => {
     );
   }
 
-  const pendingSubmissions = submissions.filter(s => s.status === 'Pending');
-  const approvedSubmissions = submissions.filter(s => s.status === 'Approved');
-  const rejectedSubmissions = submissions.filter(s => s.status === 'Rejected');
+  const pendingSubmissions = useMemo(() => submissions.filter(s => s.status === 'Pending'), [submissions]);
+  const approvedSubmissions = useMemo(() => submissions.filter(s => s.status === 'Approved'), [submissions]);
+  const rejectedSubmissions = useMemo(() => submissions.filter(s => s.status === 'Rejected'), [submissions]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

@@ -89,6 +89,12 @@ const REGISTRATION_FORM_NOTIFICATION_MESSAGE = 'HOD has published a new project 
 const PROJECT_TIMELINE_NOTIFICATION_TITLE = 'Project Timeline Published';
 const PROJECT_TIMELINE_NOTIFICATION_MESSAGE = 'Your project document submission timeline has been published.';
 
+const getPagination = (query, defaultLimit = 50) => {
+  const limit = Math.min(parseInt(query.limit, 10) || defaultLimit, 100);
+  const offset = Math.max(parseInt(query.offset, 10) || 0, 0);
+  return { limit, offset };
+};
+
 const formFilters = (form) => ({
   branch_id: form.branch_id,
   academic_year: form.academic_year,
@@ -202,22 +208,26 @@ const ensureRegistrationTimelineColumns = async () => {
 // @access  Private (HOD)
 exports.getHodStats = async (req, res) => {
   try {
-    const [forms] = await db.execute('SELECT COUNT(*) as count FROM registration_forms');
-    const [publishedForms] = await db.execute("SELECT COUNT(*) as count FROM registration_forms WHERE status = 'published' OR status = 'Published'");
-    const [submissions] = await db.execute('SELECT COUNT(*) as count FROM registration_form_submissions');
-    const [pendingApprovals] = await db.execute("SELECT COUNT(*) as count FROM registration_form_submissions WHERE status = 'Pending'");
-    const [approvedProjects] = await db.execute("SELECT COUNT(*) as count FROM registration_form_submissions WHERE status = 'Approved'");
-    const [rejectedProjects] = await db.execute("SELECT COUNT(*) as count FROM registration_form_submissions WHERE status = 'Rejected'");
-    const [mentorAssignedProjects] = await db.execute("SELECT COUNT(DISTINCT project_id) as count FROM mentor_assignments");
+    const [statsRows] = await db.execute(`
+      SELECT
+        (SELECT COUNT(*)::int FROM registration_forms) AS total_forms,
+        (SELECT COUNT(*)::int FROM registration_forms WHERE LOWER(status) = 'published') AS published_forms,
+        (SELECT COUNT(*)::int FROM registration_form_submissions) AS total_submissions,
+        (SELECT COUNT(*)::int FROM registration_form_submissions WHERE status = 'Pending') AS pending_approvals,
+        (SELECT COUNT(*)::int FROM registration_form_submissions WHERE status = 'Approved') AS approved_projects,
+        (SELECT COUNT(*)::int FROM registration_form_submissions WHERE status = 'Rejected') AS rejected_projects,
+        (SELECT COUNT(DISTINCT project_id)::int FROM mentor_assignments) AS mentor_assigned_projects
+    `);
+    const stats = statsRows[0] || {};
     
     res.json({
-      totalForms: parseInt(forms[0].count || 0, 10),
-      publishedForms: parseInt(publishedForms[0].count || 0, 10),
-      totalSubmissions: parseInt(submissions[0].count || 0, 10),
-      pendingApprovals: parseInt(pendingApprovals[0].count || 0, 10),
-      approvedProjects: parseInt(approvedProjects[0].count || 0, 10),
-      rejectedProjects: parseInt(rejectedProjects[0].count || 0, 10),
-      mentorAssignedProjects: parseInt(mentorAssignedProjects[0].count || 0, 10)
+      totalForms: stats.total_forms || 0,
+      publishedForms: stats.published_forms || 0,
+      totalSubmissions: stats.total_submissions || 0,
+      pendingApprovals: stats.pending_approvals || 0,
+      approvedProjects: stats.approved_projects || 0,
+      rejectedProjects: stats.rejected_projects || 0,
+      mentorAssignedProjects: stats.mentor_assigned_projects || 0
     });
   } catch (error) {
     console.error('getHodStats error:', error);
@@ -230,13 +240,24 @@ exports.getHodStats = async (req, res) => {
 // @access  Private (HOD)
 exports.getAllProjects = async (req, res) => {
   try {
+    const { limit, offset } = getPagination(req.query);
     const [projects] = await db.execute(
-      `SELECT p.*, u.full_name as mentor_name 
+      `SELECT p.id,
+              p.title,
+              p.type,
+              p.team_name,
+              p.status,
+              p.progress_percent AS progress,
+              p.created_at,
+              u.full_name as mentor_name
        FROM projects p 
        LEFT JOIN users u ON p.mentor_id = u.id 
-       ORDER BY p.created_at DESC`
+       ORDER BY p.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
     );
-    res.json(projects);
+    const [counts] = await db.execute(`SELECT COUNT(*)::int AS total FROM projects`);
+    res.json({ data: projects, pagination: { limit, offset, total: counts[0]?.total || 0 } });
   } catch (error) {
     console.error('getAllProjects error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -245,6 +266,7 @@ exports.getAllProjects = async (req, res) => {
 
 exports.getStudents = async (req, res) => {
   try {
+    const { limit, offset } = getPagination(req.query);
     const [students] = await db.execute(
       `SELECT u.id,
               u.full_name,
@@ -260,9 +282,12 @@ exports.getStudents = async (req, res) => {
        JOIN students s ON u.id = s.user_id
        LEFT JOIN branches b ON s.branch_id = b.id
        WHERE u.role = 'student'
-       ORDER BY u.full_name ASC`
+       ORDER BY u.full_name ASC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
     );
-    res.json(students);
+    const [counts] = await db.execute(`SELECT COUNT(*)::int AS total FROM users WHERE role = 'student'`);
+    res.json({ data: students, pagination: { limit, offset, total: counts[0]?.total || 0 } });
   } catch (error) {
     console.error('getStudents error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -376,13 +401,32 @@ exports.createRegistrationForm = async (req, res) => {
 
 exports.getRegistrationForms = async (req, res) => {
   try {
+    const { limit, offset } = getPagination(req.query);
     const [forms] = await db.execute(`
-      SELECT f.*, 
+      SELECT f.id,
+        f.title,
+        f.instructions,
+        f.branch,
+        f.branch_id,
+        f.academic_year,
+        f.semester,
+        f.section,
+        f.subsection,
+        f.team_size_min,
+        f.team_size_max,
+        f.project_type,
+        f.start_date,
+        f.deadline,
+        f.status,
+        f.created_at,
+        f.updated_at,
         (SELECT COUNT(*) FROM registration_form_submissions s WHERE s.form_id = f.id) as submissions_count
       FROM registration_forms f
       ORDER BY f.created_at DESC
-    `);
-    res.json(forms);
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
+    const [counts] = await db.execute(`SELECT COUNT(*)::int AS total FROM registration_forms`);
+    res.json({ data: forms, pagination: { limit, offset, total: counts[0]?.total || 0 } });
   } catch (error) {
     console.error('getRegistrationForms error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -577,7 +621,11 @@ exports.createRegistrationFormTimeline = async (req, res) => {
   try {
     await ensureRegistrationTimelineColumns();
 
-    const formResult = await db.pool.query('SELECT * FROM registration_forms WHERE id = $1', [formId]);
+    const formResult = await db.pool.query(`
+      SELECT id, title, status, branch_id, academic_year, semester, section, subsection
+      FROM registration_forms
+      WHERE id = $1
+    `, [formId]);
     if (formResult.rows.length === 0) {
       return res.status(404).json({ message: 'Registration form not found' });
     }
@@ -598,8 +646,8 @@ exports.createRegistrationFormTimeline = async (req, res) => {
     );
     const isTimelineUpdate = (existingTimelineResult.rows[0]?.count || 0) > 0;
 
-    const created = [];
     const client = await db.pool.connect();
+    let created = [];
     try {
       await client.query('BEGIN');
       await client.query(
@@ -607,6 +655,7 @@ exports.createRegistrationFormTimeline = async (req, res) => {
         [form.id]
       );
 
+      const milestoneRows = [];
       for (let index = 0; index < milestones.length; index += 1) {
         const item = milestones[index];
         const title = typeof item === 'string' ? item : item.title;
@@ -620,15 +669,27 @@ exports.createRegistrationFormTimeline = async (req, res) => {
           throw new Error('Milestone title is required');
         }
 
-        const result = await client.query(
-          `INSERT INTO project_milestones
-           (registration_form_id, title, document_type, sequence_no, sequence_order, deadline, status, created_by)
-           VALUES ($1, $2, $3, $4, $4, $5, 'pending', $6)
-           RETURNING *`,
-          [form.id, title, documentType, index + 1, deadline.toISOString(), req.user.id]
-        );
-        created.push(result.rows[0]);
+        milestoneRows.push({
+          title,
+          document_type: documentType,
+          sequence_no: index + 1,
+          deadline: deadline.toISOString()
+        });
       }
+
+      const result = await client.query(`
+        WITH input_milestones AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS x(title text, document_type text, sequence_no int, deadline timestamptz)
+        )
+        INSERT INTO project_milestones
+        (registration_form_id, title, document_type, sequence_no, sequence_order, deadline, status, created_by)
+        SELECT $1, title, document_type, sequence_no, sequence_no, deadline, 'pending', $3
+        FROM input_milestones
+        ORDER BY sequence_no
+        RETURNING *
+      `, [form.id, JSON.stringify(milestoneRows), req.user.id]);
+      created = result.rows;
 
       await client.query('COMMIT');
     } catch (error) {
@@ -661,15 +722,31 @@ exports.createRegistrationFormTimeline = async (req, res) => {
 
 exports.getRegistrationSubmissions = async (req, res) => {
   try {
+    const { limit, offset } = getPagination(req.query);
     const [submissions] = await db.execute(`
-      SELECT s.*, f.title as form_title, f.branch, f.semester, f.section,
+      SELECT s.id,
+             s.form_id,
+             s.project_title,
+             s.project_domain,
+             s.problem_statement,
+             s.abstract,
+             s.tech_stack,
+             s.leader_id,
+             s.team_members,
+             s.status,
+             s.remarks,
+             s.submitted_at,
+             s.updated_at,
+             f.title as form_title, f.branch, f.semester, f.section,
              u.full_name as leader_name, u.email as leader_email
       FROM registration_form_submissions s
       JOIN registration_forms f ON s.form_id = f.id
       JOIN users u ON s.leader_id = u.id
       ORDER BY s.submitted_at DESC
-    `);
-    res.json(submissions);
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
+    const [counts] = await db.execute(`SELECT COUNT(*)::int AS total FROM registration_form_submissions`);
+    res.json({ data: submissions, pagination: { limit, offset, total: counts[0]?.total || 0 } });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -767,26 +844,36 @@ exports.rejectRegistrationSubmission = async (req, res) => {
 };
 
 exports.assignMentor = async (req, res) => {
+  const client = await db.pool.connect();
   try {
     const { submission_id, mentor_id } = req.body;
     const assigned_by = req.user.id;
-    
-    // First we check if there's a project created for this submission. If not, we might create one or map to submission_id
-    // Since we created registration_form_submissions, let's just insert into mentor_assignments directly
-    // Wait, mentor_assignments usually links to project_id. We'll map registration_id to it if needed, or submission_id.
-    
-    const submissionResult = await db.pool.query(`SELECT * FROM registration_form_submissions WHERE id = $1`, [submission_id]);
-    if (submissionResult.rows.length === 0) return res.status(404).json({ message: 'Submission not found' });
+
+    await client.query('BEGIN');
+
+    const submissionResult = await client.query(`
+      SELECT id, project_title, abstract, leader_id
+      FROM registration_form_submissions
+      WHERE id = $1
+      FOR UPDATE
+    `, [submission_id]);
+    if (submissionResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Submission not found' });
+    }
     const submission = submissionResult.rows[0];
     
     // Find or create project
-    const existingProjects = await db.pool.query(`SELECT * FROM projects WHERE title = $1 AND created_by = $2`, [submission.project_title, submission.leader_id]);
+    const existingProjects = await client.query(
+      `SELECT id FROM projects WHERE title = $1 AND created_by = $2 LIMIT 1`,
+      [submission.project_title, submission.leader_id]
+    );
     let projectId = null;
     if (existingProjects.rows.length > 0) {
       projectId = existingProjects.rows[0].id;
-      await db.pool.query(`UPDATE projects SET mentor_id = $1 WHERE id = $2`, [mentor_id, projectId]);
+      await client.query(`UPDATE projects SET mentor_id = $1, updated_at = NOW() WHERE id = $2`, [mentor_id, projectId]);
     } else {
-      const newProject = await db.pool.query(`
+      const newProject = await client.query(`
         INSERT INTO projects (title, description, created_by, mentor_id, status)
         VALUES ($1, $2, $3, $4, 'In Progress')
         RETURNING id
@@ -794,14 +881,17 @@ exports.assignMentor = async (req, res) => {
       projectId = newProject.rows[0].id;
     }
     
-    const result = await db.pool.query(`
+    const result = await client.query(`
       INSERT INTO mentor_assignments (mentor_id, project_id, assigned_by)
       VALUES ($1, $2, $3)
       RETURNING *
     `, [mentor_id, projectId, assigned_by]);
 
-    const mentorResult = await db.pool.query('SELECT full_name FROM users WHERE id = $1', [mentor_id]);
+    const mentorResult = await client.query('SELECT full_name FROM users WHERE id = $1', [mentor_id]);
     const mentorName = mentorResult.rows[0]?.full_name || 'your mentor';
+
+    await client.query('COMMIT');
+
     const notifiedStudents = await createTeamNotifications({
       projectRegistrationId: submission.id,
       title: 'Mentor Assigned',
@@ -817,8 +907,15 @@ exports.assignMentor = async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('assignMentor rollback error:', rollbackError);
+    }
     console.error('assignMentor error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
   }
 };
 

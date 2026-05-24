@@ -4,10 +4,7 @@
 -- Database Name: projectflow_edu
 -- =========================================================================
 
--- Clean up existing CDC tables as CDC is completely removed
-DROP TABLE IF EXISTS startups CASCADE;
-DROP TABLE IF EXISTS hackathons CASCADE;
-DROP TABLE IF EXISTS industry_collaborations CASCADE;
+-- Innovation tables are intentionally preserved for possible HOD/Admin use.
 
 -- Clean up existing workflow digitization tables to ensure script is re-runnable
 DROP TABLE IF EXISTS marks CASCADE;

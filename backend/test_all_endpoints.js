@@ -44,7 +44,6 @@ async function runTests() {
   let studentToken = '';
   let mentorToken = '';
   let hodToken = '';
-  let cdcToken = '';
   let tempProjectId = null;
   let tempTaskId = null;
   let tempDocId = null;
@@ -89,8 +88,6 @@ async function runTests() {
     mentorToken = mentorLogin.data.token;
     const hodLogin = await axios.post(`${API_URL}/auth/login`, { email: 'hod@college.edu', password: 'password123' });
     hodToken = hodLogin.data.token;
-    const cdcLogin = await axios.post(`${API_URL}/auth/login`, { email: 'cdc@college.edu', password: 'password123' });
-    cdcToken = cdcLogin.data.token;
   } catch (err) {
     console.error('⚠️ Pre-login setups failed:', err.message);
   }
@@ -387,20 +384,6 @@ async function runTests() {
   } catch (err) {
     console.error('❌ GET /api/hod/dashboard: BROKEN', err.message);
     record('GET /api/hod/dashboard', 'BROKEN', err.message);
-  }
-
-  // 20. CDC APIs
-  try {
-    const res = await axios.get(`${API_URL}/cdc/dashboard`, { headers: { Authorization: `Bearer ${cdcToken}` } });
-    if (res.data && typeof res.data.activeStartups === 'number') {
-      console.log('✅ GET /api/cdc/dashboard: WORKING');
-      record('GET /api/cdc/dashboard', 'WORKING');
-    } else {
-      throw new Error('Invalid dashboard fields');
-    }
-  } catch (err) {
-    console.error('❌ GET /api/cdc/dashboard: BROKEN', err.message);
-    record('GET /api/cdc/dashboard', 'BROKEN', err.message);
   }
 
   // Render Report

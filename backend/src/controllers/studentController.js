@@ -53,6 +53,7 @@ const ensureStudentTimelineColumns = async () => {
 };
 
 const normalizeComparable = (value) => String(value ?? '').trim().toLowerCase();
+const normalizeRollNumber = (value) => String(value ?? '').trim().toUpperCase();
 
 const sameAcademicProfile = (leader, member) => {
   return Number(leader.branch_id) === Number(member.branch_id)
@@ -166,12 +167,46 @@ const getStudentByEmailAndRoll = async (client, email, rollNumber) => {
   return rows[0];
 };
 
+const getStudentsByEmailAndRoll = async (client, members) => {
+  if (!members.length) return [];
+
+  const { rows } = await client.query(`
+    WITH input_members AS (
+      SELECT *
+      FROM jsonb_to_recordset($1::jsonb) AS x(email text, roll_number text)
+    )
+    SELECT DISTINCT ON (i.email, i.roll_number)
+           i.email AS input_email,
+           i.roll_number AS input_roll_number,
+           s.user_id,
+           s.roll_number,
+           s.branch_id,
+           COALESCE(s.branch_name, b.name) AS branch_name,
+           s.academic_year,
+           s.semester,
+           s.section,
+           s.subsection,
+           COALESCE(s.full_name, u.full_name) AS full_name,
+           COALESCE(s.email, u.email) AS email
+    FROM input_members i
+    JOIN students s ON TRUE
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN branches b ON b.id = s.branch_id
+    WHERE LOWER(COALESCE(s.email, u.email)) = i.email
+      AND UPPER(s.roll_number) = i.roll_number
+      AND LOWER(u.role) = 'student'
+    ORDER BY i.email, i.roll_number, s.user_id
+  `, [JSON.stringify(members)]);
+
+  return rows;
+};
+
 const toTeamMemberPayload = (student, role = 'Member') => ({
   user_id: student.user_id,
   name: student.full_name,
   full_name: student.full_name,
-  email: student.email,
-  roll_number: student.roll_number,
+  email: normalizeComparable(student.email),
+  roll_number: normalizeRollNumber(student.roll_number),
   branch_id: student.branch_id,
   branch_name: student.branch_name,
   academic_year: student.academic_year,
@@ -275,7 +310,13 @@ exports.getActiveRegistrationForms = async (req, res) => {
 
     // Get student details
     const [studentData] = await db.execute(`
-      SELECT s.*, b.name as branch_name 
+      SELECT s.user_id,
+             s.branch_id,
+             s.academic_year,
+             s.semester,
+             s.section,
+             s.subsection,
+             b.name as branch_name
       FROM students s
       LEFT JOIN branches b ON s.branch_id = b.id
       WHERE s.user_id = $1
@@ -309,7 +350,21 @@ exports.getActiveRegistrationForms = async (req, res) => {
     } else {
       // Find matching published forms for the exact student profile
       const [matchingForms] = await db.execute(`
-        SELECT rf.*,
+        SELECT rf.id,
+               rf.title,
+               rf.instructions,
+               rf.branch,
+               rf.branch_id,
+               rf.academic_year,
+               rf.semester,
+               rf.section,
+               rf.subsection,
+               rf.team_size_min,
+               rf.team_size_max,
+               rf.project_type,
+               rf.start_date,
+               rf.deadline,
+               rf.status,
                EXISTS (
                  SELECT 1
                  FROM registration_form_submissions rfs
@@ -326,6 +381,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
         )
         AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)
         ORDER BY created_at DESC
+        LIMIT 20
       `, [student.branch_id, sYear, sSemester, sSection, sSubsection || null, userId]);
       
       forms = matchingForms;
@@ -334,7 +390,21 @@ exports.getActiveRegistrationForms = async (req, res) => {
       if (!forms || forms.length === 0) {
         console.log("Strict matching returned 0 forms. Falling back to all published forms for testing.");
         const [allPublishedForms] = await db.execute(`
-          SELECT rf.*,
+          SELECT rf.id,
+                 rf.title,
+                 rf.instructions,
+                 rf.branch,
+                 rf.branch_id,
+                 rf.academic_year,
+                 rf.semester,
+                 rf.section,
+                 rf.subsection,
+                 rf.team_size_min,
+                 rf.team_size_max,
+                 rf.project_type,
+                 rf.start_date,
+                 rf.deadline,
+                 rf.status,
                  EXISTS (
                    SELECT 1
                    FROM registration_form_submissions rfs
@@ -344,6 +414,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
           WHERE LOWER(status) = 'published'
             AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)
           ORDER BY created_at DESC
+          LIMIT 20
         `, [userId]);
         forms = allPublishedForms || [];
       }
@@ -366,7 +437,13 @@ exports.getStudentTimeline = async (req, res) => {
     const userId = req.user.id;
 
     const [studentData] = await db.execute(`
-      SELECT s.*, b.name as branch_name
+      SELECT s.user_id,
+             s.branch_id,
+             s.academic_year,
+             s.semester,
+             s.section,
+             s.subsection,
+             b.name as branch_name
       FROM students s
       LEFT JOIN branches b ON s.branch_id = b.id
       WHERE s.user_id = $1
@@ -380,7 +457,15 @@ exports.getStudentTimeline = async (req, res) => {
 
     const student = studentData[0];
     const [forms] = await db.execute(`
-      SELECT rf.*,
+      SELECT rf.id,
+             rf.title,
+             rf.branch_id,
+             rf.academic_year,
+             rf.semester,
+             rf.section,
+             rf.subsection,
+             rf.updated_at,
+             rf.created_at,
              (
                SELECT COUNT(*)
                FROM project_milestones pm
@@ -417,7 +502,15 @@ exports.getStudentTimeline = async (req, res) => {
     }
 
     const [milestones] = await db.execute(`
-      SELECT *,
+      SELECT id,
+             title,
+             description,
+             document_type,
+             sequence_no,
+             sequence_order,
+             deadline,
+             created_at,
+             updated_at,
              COALESCE(sequence_no, sequence_order) as display_sequence_no,
              CASE
                WHEN deadline < CURRENT_TIMESTAMP THEN 'Late'
@@ -460,7 +553,16 @@ exports.submitRegistrationForm = async (req, res) => {
     } = req.body;
     
     const leaderId = req.user.id;
-    const postedMembers = Array.isArray(team_members) ? team_members : [];
+    const postedMembers = Array.isArray(team_members)
+      ? team_members
+          .map((member) => ({
+            ...member,
+            name: String(member?.name || '').trim(),
+            email: normalizeComparable(member?.email),
+            roll_number: normalizeRollNumber(member?.roll_number)
+          }))
+          .filter((member) => member.name || member.email || member.roll_number)
+      : [];
 
     // Validation
     if (!project_title || !project_domain || !abstract) {
@@ -471,7 +573,11 @@ exports.submitRegistrationForm = async (req, res) => {
     await ensureProjectTeamMembersCompatibility(client);
 
     // Get form details
-    const formResult = await client.query('SELECT * FROM registration_forms WHERE id = $1', [id]);
+    const formResult = await client.query(`
+      SELECT id, status, team_size_min, team_size_max
+      FROM registration_forms
+      WHERE id = $1
+    `, [id]);
     if (formResult.rows.length === 0) {
       return res.status(404).json({ message: 'Form not found' });
     }
@@ -494,28 +600,57 @@ exports.submitRegistrationForm = async (req, res) => {
       return res.status(404).json({ message: 'Student profile not found' });
     }
 
-    const emails = new Set([normalizeComparable(leaderProfile.email)]);
-    const rollNumbers = new Set([normalizeComparable(leaderProfile.roll_number)]);
-    const verifiedMembers = [];
+    const teamMembersForDuplicateCheck = [
+      {
+        email: leaderProfile.email,
+        roll_number: leaderProfile.roll_number
+      },
+      ...postedMembers
+    ];
+
+    const emails = teamMembersForDuplicateCheck
+      .map((member) => member.email?.trim().toLowerCase())
+      .filter(Boolean);
+    const uniqueEmails = new Set(emails);
+    console.log("Emails:", emails);
+    console.log("Unique emails:", [...uniqueEmails]);
+
+    if (emails.length !== uniqueEmails.size) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate email found in team members'
+      });
+    }
+
+    const rollNumbers = teamMembersForDuplicateCheck
+      .map((member) => member.roll_number?.trim().toUpperCase())
+      .filter(Boolean);
+    const uniqueRollNumbers = new Set(rollNumbers);
+
+    if (rollNumbers.length !== uniqueRollNumbers.size) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate roll number found in team members'
+      });
+    }
 
     for (const [index, member] of postedMembers.entries()) {
-      const email = String(member.email || '').trim();
-      const rollNumber = String(member.roll_number || '').trim();
-
-      if (!member.name || !email || !rollNumber) {
+      if (!String(member.name || '').trim() || !member.email || !member.roll_number) {
         return res.status(400).json({ message: `Please fill all details for Member ${index + 2}` });
       }
+    }
 
-      const emailKey = normalizeComparable(email);
-      const rollKey = normalizeComparable(rollNumber);
-      if (emails.has(emailKey)) {
-        return res.status(400).json({ message: `Duplicate email found: ${email}` });
-      }
-      if (rollNumbers.has(rollKey)) {
-        return res.status(400).json({ message: `Duplicate roll number found: ${rollNumber}` });
-      }
+    const matchedStudents = await getStudentsByEmailAndRoll(client, postedMembers);
+    const matchedByKey = new Map(
+      matchedStudents.map((student) => [`${student.input_email}|${student.input_roll_number}`, student])
+    );
+    const verifiedMembers = [];
 
-      const student = await getStudentByEmailAndRoll(client, email, rollNumber);
+    for (const member of postedMembers) {
+      const email = normalizeComparable(member.email);
+      const rollNumber = normalizeRollNumber(member.roll_number);
+      const student = matchedByKey.get(`${email}|${rollNumber}`);
+
       if (!student) {
         return res.status(400).json({ message: `Team member not found for email ${email} and roll number ${rollNumber}` });
       }
@@ -526,8 +661,6 @@ exports.submitRegistrationForm = async (req, res) => {
         });
       }
 
-      emails.add(emailKey);
-      rollNumbers.add(rollKey);
       verifiedMembers.push(toTeamMemberPayload(student));
     }
 
@@ -536,29 +669,37 @@ exports.submitRegistrationForm = async (req, res) => {
     const candidateRolls = new Set([normalizeComparable(leaderProfile.roll_number), ...verifiedMembers.map((member) => normalizeComparable(member.roll_number))]);
 
     const existingSubmissions = await client.query(`
-      SELECT id, leader_id, team_members
+      SELECT 1
       FROM registration_form_submissions
       WHERE status IN ('Pending', 'Approved')
-    `);
+        AND (
+          leader_id = ANY($1::int[])
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(COALESCE(team_members, '[]'::jsonb)) AS member
+            WHERE NULLIF(member->>'user_id', '')::int = ANY($1::int[])
+               OR LOWER(member->>'email') = ANY($2::text[])
+               OR UPPER(member->>'roll_number') = ANY($3::text[])
+          )
+        )
+      LIMIT 1
+    `, [candidateUserIds, [...candidateEmails], [...candidateRolls]]);
 
-    for (const submission of existingSubmissions.rows) {
-      if (candidateUserIds.includes(submission.leader_id)) {
-        return res.status(400).json({ message: 'One or more team members already have an active project or pending submission' });
-      }
+    if (existingSubmissions.rows.length > 0) {
+      return res.status(400).json({ message: 'One or more team members already have an active project or pending submission' });
+    }
 
-      const submissionMembers = Array.isArray(submission.team_members)
-        ? submission.team_members
-        : JSON.parse(submission.team_members || '[]');
+    const activeProjectMemberships = await client.query(`
+      SELECT 1
+      FROM project_members pm
+      JOIN projects p ON p.id = pm.project_id
+      WHERE pm.student_id = ANY($1::int[])
+        AND COALESCE(p.status, '') NOT IN ('Completed', 'Rejected')
+      LIMIT 1
+    `, [candidateUserIds]);
 
-      for (const member of submissionMembers) {
-        if (
-          candidateUserIds.includes(member.user_id)
-          || candidateEmails.has(normalizeComparable(member.email))
-          || candidateRolls.has(normalizeComparable(member.roll_number))
-        ) {
-          return res.status(400).json({ message: 'One or more team members already have an active project or pending submission' });
-        }
-      }
+    if (activeProjectMemberships.rows.length > 0) {
+      return res.status(400).json({ message: 'One or more team members already have an active project or pending submission' });
     }
 
     const leaderPayload = toTeamMemberPayload(leaderProfile, 'Team Leader');
@@ -576,12 +717,10 @@ exports.submitRegistrationForm = async (req, res) => {
 
     const submission = result.rows[0];
     const allMembersForInsert = [leaderPayload, ...teamMembersPayload];
-    for (const member of allMembersForInsert) {
-      await client.query(`
-        INSERT INTO project_team_members
-        (submission_id, form_id, user_id, student_id, full_name, email, roll_number, branch_id, branch_name, academic_year, semester, section, subsection, role, is_leader)
-        VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-      `, [
+    const insertValues = [];
+    const insertPlaceholders = allMembersForInsert.map((member, index) => {
+      const offset = index * 14;
+      insertValues.push(
         submission.id,
         id,
         member.user_id,
@@ -596,8 +735,15 @@ exports.submitRegistrationForm = async (req, res) => {
         member.subsection,
         member.role,
         member.role === 'Team Leader'
-      ]);
-    }
+      );
+      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}, $${offset + 11}, $${offset + 12}, $${offset + 13}, $${offset + 14})`;
+    }).join(', ');
+
+    await client.query(`
+      INSERT INTO project_team_members
+      (submission_id, form_id, user_id, student_id, full_name, email, roll_number, branch_id, branch_name, academic_year, semester, section, subsection, role, is_leader)
+      VALUES ${insertPlaceholders}
+    `, insertValues);
 
     await client.query('COMMIT');
 
@@ -629,19 +775,41 @@ exports.submitRegistrationForm = async (req, res) => {
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     await ensureNotificationsTable();
 
     const result = await db.pool.query(`
-      SELECT *,
+      SELECT id,
+             title,
+             message,
+             type,
+             reference_id,
+             reference_type,
+             is_read,
+             created_at,
              TO_CHAR(created_at, 'DD Mon YYYY') as notification_date,
              TO_CHAR(created_at, 'HH12:MI AM') as notification_time
       FROM notifications 
       WHERE user_id = $1 
       ORDER BY created_at DESC, id DESC
-    `, [userId]);
+      LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
+    const countResult = await db.pool.query(
+      `SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = $1`,
+      [userId]
+    );
     const notifications = result.rows;
     console.log("Notifications loaded:", notifications.length);
-    res.json({ success: true, notifications });
+    res.json({
+      success: true,
+      notifications,
+      pagination: {
+        limit,
+        offset,
+        total: countResult.rows[0]?.total || 0
+      }
+    });
   } catch (error) {
     console.error('getNotifications error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

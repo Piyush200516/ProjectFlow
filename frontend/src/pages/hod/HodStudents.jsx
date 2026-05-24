@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Search, Filter, Loader2, Mail } from 'lucide-react';
 import { PageHeader, SectionCard } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
@@ -8,12 +8,13 @@ const HodStudents = () => {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const { data } = await api.get('/hod/students');
-        setStudents(data);
+        const { data } = await api.get('/hod/students', { params: { limit: 50 } });
+        setStudents(data?.data || data || []);
       } catch (error) {
         console.error('Failed to fetch students:', error);
         toast.error('Failed to load student registry');
@@ -23,6 +24,17 @@ const HodStudents = () => {
     };
     fetchStudents();
   }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
+  const filteredStudents = useMemo(() => students.filter((student) =>
+    `${student.full_name || ''} ${student.email || ''} ${student.roll_number || ''}`
+      .toLowerCase()
+      .includes(debouncedSearchTerm.toLowerCase())
+  ), [students, debouncedSearchTerm]);
 
   if (loading) {
     return (
@@ -66,13 +78,7 @@ const HodStudents = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {students
-                .filter((student) =>
-                  `${student.full_name || ''} ${student.email || ''} ${student.roll_number || ''}`
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase())
-                )
-                .map((student) => (
+              {filteredStudents.map((student) => (
                 <tr key={student.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer">
                   <td className="py-5">
                      <div className="flex items-center gap-3">

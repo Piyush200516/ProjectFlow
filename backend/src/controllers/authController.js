@@ -105,6 +105,10 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    if (!['student', 'mentor', 'hod'].includes(user.role)) {
+      return res.status(403).json({ message: 'This role is no longer supported.' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });

@@ -41,7 +41,6 @@
 - **Students**: Managing SDLC stages, documentation, and team collaboration.
 - **Mentors**: Reviewing milestones, providing feedback, and tracking progress.
 - **HODs**: Department-wide oversight, project approvals, and analytics.
-- **CDC / Innovation Cells**: Managing startups, hackathons, and industry collaborations.
 
 ---
 
@@ -64,7 +63,7 @@ Generic tools like Jira or Asana are built for corporate engineers. **ProjectFlo
 | **Real-time Sync** | Live collaboration and notifications via Socket.io. |
 | **AI Services** | Automated idea generation, task breakdown, and documentation outlines. |
 | **Background Jobs** | High-performance job queuing with BullMQ and Redis. |
-| **Analytics** | Aggregated data for HOD and CDC oversight. |
+| **Analytics** | Aggregated data for HOD oversight. |
 
 ---
 
@@ -213,7 +212,7 @@ RAZORPAY_KEY_SECRET=placeholder
 ## 🛡 Security & RBAC
 
 ProjectFlow Edu implements a multi-layered security architecture:
-- **RBAC**: Strictly enforced roles (`student`, `mentor`, `hod`, `cdc`, `admin`).
+- **RBAC**: Strictly enforced roles (`student`, `mentor`, `hod`).
 - **Encryption**: `bcryptjs` for hashing passwords.
 - **Protection**: `helmet` for HTTP headers and `express-rate-limit` to prevent DDoS.
 - **Validation**: Strict input validation for all API endpoints.
@@ -224,7 +223,7 @@ ProjectFlow Edu implements a multi-layered security architecture:
 - [ ] **Payments**: Razorpay integration for innovation funding.
 - [ ] **Notifications**: Multi-channel (Email, SMS, Push) system.
 - [ ] **Mobile App**: Dedicated Flutter/React Native application.
-- [ ] **Advanced Analytics**: Deeper HOD/CDC dashboard metrics.
+- [ ] **Advanced Analytics**: Deeper HOD dashboard metrics.
 - [ ] **Cloud Storage**: AWS S3 integration for project artifacts.
 
 ---

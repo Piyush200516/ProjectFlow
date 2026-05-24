@@ -35,13 +35,14 @@ const StudentProjectForm = () => {
   
   // Member array
   const [members, setMembers] = useState([]);
+  const [memberErrors, setMemberErrors] = useState({});
   
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchStudentProfile();
     fetchActiveForms();
-    const interval = window.setInterval(fetchActiveForms, 10000);
+    const interval = window.setInterval(fetchActiveForms, 60000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -106,6 +107,7 @@ const StudentProjectForm = () => {
       initialMembers.push(createEmptyMember());
     }
     setMembers(initialMembers);
+    setMemberErrors({});
   };
 
   const createEmptyMember = () => ({
@@ -123,6 +125,14 @@ const StudentProjectForm = () => {
     const updated = [...members];
     updated[index][field] = value;
     setMembers(updated);
+    setMemberErrors(prev => {
+      if (!prev[index]?.[field]) return prev;
+      const next = { ...prev, [index]: { ...prev[index], [field]: '' } };
+      if (Object.values(next[index]).every(error => !error)) {
+        delete next[index];
+      }
+      return next;
+    });
   };
 
   const addMember = () => {
@@ -141,6 +151,56 @@ const StudentProjectForm = () => {
     const updated = [...members];
     updated.splice(index, 1);
     setMembers(updated);
+    setMemberErrors({});
+  };
+
+  const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+  const normalizeRollNumber = (rollNumber) => String(rollNumber || '').trim().toUpperCase();
+
+  const validateTeamDuplicates = () => {
+    const errors = {};
+    const leaderEmail = normalizeEmail(studentProfile?.email || user?.email);
+    const leaderRollNumber = normalizeRollNumber(studentProfile?.roll_number);
+    const memberEmails = members.map((member) => normalizeEmail(member.email));
+    const memberRollNumbers = members.map((member) => normalizeRollNumber(member.roll_number));
+
+    const emails = [leaderEmail, ...memberEmails].filter(Boolean);
+    const uniqueEmails = new Set(emails);
+    const rollNumbers = [leaderRollNumber, ...memberRollNumbers].filter(Boolean);
+    const uniqueRollNumbers = new Set(rollNumbers);
+
+    if (emails.length !== uniqueEmails.size) {
+      const emailCounts = emails.reduce((counts, email) => {
+        counts[email] = (counts[email] || 0) + 1;
+        return counts;
+      }, {});
+
+      memberEmails.forEach((email, index) => {
+        if (!email || emailCounts[email] <= 1) return;
+        errors[index] = {
+          ...(errors[index] || {}),
+          email: 'This email is already used in team'
+        };
+      });
+    }
+
+    if (rollNumbers.length !== uniqueRollNumbers.size) {
+      const rollCounts = rollNumbers.reduce((counts, rollNumber) => {
+        counts[rollNumber] = (counts[rollNumber] || 0) + 1;
+        return counts;
+      }, {});
+
+      memberRollNumbers.forEach((rollNumber, index) => {
+        if (!rollNumber || rollCounts[rollNumber] <= 1) return;
+        errors[index] = {
+          ...(errors[index] || {}),
+          roll_number: 'This roll number is already used in team'
+        };
+      });
+    }
+
+    setMemberErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
@@ -150,11 +210,25 @@ const StudentProjectForm = () => {
       return;
     }
 
+    const normalizedMembers = members.map((member) => ({
+      name: member.name.trim(),
+      email: normalizeEmail(member.email),
+      roll_number: normalizeRollNumber(member.roll_number)
+    }));
+    const submittedMembers = normalizedMembers
+      .map((member, index) => ({ ...member, originalIndex: index }))
+      .filter((member) => member.name || member.email || member.roll_number);
+
+    if (!validateTeamDuplicates()) {
+      toast.error('Duplicate team member details found');
+      return;
+    }
+
     // Validate members
-    for (let i = 0; i < members.length; i++) {
-      const m = members[i];
+    for (let i = 0; i < submittedMembers.length; i++) {
+      const m = submittedMembers[i];
       if (!m.name || !m.email || !m.roll_number) {
-        toast.error(`Please fill all details for Member ${i + 2}`);
+        toast.error(`Please fill all details for Member ${m.originalIndex + 2}`);
         return;
       }
     }
@@ -169,11 +243,7 @@ const StudentProjectForm = () => {
         abstract: formData.description,
         tech_stack: formData.tech_stack,
         github_link: formData.github_link,
-        team_members: members.map((member) => ({
-          name: member.name.trim(),
-          email: member.email.trim(),
-          roll_number: member.roll_number.trim()
-        }))
+        team_members: submittedMembers.map(({ originalIndex, ...member }) => member)
       });
 
       toast.success('Project and team details registered successfully!');
@@ -452,7 +522,6 @@ const StudentProjectForm = () => {
                               value={member.name}
                               onChange={(e) => handleMemberChange(index, 'name', e.target.value)}
                               className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
-                              required
                             />
                           </div>
                           <div className="space-y-1">
@@ -461,9 +530,11 @@ const StudentProjectForm = () => {
                               type="email" 
                               value={member.email}
                               onChange={(e) => handleMemberChange(index, 'email', e.target.value)}
-                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
-                              required
+                              className={`w-full px-2 py-1.5 bg-white border rounded-lg text-sm ${memberErrors[index]?.email ? 'border-rose-300' : 'border-slate-200'}`}
                             />
+                            {memberErrors[index]?.email && (
+                              <p className="text-[11px] font-semibold text-rose-600">{memberErrors[index].email}</p>
+                            )}
                           </div>
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-500 uppercase">Roll Number <span className="text-rose-500">*</span></label>
@@ -471,9 +542,11 @@ const StudentProjectForm = () => {
                               type="text" 
                               value={member.roll_number}
                               onChange={(e) => handleMemberChange(index, 'roll_number', e.target.value)}
-                              className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-sm"
-                              required
+                              className={`w-full px-2 py-1.5 bg-white border rounded-lg text-sm ${memberErrors[index]?.roll_number ? 'border-rose-300' : 'border-slate-200'}`}
                             />
+                            {memberErrors[index]?.roll_number && (
+                              <p className="text-[11px] font-semibold text-rose-600">{memberErrors[index].roll_number}</p>
+                            )}
                           </div>
                         </div>
                       </div>

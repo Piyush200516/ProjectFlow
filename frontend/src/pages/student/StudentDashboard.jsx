@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   PageHeader, 
@@ -41,12 +41,12 @@ const StudentDashboard = () => {
   const [refreshingRegistration, setRefreshingRegistration] = useState(false);
   const [lastRegistrationRefresh, setLastRegistrationRefresh] = useState(null);
 
-  const fetchFormsAndNotifications = async () => {
+  const fetchFormsAndNotifications = useCallback(async () => {
     setRefreshingRegistration(true);
     try {
       const [formsRes, notificationsRes] = await Promise.all([
         api.get('/student/registration-forms/active'),
-        api.get('/student/notifications')
+        api.get('/student/notifications', { params: { limit: 10 } })
       ]);
       const forms = formsRes.data?.forms || [];
       const latestNotifications = notificationsRes.data?.notifications || [];
@@ -60,7 +60,7 @@ const StudentDashboard = () => {
     } finally {
       setRefreshingRegistration(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -78,21 +78,21 @@ const StudentDashboard = () => {
 
     fetchDashboard();
     fetchFormsAndNotifications();
-    const interval = window.setInterval(fetchFormsAndNotifications, 10000);
+    const interval = window.setInterval(fetchFormsAndNotifications, 60000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [fetchFormsAndNotifications]);
 
   const activeProject = projects[0];
-  const completedTasks = tasks.filter((task) => task.status === 'Completed').length;
-  const upcomingDeadlines = tasks.filter((task) => {
+  const completedTasks = useMemo(() => tasks.filter((task) => task.status === 'Completed').length, [tasks]);
+  const upcomingDeadlines = useMemo(() => tasks.filter((task) => {
     if (!task.due_date || task.status === 'Completed') return false;
     const now = new Date();
     const deadline = new Date(task.due_date);
     const diffDays = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
     return diffDays >= 0 && diffDays <= 7;
-  }).length;
+  }).length, [tasks]);
 
-  const chartData = [
+  const chartData = useMemo(() => [
     { name: 'Mon', tasks: 4 },
     { name: 'Tue', tasks: 7 },
     { name: 'Wed', tasks: 5 },
@@ -100,17 +100,17 @@ const StudentDashboard = () => {
     { name: 'Fri', tasks: 18 },
     { name: 'Sat', tasks: 8 },
     { name: 'Sun', tasks: 4 },
-  ];
+  ], []);
 
-  const activities = [
+  const activities = useMemo(() => [
     { icon: FileCode, title: 'Code Review Approved', description: 'NLP module pull request merged.', time: '2h ago', type: 'success' },
     { icon: Layout, title: 'UI Mockups Updated', description: 'Rahul uploaded new Figma links.', time: '5h ago', type: 'info' },
     { icon: TestTube, title: 'Testing Milestone', description: 'Requirement analysis is complete.', time: 'Yesterday', type: 'warning' },
-  ];
+  ], []);
 
-  const latestRegistrationNotification = notifications.find(
+  const latestRegistrationNotification = useMemo(() => notifications.find(
     notification => notification.type === 'registration_form' || notification.reference_type === 'registration_form'
-  );
+  ), [notifications]);
 
   const formatDeadline = (value) => {
     if (!value) return 'No deadline';

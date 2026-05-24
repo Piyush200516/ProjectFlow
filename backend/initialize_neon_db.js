@@ -33,7 +33,7 @@ async function initializeNeonDb() {
 
     // Let's verify that the seeded users exist
     console.log('Verifying seeded users in the users table...');
-    const res = await client.query("SELECT email, role, full_name FROM users WHERE email IN ('student@college.edu', 'mentor@college.edu', 'hod@college.edu', 'cdc@college.edu')");
+    const res = await client.query("SELECT email, role, full_name FROM users WHERE email IN ('student@college.edu', 'mentor@college.edu', 'hod@college.edu')");
     console.log('Found seeded users:');
     res.rows.forEach(row => {
       console.log(` - ${row.full_name} (${row.email}) as [${row.role}]`);

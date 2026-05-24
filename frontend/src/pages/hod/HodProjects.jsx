@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Building2, Search, Filter, ExternalLink, Loader2 } from 'lucide-react';
 import { PageHeader, SectionCard, StatusBadge } from '../../components/common/PremiumComponents';
 import api from '../../lib/api';
@@ -8,12 +8,13 @@ const HodProjects = () => {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const { data } = await api.get('/hod/projects');
-        setProjects(data);
+        const { data } = await api.get('/hod/projects', { params: { limit: 50 } });
+        setProjects(data?.data || data || []);
       } catch (error) {
         console.error('Failed to fetch projects:', error);
         toast.error('Failed to load project repository');
@@ -24,9 +25,14 @@ const HodProjects = () => {
     fetchProjects();
   }, []);
 
-  const filteredProjects = projects.filter(p => 
-    p.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
+  const filteredProjects = useMemo(() => projects.filter(p =>
+    (p.title || '').toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+  ), [projects, debouncedSearchTerm]);
 
   if (loading) {
     return (

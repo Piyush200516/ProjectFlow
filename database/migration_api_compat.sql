@@ -111,7 +111,7 @@ CREATE TABLE evaluations (
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- ─── CDC Specifics ────────────────────────────────────────────────────────────
+-- ─── Innovation Tracking ──────────────────────────────────────────────────────
 CREATE TABLE startups (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     project_id    INT NULL,
@@ -132,4 +132,3 @@ CREATE TABLE industry_collaborations (
     expiry_date       DATE NULL,
     created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-

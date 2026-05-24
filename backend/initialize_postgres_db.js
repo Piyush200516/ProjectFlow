@@ -96,7 +96,7 @@ const strictTaskSeedPattern = /-- I\. Seed Tasks[\s\S]*?-- J\./;
 const apiCompatibleTaskSeedSql = `-- I. Seed Tasks (SDLC Kanban Board Columns mapping)
 INSERT INTO tasks (project_id, title, description, status, priority, members, comments, attachments, created_by, due_date) VALUES
 (1, 'Create PostgreSQL Schema', 'Design 25 relational tables and triggers for academic data, templates, and evaluations.', 'Architecture', 'High', '["Piyush Mishra"]'::json, 0, 0, 5, '2026-05-20'),
-(1, 'Setup JWT Auth & API Gateway', 'Isolate routes by portal roles (student, mentor, hod, cdc) and verify cookies.', 'Development', 'High', '["Rohan Verma"]'::json, 2, 1, 5, '2026-04-15'),
+(1, 'Setup JWT Auth & API Gateway', 'Isolate routes by portal roles (student, mentor, hod) and verify cookies.', 'Development', 'High', '["Rohan Verma"]'::json, 2, 1, 5, '2026-04-15'),
 (1, 'Compile Final Thesis Report', 'Write detailed evaluation methodology, contribution score metrics, and user guides.', 'Requirements', 'Medium', '["Anjali Gupta"]'::json, 0, 0, 5, '2026-05-25');
 
 -- J.`;

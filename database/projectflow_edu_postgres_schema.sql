@@ -98,7 +98,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'mentor', 'hod', 'cdc', 'admin')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'mentor', 'hod', 'admin')),
     full_name VARCHAR(100) NOT NULL,
     profile_image VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
@@ -426,7 +426,7 @@ COMMENT ON TABLE evaluations IS 'Marks and evaluation break-up';
 
 -- =========================================================================
 -- TABLE: approvals
--- Purpose: Handles multi-level workflow approval locks (e.g. HOD / CDC).
+-- Purpose: Handles multi-level workflow approval locks for HOD review.
 -- =========================================================================
 CREATE TABLE approvals (
     id SERIAL PRIMARY KEY,
@@ -519,12 +519,12 @@ CREATE TABLE calendar_events (
 COMMENT ON TABLE calendar_events IS 'Deadlines and calendar scheduler items';
 
 -- =========================================================================
--- 8. CAREER DEVELOPMENT CELL (CDC) & INNOVATION
+-- 8. INNOVATION TRACKING
 -- =========================================================================
 
 -- =========================================================================
 -- TABLE: hackathons
--- Purpose: Lists incubation and national hackathons managed by CDC.
+-- Purpose: Lists incubation and national hackathons managed by HOD/Admin.
 -- =========================================================================
 CREATE TABLE hackathons (
     id SERIAL PRIMARY KEY,
@@ -536,7 +536,7 @@ CREATE TABLE hackathons (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE hackathons IS 'Hackathons organized and promoted by the CDC';
+COMMENT ON TABLE hackathons IS 'Hackathons organized and promoted by HOD/Admin';
 
 -- =========================================================================
 -- TABLE: startups
@@ -685,7 +685,6 @@ INSERT INTO users (email, password_hash, role, full_name, profile_image, is_acti
 ('admin@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'admin', 'System Administrator', NULL, TRUE),
 ('hod@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'hod', 'Dr. Alok Chandra', NULL, TRUE),
 ('mentor@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'mentor', 'Dr. Priya Sharma', NULL, TRUE),
-('cdc@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'cdc', 'Prof. Ramesh Anand', NULL, TRUE),
 ('student@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Piyush Mishra', NULL, TRUE),
 ('student2@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Rohan Verma', NULL, TRUE),
 ('student3@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Anjali Gupta', NULL, TRUE);
@@ -712,7 +711,7 @@ INSERT INTO sdlc_stages (name, sequence_order, color_code) VALUES
 
 -- F. Seed Active Projects (ByteCraft & AgriTech)
 INSERT INTO projects (title, type, team_name, description, start_date, end_date, status, progress_percent, branch_id, created_by, mentor_id) VALUES
-('ProjectFlow Edu Platform', 'Major Project', 'ByteCraft', 'SaaS academic project lifecycle management portal featuring Kanban workflows, document management, and CDC integration.', '2026-01-10', '2026-05-30', 'In Progress', 65, 1, 5, 3),
+('ProjectFlow Edu Platform', 'Major Project', 'ByteCraft', 'SaaS academic project lifecycle management portal featuring Kanban workflows, document management, and HOD review.', '2026-01-10', '2026-05-30', 'In Progress', 65, 1, 5, 3),
 ('AI-Powered Crop Disease Detection', 'Final Year Project', 'AgriTech AI', 'Deep learning model deployed on edge devices to help farmers detect leaf-based pathogens in real-time.', '2025-08-01', '2026-05-15', 'Review', 90, 1, 6, 2);
 
 -- G. Seed Team Memberships
@@ -731,7 +730,7 @@ INSERT INTO milestones (project_id, title, description, due_date, status, comple
 -- I. Seed Tasks (SDLC Kanban Board Columns mapping)
 INSERT INTO tasks (project_id, title, description, status, priority, members, comments, attachments, created_by, due_date) VALUES
 (1, 'Create PostgreSQL Schema', 'Design 25 relational tables and triggers for academic data, templates, and evaluations.', 'Architecture', 'High', '["Piyush Mishra"]'::json, 0, 0, 5, '2026-05-20'),
-(1, 'Setup JWT Auth & API Gateway', 'Isolate routes by portal roles (student, mentor, hod, cdc) and verify cookies.', 'Development', 'High', '["Rohan Verma"]'::json, 2, 1, 5, '2026-04-15'),
+(1, 'Setup JWT Auth & API Gateway', 'Isolate routes by portal roles (student, mentor, hod) and verify cookies.', 'Development', 'High', '["Rohan Verma"]'::json, 2, 1, 5, '2026-04-15'),
 (1, 'Compile Final Thesis Report', 'Write detailed evaluation methodology, contribution score metrics, and user guides.', 'Requirements', 'Medium', '["Anjali Gupta"]'::json, 0, 0, 5, '2026-05-25');
 
 -- J. Seed Document Templates
@@ -789,15 +788,15 @@ INSERT INTO calendar_events (title, description, start_time, end_time, event_typ
 ('Mid-Term Presentation Evaluation', 'Evaluate major project milestones and core functional prototypes.', '2026-03-20 09:00:00', '2026-03-20 17:00:00', 'Evaluation', 1, 2),
 ('Hackathon Submission Deadline', 'Last day to submit prototype repositories for ProjectFlow Edu Hackathon.', '2026-06-05 00:00:00', '2026-06-05 23:59:59', 'Deadline', NULL, 4);
 
--- V. Seed CDC Innovation Hackathons
+-- V. Seed Innovation Hackathons
 INSERT INTO hackathons (title, description, event_date, venue, status) VALUES
 ('ProjectFlow Annual Innovation Hackathon', 'A 36-hour coding event to build innovative campus-focused software products.', '2026-06-04', 'Main Seminar Hall', 'Upcoming');
 
--- W. Seed CDC Startups Incubations
+-- W. Seed Startups Incubations
 INSERT INTO startups (project_id, name, founder_id, incubation_stage, funding_status, website, innovation_score) VALUES
 (2, 'AgriTech AI Solutions', 6, 'Ideation', 'Grant', 'https://agritechai.college.edu', 88.00);
 
--- X. Seed CDC Industry Partnership details
+-- X. Seed Industry Partnership details
 INSERT INTO industry_collaborations (company_name, collaboration_type, contact_person, expiry_date, status) VALUES
 ('TechCorp Industries', 'MoU', 'Dr. John Doe', '2027-12-31', 'Active'),
 ('Global Softworks Ltd', 'Placement', 'HR Manager', '2026-10-15', 'Active');

@@ -25,6 +25,8 @@ const ensureNotificationCompatibility = async () => {
 exports.getNotifications = async (req, res) => {
   try {
     await ensureNotificationCompatibility();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const [notifications] = await db.execute(
       `SELECT id,
               title,
@@ -39,11 +41,22 @@ exports.getNotifications = async (req, res) => {
        FROM notifications
        WHERE user_id = ?
        ORDER BY created_at DESC, id DESC
-       LIMIT 3`,
+       LIMIT ? OFFSET ?`,
+      [req.user.id, limit, offset]
+    );
+    const [counts] = await db.execute(
+      `SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = ?`,
       [req.user.id]
     );
 
-    res.json(notifications);
+    res.json({
+      notifications,
+      pagination: {
+        limit,
+        offset,
+        total: counts[0]?.total || 0
+      }
+    });
   } catch (error) {
     console.error('getNotifications error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

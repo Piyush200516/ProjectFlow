@@ -73,7 +73,7 @@ The schema comprises exactly **25 highly specialized tables**, logically categor
 ### Evaluations & Approvals
 16. `mentor_feedback` - Continuous mentorship commentary and sentiment tracking.
 17. `evaluations` - Final rubrics tracking skill levels, completeness, documentation, and speed.
-18. `approvals` - Formal multi-tier workflows tracking HOD and CDC approvals.
+18. `approvals` - Formal workflows tracking HOD approvals.
 
 ### Services & Communications
 19. `notifications` - System-wide alerts, success logs, and task assignment notices.
@@ -81,7 +81,7 @@ The schema comprises exactly **25 highly specialized tables**, logically categor
 21. `activity_logs` - Immutable audit logs tracking security modifications and uploads.
 22. `calendar_events` - Event logs storing schedule deadlines, reviews, and hackathons.
 
-### Innovation & Incubation (CDC)
+### Innovation & Incubation
 23. `hackathons` - Event registrations and details hosted by the Career Development Cell.
 24. `startups` - Seed incubation details tracking spinoff companies, funding, and websites.
 25. `industry_collaborations` - Professional MoUs, placements, and R&D tie-ups.
@@ -109,7 +109,6 @@ To jumpstart development, the schema seeds users with realistic college profiles
 | `admin@college.edu` | `admin` | System Administrator | System-wide database and configuration control. |
 | `hod@college.edu` | `hod` | Dr. Alok Chandra | HOD of CSE, AI Specialist, Approver. |
 | `mentor@college.edu` | `mentor` | Dr. Priya Sharma | Associate Professor, Software Engineering & Cloud. |
-| `cdc@college.edu` | `cdc` | Prof. Ramesh Anand | Training & Placement Head, Startup Incubator. |
 | `student@college.edu` | `student` | Piyush Mishra | Leader of team **ByteCraft** (CSE Sem-6). |
 | `student2@college.edu` | `student` | Rohan Verma | Leader of team **AgriTech AI** (CSE Sem-6). |
 | `student3@college.edu` | `student` | Anjali Gupta | Developer in team **ByteCraft** (CSE Sem-6). |

@@ -35,7 +35,7 @@ Set up ProjectFlow Edu to run entirely on the local machine (frontend on `http:/
 ### 2. Database Setup
 
 - **Run schema**: Execute `psql -f database/projectflow_edu_postgres_schema.sql` against the local DB.
-- **Create seed script** (`backend/scripts/seed_local.js`): Insert demo users with bcrypt‑hashed password `password123` and corresponding `students`, `mentors`, `hod`, `cdc` rows.
+- **Create seed script** (`backend/scripts/seed_local.js`): Insert demo users with bcrypt-hashed password `password123` and corresponding `students`, `mentors`, and `hod` rows.
 - **Add script to `package.json`** for easy execution: `npm run seed`.
 
 ---
@@ -54,7 +54,7 @@ Set up ProjectFlow Edu to run entirely on the local machine (frontend on `http:/
 ### 4. Frontend Adjustments
 
 - **API Client** (`src/lib/api.js`): Ensure base URL reads from `import.meta.env.VITE_API_URL`. Remove any hard‑coded Render URLs.
-- **Auth Flows**: Verify login, signup forms POST to `${API_URL}/auth/login` and `/auth/register`. Map role returned (`user.role`) to correct dashboard route (`/student`, `/mentor`, `/hod`, `/cdc`).
+- **Auth Flows**: Verify login, signup forms POST to `${API_URL}/auth/login` and `/auth/register`. Map role returned (`user.role`) to correct dashboard route (`/student`, `/mentor`, `/hod`).
 - **Redirect Logic**: Update router guards to use local role mapping.
 - **Dashboard Components**: Ensure they fetch data from local endpoints (`/projects`, `/tasks`, etc.).
 - **Invite Flow**: Mock token generation on backend seed; frontend should read token from query param and call accept API.
@@ -70,7 +70,7 @@ Set up ProjectFlow Edu to run entirely on the local machine (frontend on `http:/
 5. **Manual Test Checklist** (record results in `task.md`):
    - Student signup → success, token stored.
    - Student login → redirects to student dashboard.
-   - Mentor/HOD/CDC login → respective dashboards.
+   - Mentor/HOD login → respective dashboards.
    - Create a project → appears in list.
    - Invite a teammate → email token generated (log to console), accept via `/api/invites/accept?token=...`.
    - Add a task to a project → shows on kanban board.
@@ -108,7 +108,7 @@ Please review the plan, answer the open questions, and approve to proceed.
 ---
 
 ## 1. Project Overview
-ProjectFlow Edu is a full‑stack SaaS platform built for a single college to manage final‑year project lifecycles. It provides role‑based portals for students, mentors, heads of department (HOD) and the career‑development cell (CDC), enabling collaborative project planning, execution, and evaluation.
+ProjectFlow Edu is a full-stack SaaS platform built for a single college to manage final-year project lifecycles. It provides role-based portals for students, mentors, and heads of department (HOD/Admin), enabling collaborative project planning, execution, and evaluation.
 
 ## 2. Problem Statement
 Traditional academic project management relies on ad‑hoc spreadsheets, email threads, and manual grading, leading to:
@@ -118,7 +118,7 @@ Traditional academic project management relies on ad‑hoc spreadsheets, email t
 - No single source of truth for project artefacts
 
 ## 3. Why ProjectFlow Edu?
-- **Academic‑focused**: Tailored workflows for student teams, mentor reviews, HOD approvals, and CDC innovation tracking.
+- **Academic-focused**: Tailored workflows for student teams, mentor reviews, HOD approvals, and department analytics.
 - **Jira‑inspired**: Kanban boards, sprint‑like stages, and real‑time analytics.
 - **All‑in‑one**: Authentication, project management, document workspace, chat, calendar, and analytics in a single SaaS solution.
 
@@ -142,7 +142,6 @@ Traditional academic project management relies on ad‑hoc spreadsheets, email t
 | **Student** | Create / join teams, manage tasks, submit documents, view analytics |
 | **Mentor** | Define templates, review documents, assign marks, view team progress |
 | **HOD** | Oversight of all projects, enforce deadlines, department‑wide analytics |
-| **CDC** | Track innovative projects, startup ideas, and hackathon participation |
 
 ## 6. Implemented Features
 - **Backend**: Node.js + Express, JWT auth, PostgreSQL (Neon) with SSL, extensive REST API (auth, projects, tasks, documents, invitations, notifications, calendar, chat)
@@ -157,7 +156,6 @@ Traditional academic project management relies on ad‑hoc spreadsheets, email t
 - **Student Signup**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/student/register
 - **Mentor Login**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/mentor/login
 - **HOD Login**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/hod/login
-- **CDC Login**: https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app/auth/cdc/login
 
 ### Backend
 - **API URL**: https://projectflow-backend-lsvr.onrender.com/api
@@ -174,7 +172,7 @@ flowchart TD
     A[College Firewall] --> B[Vercel Edge Routers]
     B --> C[Auth App]
     B --> D[Student/Mentor Portal]
-    B --> E[HOD & CDC Admin]
+    B --> E[HOD/Admin]
     C & D & E --> F[Central API Gateway (Express)]
     F --> G[PostgreSQL (Neon)]
     F --> H[Redis / BullMQ]
@@ -182,7 +180,7 @@ flowchart TD
 ```
 
 ## 9. Database Tables
-- `users`, `students`, `mentors`, `hods`, `cdcs`
+- `users`, `students`, `mentors`, `hods`
 - `projects`, `project_members`, `team_invitations`
 - `tasks`, `sdlc_stages`
 - `document_templates`, `document_submissions`, `document_versions`
@@ -197,7 +195,6 @@ flowchart TD
 | Student team formation (email + roll) | ✅ | ❌ |
 | Mentor review workflow | ✅ | ⚠️ Requires add‑on |
 | HOD approval | ✅ | ❌ |
-| CDC innovation tracking | ✅ | ❌ |
 | Contribution‑based scoring | ✅ | ❌ |
 | Timeliness auto‑scoring | ✅ | ❌ |
 | GitHub repo validation | ✅ | ⚠️ Plugin |
@@ -230,7 +227,6 @@ npm run dev   # http://localhost:5173
 student@college.edu / password123
 mentor@college.edu   / password123
 hod@college.edu      / password123
-cdc@college.edu      / password123
 ```
 
 ## 13. Current Project Status

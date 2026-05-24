@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   FileText, 
   Plus, 
@@ -45,6 +45,7 @@ const HodRegistrationForms = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [timelineForm, setTimelineForm] = useState({
     form_id: '',
     start_date: new Date().toISOString().slice(0, 10),
@@ -71,8 +72,9 @@ const HodRegistrationForms = () => {
   const fetchForms = async () => {
     try {
       const res = await api.get('/hod/registration-forms');
-      setForms(res.data);
-      const publishedForms = res.data.filter(form => (form.status || '').toLowerCase() === 'published');
+      const nextForms = res.data?.data || res.data || [];
+      setForms(nextForms);
+      const publishedForms = nextForms.filter(form => (form.status || '').toLowerCase() === 'published');
       if (publishedForms.length > 0) {
         setTimelineForm(prev => ({ ...prev, form_id: prev.form_id || String(publishedForms[0].id) }));
       }
@@ -86,6 +88,11 @@ const HodRegistrationForms = () => {
   useEffect(() => {
     fetchForms();
   }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
 
   const handleCreateForm = async (e) => {
     e.preventDefault();
@@ -174,8 +181,14 @@ const HodRegistrationForms = () => {
     }
   };
 
-  const filteredForms = forms.filter(f => (f.title || '').toLowerCase().includes(searchTerm.toLowerCase()));
-  const publishedForms = forms.filter(form => (form.status || '').toLowerCase() === 'published');
+  const filteredForms = useMemo(
+    () => forms.filter(f => (f.title || '').toLowerCase().includes(debouncedSearchTerm.toLowerCase())),
+    [forms, debouncedSearchTerm]
+  );
+  const publishedForms = useMemo(
+    () => forms.filter(form => (form.status || '').toLowerCase() === 'published'),
+    [forms]
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">

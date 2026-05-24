@@ -21,7 +21,7 @@ exports.getProjects = async (req, res) => {
     } else if (role === 'mentor') {
       query = 'SELECT * FROM projects WHERE mentor_id = ? ORDER BY created_at DESC';
       params = [id];
-    } else if (role === 'hod' || role === 'cdc' || role === 'admin') {
+    } else if (role === 'hod' || role === 'admin') {
       query = 'SELECT * FROM projects ORDER BY created_at DESC';
     } else {
       return res.status(403).json({ message: 'Unauthorized role' });
