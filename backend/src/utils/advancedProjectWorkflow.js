@@ -146,6 +146,13 @@ const ensureAdvancedWorkflowTables = async (client = db.pool) => {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS milestone_submission_id INT REFERENCES milestone_submissions(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS project_registration_id INT REFERENCES project_registrations(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS feedback TEXT`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS marks NUMERIC(6,2) DEFAULT 0`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS review_status VARCHAR(30) DEFAULT 'submitted'`);
+  await query(`ALTER TABLE mentor_reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS final_evaluations (

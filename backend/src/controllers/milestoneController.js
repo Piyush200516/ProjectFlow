@@ -445,6 +445,12 @@ exports.reviewMilestoneSubmission = async (req, res) => {
         : await getProjectRegistrationForProject(submission.project_id, client);
 
       const boundedMarks = Math.max(0, Math.min(Number(marks) || 0, 10));
+      const statusLabel = {
+        submitted: 'Submitted',
+        approved: 'Approved',
+        rejected: 'Rejected',
+        needs_revision: 'Needs Work'
+      }[normalizedStatus];
       const updatedResult = await client.query(`
         UPDATE milestone_submissions
         SET review_status = $1,
@@ -454,13 +460,13 @@ exports.reviewMilestoneSubmission = async (req, res) => {
             remarks = COALESCE($3, remarks)
         WHERE id = $5
         RETURNING *
-      `, [normalizedStatus, normalizedStatus, feedback || null, boundedMarks, id]);
+      `, [normalizedStatus, statusLabel, feedback || null, boundedMarks, id]);
 
       await client.query(`
         INSERT INTO mentor_reviews
-        (milestone_submission_id, project_registration_id, mentor_id, feedback, marks, review_status, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      `, [id, registration?.project_registration_id, req.user.id, feedback || '', boundedMarks, normalizedStatus]);
+        (submission_id, milestone_submission_id, project_registration_id, mentor_id, status, remarks, comments, quality_marks, feedback, marks, review_status, updated_at)
+        VALUES ($1, $1, $2, $3, $4, $5, $5, $6, $5, $6, $7, NOW())
+      `, [id, registration?.project_registration_id, req.user.id, statusLabel, feedback || '', boundedMarks, normalizedStatus]);
 
       await client.query(`
         UPDATE milestone_scores
