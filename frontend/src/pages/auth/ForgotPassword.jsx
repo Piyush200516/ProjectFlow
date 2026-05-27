@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Loader2, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import logo from '../../assets/projectflow-logo.png';
+import api from '../../lib/api';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -12,10 +13,16 @@ const ForgotPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSent(true);
-    toast.success('Reset link sent!');
-    setIsLoading(false);
+    try {
+      await api.post('/auth/forgot-password', { email });
+      setIsSent(true);
+      toast.success('Reset link sent!');
+    } catch (error) {
+      const message = error.response?.data?.message || 'Unable to send reset email';
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

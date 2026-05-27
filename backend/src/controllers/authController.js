@@ -1,17 +1,40 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const generateToken = require('../utils/generateToken');
+const { sendPasswordResetEmail } = require('../utils/emailService');
+
+const RESET_TOKEN_TTL_MINUTES = 30;
 
 // Lazy initialize students table columns if they don't exist
 (async () => {
   try {
     await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS section VARCHAR(10);');
     await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS subsection VARCHAR(10);');
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(64) NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        used_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);'
+    );
   } catch (err) {
-    console.warn("Optional student columns section/subsection might already exist or error:", err.message);
+    console.warn("Optional auth schema initialization failed:", err.message);
   }
 })();
+
+const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+
+const getFrontendUrl = () => {
+  return (process.env.FRONTEND_URL || 'https://projectflow-edu-app.netlify.app').replace(/\/+$/, '');
+};
 
 // @desc    Register a new student
 // @route   POST /api/auth/register
@@ -166,6 +189,74 @@ exports.login = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// @desc    Send password reset link
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+
+  try {
+    const [users] = await db.execute(
+      'SELECT id, full_name, email, is_active FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
+      [normalizedEmail]
+    );
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ message: 'No account found for this email' });
+    }
+
+    if (user.is_active === false) {
+      return res.status(403).json({ message: 'Account is inactive. Please contact support.' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = sha256(token);
+    const resetLink = `${getFrontendUrl()}/auth/student/reset-password?token=${token}&email=${encodeURIComponent(user.email)}`;
+
+    await db.execute(
+      'DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL',
+      [user.id]
+    );
+    await db.execute(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+       VALUES (?, ?, NOW() + INTERVAL '${RESET_TOKEN_TTL_MINUTES} minutes')`,
+      [user.id, tokenHash]
+    );
+
+    console.log('[AUTH] reset link generated', {
+      userId: user.id,
+      email: user.email,
+      expiresInMinutes: RESET_TOKEN_TTL_MINUTES,
+    });
+
+    await sendPasswordResetEmail({
+      to: user.email,
+      fullName: user.full_name,
+      resetLink,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Recovery link sent',
+    });
+  } catch (error) {
+    console.error('[AUTH] forgot-password error:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      responseCode: error.responseCode,
+    });
+    return res.status(500).json({ message: 'Unable to send recovery email' });
   }
 };
 
