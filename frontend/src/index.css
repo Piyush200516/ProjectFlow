@@ -5,11 +5,11 @@
   --color-brand: #2563eb;
   --color-border: #e2e8f0;
   --color-muted: #64748b;
-  
+
   --radius-minimal: 0.5rem;
   --radius-standard: 0.75rem;
   --radius-large: 1.25rem;
-  
+
   --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-minimal: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
@@ -26,11 +26,11 @@
     width: 4px;
     height: 4px;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-slate-200 rounded-full hover:bg-slate-300;
   }
