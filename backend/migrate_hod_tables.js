@@ -20,12 +20,15 @@ async function migrate() {
                 start_date TIMESTAMP NOT NULL,
                 deadline TIMESTAMP NOT NULL,
                 status VARCHAR(20) DEFAULT 'Draft' CHECK (status IN ('Draft', 'Published', 'Closed')),
+                is_published BOOLEAN DEFAULT FALSE,
                 created_by INT REFERENCES users(id) ON DELETE SET NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `;
         await db.execute(createRegistrationFormsTable);
+        await db.execute(`ALTER TABLE registration_forms ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE;`);
+        await db.execute(`UPDATE registration_forms SET is_published = TRUE WHERE LOWER(COALESCE(status, '')) = 'published';`);
         console.log('Created registration_forms table');
 
         const createFormSubmissionsTable = `

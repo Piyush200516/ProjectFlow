@@ -59,18 +59,16 @@ const createStudentNotifications = async ({
   const result = await db.pool.query(`
     INSERT INTO notifications
     (user_id, title, message, type, reference_id, reference_type, is_read)
-    SELECT s.user_id, $6, $7, $8, $9, $10, FALSE
+    SELECT s.user_id, $5, $6, $7, $8, $9, FALSE
     FROM students s
-    WHERE s.branch_id = $1
-      AND s.academic_year = $2
-      AND s.semester = $3
-      AND ($4 = 'ALL' OR s.section = $4)
+    WHERE ($1::int IS NULL OR $1::int = 0 OR s.branch_id = $1::int)
+      AND s.semester = $2
+      AND ($3 = 'ALL' OR s.section = $3)
       AND (
-        $5 = 'ALL' OR s.subsection = $5 OR $5 IS NULL OR $5 = ''
+        $4 = 'ALL' OR s.subsection = $4 OR $4 IS NULL OR $4 = ''
       )
   `, [
-    filters.branch_id,
-    filters.academic_year,
+    filters.branch_id || null,
     filters.semester,
     filters.section,
     filters.subsection || null,

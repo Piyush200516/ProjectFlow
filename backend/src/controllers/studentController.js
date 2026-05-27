@@ -67,6 +67,16 @@ const targetMatches = (target, value) => {
   const normalizedTarget = normalizeComparable(target);
   return normalizedTarget === 'all' || normalizedTarget === '' || normalizedTarget === normalizeComparable(value);
 };
+const branchTargetMatches = (form, student) => {
+  const formBranchId = form?.branch_id === null || form?.branch_id === undefined ? null : Number(form.branch_id);
+  return !formBranchId
+    || formBranchId === Number(student.branch_id)
+    || targetMatches(form.branch, student.branch_name);
+};
+const ensureRegistrationFormPublishColumns = async () => {
+  await db.execute(`ALTER TABLE registration_forms ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE`);
+  await db.execute(`UPDATE registration_forms SET is_published = TRUE WHERE LOWER(COALESCE(status, '')) = 'published'`);
+};
 const fileMatchesAllowedFormats = (fileName, allowedFormats) => {
   if (!allowedFormats) return true;
   const formats = String(allowedFormats)
@@ -337,6 +347,7 @@ exports.updateProfile = async (req, res) => {
 // @access  Private (Student)
 exports.getActiveRegistrationForms = async (req, res) => {
   try {
+    await ensureRegistrationFormPublishColumns();
     const userId = req.user.id;
 
     // Get student details
@@ -396,24 +407,29 @@ exports.getActiveRegistrationForms = async (req, res) => {
                rf.start_date,
                rf.deadline,
                rf.status,
+               rf.is_published,
                EXISTS (
                  SELECT 1
                  FROM registration_form_submissions rfs
-                 WHERE rfs.form_id = rf.id AND rfs.leader_id = $6
+                 WHERE rfs.form_id = rf.id AND rfs.leader_id = $5
                ) as has_submitted
         FROM registration_forms rf
-        WHERE LOWER(status)='published'
-        AND branch_id=$1
-        AND academic_year=$2
-        AND semester=$3
-        AND (section = 'ALL' OR section=$4)
+        WHERE (LOWER(COALESCE(rf.status, '')) = 'published' OR rf.is_published = TRUE)
         AND (
-          subsection = 'ALL' OR subsection = $5 OR subsection IS NULL OR subsection = ''
+          rf.branch_id = $1
+          OR rf.branch_id IS NULL
+          OR rf.branch_id = 0
+          OR LOWER(COALESCE(rf.branch, '')) IN ('all', 'all branch', 'all branches')
+        )
+        AND (rf.semester=$2 OR rf.semester IS NULL OR rf.semester = 0)
+        AND (LOWER(COALESCE(rf.section, 'all')) = 'all' OR rf.section=$3)
+        AND (
+          LOWER(COALESCE(rf.subsection, 'all')) = 'all' OR rf.subsection = $4 OR rf.subsection IS NULL OR rf.subsection = ''
         )
         AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)
         ORDER BY created_at DESC
         LIMIT 20
-      `, [student.branch_id, sYear, sSemester, sSection, sSubsection || null, userId]);
+      `, [student.branch_id, sSemester, sSection, sSubsection || null, userId]);
       
       forms = matchingForms;
       console.log("Matched forms:", forms);
@@ -432,6 +448,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
 // @access  Private (Student)
 exports.getStudentTimeline = async (req, res) => {
   try {
+    await ensureRegistrationFormPublishColumns();
     await ensureStudentTimelineColumns();
     const userId = req.user.id;
 
@@ -547,14 +564,18 @@ exports.getStudentTimeline = async (req, res) => {
              ) as timeline_count
       FROM registration_forms
       rf
-      WHERE LOWER(status) = 'published'
-        AND branch_id = $1
-        AND academic_year = $2
-        AND semester = $3
-        AND (section = 'ALL' OR section = $4)
+      WHERE (LOWER(COALESCE(status, '')) = 'published' OR is_published = TRUE)
         AND (
-          subsection = 'ALL'
-          OR subsection IS NOT DISTINCT FROM $5
+          branch_id = $1
+          OR branch_id IS NULL
+          OR branch_id = 0
+          OR LOWER(COALESCE(branch, '')) IN ('all', 'all branch', 'all branches')
+        )
+        AND (semester = $2 OR semester IS NULL OR semester = 0)
+        AND (LOWER(COALESCE(section, 'all')) = 'all' OR section = $3)
+        AND (
+          LOWER(COALESCE(subsection, 'all')) = 'all'
+          OR subsection IS NOT DISTINCT FROM $4
           OR subsection IS NULL
           OR subsection = ''
         )
@@ -562,7 +583,6 @@ exports.getStudentTimeline = async (req, res) => {
       LIMIT 1
     `, [
       student.branch_id,
-      student.academic_year,
       student.semester,
       student.section,
       student.subsection || null
@@ -615,6 +635,7 @@ exports.getStudentTimeline = async (req, res) => {
 exports.submitRegistrationForm = async (req, res) => {
   const client = await db.pool.connect();
   try {
+    await ensureRegistrationFormPublishColumns();
     const { id } = req.params;
     const { 
       project_title, 
@@ -649,7 +670,7 @@ exports.submitRegistrationForm = async (req, res) => {
 
     // Get form details
     const formResult = await client.query(`
-      SELECT id, title, status, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type
+      SELECT id, title, status, is_published, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type
       FROM registration_forms
       WHERE id = $1
     `, [id]);
@@ -658,7 +679,7 @@ exports.submitRegistrationForm = async (req, res) => {
     }
     const form = formResult.rows[0];
 
-    if ((form.status || '').toLowerCase() !== 'published') {
+    if ((form.status || '').toLowerCase() !== 'published' && form.is_published !== true) {
       return res.status(400).json({ message: 'This form is not currently accepting submissions' });
     }
 
@@ -675,9 +696,8 @@ exports.submitRegistrationForm = async (req, res) => {
       return res.status(404).json({ message: 'Student profile not found' });
     }
 
-    const leaderMatchesForm = Number(leaderProfile.branch_id) === Number(form.branch_id)
-      && normalizeComparable(leaderProfile.academic_year) === normalizeComparable(form.academic_year)
-      && Number(leaderProfile.semester) === Number(form.semester)
+    const leaderMatchesForm = branchTargetMatches(form, leaderProfile)
+      && (!Number(form.semester) || Number(leaderProfile.semester) === Number(form.semester))
       && targetMatches(form.section, leaderProfile.section)
       && targetMatches(form.subsection, leaderProfile.subsection);
 

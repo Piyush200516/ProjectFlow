@@ -119,6 +119,18 @@ const formFilters = (form) => ({
   subsection: form.subsection || null
 });
 
+const normalizeTarget = (value) => {
+  const normalized = String(value ?? '').trim();
+  return normalized === '' || normalized.toLowerCase() === 'all' ? 'ALL' : normalized;
+};
+
+const isAllTarget = (value) => normalizeTarget(value) === 'ALL';
+
+const ensureRegistrationFormPublishColumns = async () => {
+  await db.execute(`ALTER TABLE registration_forms ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE`);
+  await db.execute(`UPDATE registration_forms SET is_published = TRUE WHERE LOWER(COALESCE(status, '')) = 'published'`);
+};
+
 const defaultTimelineMilestones = [
   { title: 'Synopsis', document_type: 'synopsis' },
   { title: 'SRS', document_type: 'srs' },
@@ -494,19 +506,21 @@ exports.getStudents = async (req, res) => {
 // 1. Create Project Registration Form
 exports.createRegistrationForm = async (req, res) => {
   try {
+    await ensureRegistrationFormPublishColumns();
     console.log("HOD publish payload:", req.body);
     const {
       title, instructions, branch, branch_id, academic_year, semester,
-      team_size_min, team_size_max, project_type, start_date, deadline, status
+      section, subsection, team_size_min, team_size_max, project_type, start_date, deadline, status
     } = req.body;
     const created_by = req.user.id;
-    let resolvedBranch = branch;
-    let finalBranchId = branch_id;
+    let resolvedBranch = branch ? normalizeTarget(branch) : null;
+    let finalBranchId = isAllTarget(branch) || isAllTarget(branch_id) ? null : branch_id;
 
     if (!resolvedBranch && finalBranchId) {
       const branchResult = await db.pool.query('SELECT name FROM branches WHERE id = $1', [finalBranchId]);
       resolvedBranch = branchResult.rows[0]?.name;
     }
+    resolvedBranch = normalizeTarget(resolvedBranch);
 
     if (!title || !resolvedBranch || !academic_year || !semester || !project_type || !start_date || !deadline) {
       return res.status(400).json({
@@ -563,20 +577,21 @@ exports.createRegistrationForm = async (req, res) => {
     if (finalStatus.toLowerCase() === 'draft') finalStatus = 'draft';
     if (finalStatus.toLowerCase() === 'closed') finalStatus = 'closed';
 
-    if (!finalBranchId) {
+    if (!finalBranchId && !isAllTarget(resolvedBranch)) {
       if (resolvedBranch === 'Electronics & Communication Engineering') finalBranchId = 2;
       else finalBranchId = 1;
     }
 
-    const finalSection = 'ALL';
-    const finalSubsection = 'ALL';
+    const finalSection = normalizeTarget(section);
+    const finalSubsection = normalizeTarget(subsection);
+    const isPublished = finalStatus === 'published';
 
     const result = await db.pool.query(`
       INSERT INTO registration_forms 
-      (title, instructions, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type, start_date, deadline, status, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      (title, instructions, branch, branch_id, academic_year, semester, section, subsection, team_size_min, team_size_max, project_type, start_date, deadline, status, is_published, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
-    `, [title, instructions, resolvedBranch, finalBranchId, academic_year, parsedSemester, finalSection, finalSubsection, parsedTeamSizeMin, parsedTeamSizeMax, project_type, start_date, deadline, finalStatus, created_by]);
+    `, [title, instructions, resolvedBranch, finalBranchId, academic_year, parsedSemester, finalSection, finalSubsection, parsedTeamSizeMin, parsedTeamSizeMax, project_type, start_date, deadline, finalStatus, isPublished, created_by]);
     
     const newForm = result.rows[0];
     console.log("Created registration form:", newForm);
@@ -601,6 +616,7 @@ exports.createRegistrationForm = async (req, res) => {
 
 exports.getRegistrationForms = async (req, res) => {
   try {
+    await ensureRegistrationFormPublishColumns();
     const { limit, offset } = getPagination(req.query);
     const [forms] = await db.execute(`
       SELECT f.id,
@@ -618,6 +634,7 @@ exports.getRegistrationForms = async (req, res) => {
         f.start_date,
         f.deadline,
         f.status,
+        f.is_published,
         f.created_at,
         f.updated_at,
         (SELECT COUNT(*) FROM registration_form_submissions s WHERE s.form_id = f.id) as submissions_count
@@ -635,6 +652,7 @@ exports.getRegistrationForms = async (req, res) => {
 
 exports.updateRegistrationForm = async (req, res) => {
   try {
+    await ensureRegistrationFormPublishColumns();
     const { id } = req.params;
     const updates = req.body;
     const beforeResult = await db.pool.query('SELECT * FROM registration_forms WHERE id = $1', [id]);
@@ -668,8 +686,16 @@ exports.updateRegistrationForm = async (req, res) => {
           if (normalizedStatus === 'draft') return [key, 'draft'];
           if (normalizedStatus === 'closed') return [key, 'closed'];
         }
+        if (key === 'section' || key === 'subsection') {
+          return [key, normalizeTarget(value)];
+        }
         return [key, value];
       });
+
+    const statusEntryForPublishFlag = entries.find(([key]) => key === 'status');
+    if (statusEntryForPublishFlag) {
+      entries.push(['is_published', statusEntryForPublishFlag[1] === 'published']);
+    }
 
     if (entries.length === 0) {
       return res.status(400).json({ message: 'No valid fields to update' });
@@ -745,10 +771,18 @@ exports.updateRegistrationForm = async (req, res) => {
 
 exports.publishRegistrationForm = async (req, res) => {
   try {
+    await ensureRegistrationFormPublishColumns();
     const { id } = req.params;
     console.log('Publish request for form id:', id);
     const result = await db.pool.query(`
-      UPDATE registration_forms SET status = 'published', updated_at = NOW() WHERE id = $1 RETURNING *
+      UPDATE registration_forms
+      SET status = 'published',
+          is_published = TRUE,
+          section = COALESCE(NULLIF(section, ''), 'ALL'),
+          subsection = COALESCE(NULLIF(subsection, ''), 'ALL'),
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
     `, [id]);
     console.log('Published form result:', result);
     if (result.rows.length === 0) {
@@ -773,9 +807,10 @@ exports.publishRegistrationForm = async (req, res) => {
 
 exports.closeRegistrationForm = async (req, res) => {
   try {
+    await ensureRegistrationFormPublishColumns();
     const { id } = req.params;
     const result = await db.pool.query(`
-      UPDATE registration_forms SET status = 'closed', updated_at = NOW() WHERE id = $1 RETURNING *
+      UPDATE registration_forms SET status = 'closed', is_published = FALSE, updated_at = NOW() WHERE id = $1 RETURNING *
     `, [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Form not found' });
