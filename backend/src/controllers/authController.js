@@ -96,11 +96,21 @@ exports.login = async (req, res) => {
   }
 
   try {
+    const normalizedEmail = String(email).trim();
     const [users] = await db.execute(
-      'SELECT id, full_name, email, password_hash, role FROM users WHERE email = ?',
-      [email]
+      'SELECT id, full_name, email, password_hash, role FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
+      [normalizedEmail]
     );
     const user = users[0];
+    const bcryptMatch = user?.password_hash
+      ? await bcrypt.compare(password, user.password_hash)
+      : false;
+
+    console.log('LOGIN_EMAIL:', normalizedEmail);
+    console.log('USER_FOUND:', !!user);
+    console.log('USER_ROLE:', user?.role);
+    console.log('HASH_EXISTS:', !!user?.password_hash);
+    console.log('BCRYPT_MATCH:', bcryptMatch);
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
@@ -110,8 +120,7 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: 'This role is no longer supported.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
+    if (!bcryptMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
