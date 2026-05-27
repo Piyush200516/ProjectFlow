@@ -54,6 +54,12 @@ app.use(express.json());
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000,
+  keyGenerator: (req) => {
+    const forwardedFor = req.headers['x-forwarded-for']?.split(',')[0]?.trim();
+    const netlifyClientIp = req.headers['x-nf-client-connection-ip'];
+    const remoteAddress = req.socket?.remoteAddress || 'unknown';
+    return rateLimit.ipKeyGenerator(forwardedFor || netlifyClientIp || remoteAddress);
+  },
   message: {
     success: false,
     message: 'Too many requests, please try again later.'
