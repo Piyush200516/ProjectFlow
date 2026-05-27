@@ -32,10 +32,11 @@ exports.register = async (req, res) => {
   }
 
   try {
-    console.log('Registration attempt for:', email);
-    const [existingEmail] = await db.execute('SELECT id FROM users WHERE email = ?', [email]);
+    const normalizedEmail = String(email).trim().toLowerCase();
+    // Use normalized email for uniqueness check
+    const [existingEmail] = await db.execute('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', [normalizedEmail]);
     if (existingEmail.length > 0) {
-      console.log('Email already exists:', email);
+      console.log('Email already exists (normalized):', normalizedEmail);
       return res.status(409).json({ message: 'Email already registered' });
     }
 
@@ -53,7 +54,7 @@ exports.register = async (req, res) => {
     console.log('Inserting into users table...');
     const [result] = await db.execute(
       'INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
-      [full_name, email, password_hash, 'student']
+      [full_name, normalizedEmail, password_hash, 'student']
     );
 
     const userId = result.insertId;
@@ -73,7 +74,7 @@ exports.register = async (req, res) => {
     res.status(201).json({
       success: true,
       token,
-      user: { id: userId, full_name, email, role: 'student' }
+      user: { id: userId, full_name, email: normalizedEmail, role: 'student' }
     });
   } catch (error) {
     console.error('Register error details:', error);
@@ -104,28 +105,46 @@ exports.login = async (req, res) => {
   }
 
   try {
-    const normalizedEmail = String(email).trim();
+    const normalizedEmail = String(email).trim().toLowerCase();
     const [users] = await db.execute(
-      'SELECT id, full_name, email, password_hash, role FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
+      'SELECT id, full_name, email, password_hash, role, is_active FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1',
       [normalizedEmail]
     );
     const user = users[0];
-    const bcryptMatch = user?.password_hash
-      ? await bcrypt.compare(password, user.password_hash)
-      : false;
 
-    console.log('LOGIN_EMAIL:', normalizedEmail);
-    console.log('USER_FOUND:', !!user);
-    console.log('USER_ROLE:', user?.role);
-    console.log('HASH_EXISTS:', !!user?.password_hash);
-    console.log('BCRYPT_MATCH:', bcryptMatch);
-
+    // If no user found, respond early
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    // Determine if stored password_hash is bcrypt (starts with $2) or legacy plain text
+    let bcryptMatch = false;
+    if (user.password_hash && user.password_hash.startsWith('$2')) {
+      bcryptMatch = await bcrypt.compare(password, user.password_hash);
+    } else if (user.password_hash) {
+      // Legacy plain text comparison
+      bcryptMatch = password === user.password_hash;
+      // If match, rehash the password and update the record for future logins
+      if (bcryptMatch) {
+        const newHash = await bcrypt.hash(password, 10);
+        await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id]);
+      }
+    }
+
+    if (process.env.AUTH_DEBUG === 'true') {
+      console.log('USER_FOUND:', !!user);
+      console.log('USER_ROLE:', user.role);
+      console.log('USER_ACTIVE:', user.is_active);
+      console.log('HASH_EXISTS:', !!user.password_hash);
+      console.log('BCRYPT_MATCH:', bcryptMatch);
+    }
+
     if (!['student', 'mentor', 'hod'].includes(user.role)) {
       return res.status(403).json({ message: 'This role is no longer supported.' });
+    }
+
+    if (user.is_active === false) {
+      return res.status(403).json({ message: 'Account is inactive. Please contact support.' });
     }
 
     if (!bcryptMatch) {
