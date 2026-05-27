@@ -955,7 +955,101 @@ exports.getMyProject = async (req, res) => {
     `, [studentId]);
 
     if (submissionResult.rows.length === 0) {
-      return res.json({ success: true, project: null });
+      const directProjectResult = await db.pool.query(`
+        SELECT p.id as project_id,
+               p.id,
+               p.title,
+               p.type as project_type,
+               p.team_name,
+               p.description,
+               p.status,
+               p.progress_percent,
+               p.created_at as submitted_at,
+               p.created_at,
+               p.mentor_id,
+               mentor.full_name as mentor_name,
+               mentor.email as mentor_email
+        FROM projects p
+        JOIN project_members pm ON pm.project_id = p.id
+        LEFT JOIN users mentor ON mentor.id = p.mentor_id
+        WHERE pm.student_id = $1
+        ORDER BY p.created_at DESC, p.id DESC
+        LIMIT 1
+      `, [studentId]);
+
+      if (directProjectResult.rows.length === 0) {
+        return res.json({ success: true, project: null });
+      }
+
+      const directProject = directProjectResult.rows[0];
+      const directTeamResult = await db.pool.query(`
+        SELECT u.id as user_id,
+               u.full_name,
+               u.email,
+               s.roll_number,
+               b.name as branch_name,
+               s.academic_year,
+               s.semester,
+               s.section,
+               s.subsection,
+               CASE WHEN pm.is_leader THEN 'Leader' ELSE 'Member' END as role,
+               pm.is_leader,
+               pm.joined_at as created_at
+        FROM project_members pm
+        JOIN users u ON u.id = pm.student_id
+        LEFT JOIN students s ON s.user_id = u.id
+        LEFT JOIN branches b ON b.id = s.branch_id
+        WHERE pm.project_id = $1
+        ORDER BY pm.is_leader DESC, u.full_name ASC
+      `, [directProject.project_id]);
+
+      const directTimelineResult = await db.pool.query(`
+        SELECT id,
+               title,
+               description,
+               NULL::varchar as document_type,
+               sequence_order,
+               sequence_order,
+               deadline,
+               status,
+               created_at
+        FROM project_milestones
+        WHERE project_id = $1
+        ORDER BY sequence_order, deadline ASC
+      `, [directProject.project_id]);
+
+      return res.json({
+        success: true,
+        project: {
+          id: directProject.project_id,
+          submission_id: null,
+          project_id: directProject.project_id,
+          title: directProject.title,
+          domain: null,
+          project_type: directProject.project_type,
+          status: directProject.status,
+          submitted_at: directProject.submitted_at,
+          hod_remarks: null,
+          problem_statement: directProject.description,
+          abstract: directProject.description,
+          tech_stack: null,
+          github_link: null,
+          form: null,
+          team_leader: directTeamResult.rows.find((member) => member.is_leader) || null,
+          team_members: directTeamResult.rows,
+          mentor: directProject.mentor_id
+            ? {
+                id: directProject.mentor_id,
+                name: directProject.mentor_name,
+                email: directProject.mentor_email,
+                assigned_at: null,
+              }
+            : null,
+          timeline: directTimelineResult.rows,
+          progress_percent: directProject.progress_percent || 0,
+          team_name: directProject.team_name,
+        }
+      });
     }
 
     const project = submissionResult.rows[0];

@@ -19,6 +19,7 @@ const app = express();
 
 // Security Middlewares
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.set('trust proxy', 1);
 
 const allowedOrigins = [
   'http://localhost:5173',
