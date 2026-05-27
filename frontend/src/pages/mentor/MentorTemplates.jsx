@@ -46,7 +46,7 @@ const templateUrl = (template) => {
   const path = template?.file_path;
   if (!path) return '';
   if (String(path).startsWith('http')) return path;
-  return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/uploads/${path}`;
+  return `${import.meta.env.VITE_API_URL || '/api'}/uploads/${path}`;
 };
 
 const projectKey = (project) => String(project?.project_registration_id || project?.registration_id || project?.id || '');

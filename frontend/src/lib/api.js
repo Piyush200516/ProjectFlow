@@ -2,13 +2,15 @@ import axios from 'axios';
 import * as Sentry from '@sentry/react';
 
 const getBaseURL = () => {
-  if (import.meta.env.VITE_API_URL) {
+  // Use VITE_API_URL only during local development (hostname includes localhost)
+  if (import.meta.env.VITE_API_URL && typeof window !== 'undefined' && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) ) {
     return import.meta.env.VITE_API_URL;
   }
-  // Bulletproof fallback for production Netlify/Vercel environments
+  // Production Netlify environment – proxy via /api
   if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    return '/api'; // Will be proxied by netlify.toml
+    return '/api'; // Netlify redirects to function
   }
+  // Fallback for any other case (e.g., local dev without env var)
   return 'http://localhost:5000/api';
 };
 

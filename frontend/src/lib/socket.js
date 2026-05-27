@@ -6,7 +6,7 @@ let socket;
 
 const getSocketURL = () => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
-  return (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  return (import.meta.env.VITE_API_URL || '/api').replace(/\/api\/?$/, '');
 };
 
 export const getSocket = () => {

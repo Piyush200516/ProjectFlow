@@ -27,23 +27,26 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
   'http://127.0.0.1:5000',
-  'https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app',
-  'https://projectflow-auth.vercel.app',
-  'https://projectflow-portal.vercel.app',
-  'https://projectflow-admin.vercel.app'
+  // Production Netlify domain
+  'https://projectflow-edu-app.netlify.app',
+  // Existing Vercel deployments (keep if needed)
+  'https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app'
 ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
+// CORS options
+const corsOptions = {
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handle preflight OPTIONS requests for all routes
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 
 // Rate Limiting

@@ -76,10 +76,11 @@ exports.register = async (req, res) => {
         return res.status(409).json({ message: 'Roll Number already registered' });
       }
     }
-    res.status(500).json({ 
+    // Standardized error response for register failures
+    res.status(500).json({
       success: false,
-      message: 'Server error during registration', 
-      error: error.message 
+      message: 'Register failed',
+      error: error.message,
     });
   }
 };
