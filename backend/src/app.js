@@ -3,7 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
+const enterpriseAuthRoutes = require('./routes/enterpriseAuthRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const documentRoutes = require('./routes/documentRoutes');
@@ -49,6 +51,7 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
+app.use(cookieParser());
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -89,6 +92,7 @@ app.get('/api/health', async (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/v2/auth', enterpriseAuthRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/documents', documentRoutes);

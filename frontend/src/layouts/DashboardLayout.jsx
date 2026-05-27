@@ -89,7 +89,7 @@ const NotificationDropdown = ({ isOpen, onClose, notifications, onRead, onReadAl
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -6 }}
         transition={{ duration: 0.16 }}
-        className="absolute top-12 right-0 w-80 bg-white border border-slate-200 shadow-xl rounded-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200"
+        className="fixed left-3 right-3 top-16 bg-white border border-slate-200 shadow-xl rounded-xl z-50 overflow-hidden animate-in slide-in-from-top-2 duration-200 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-80"
       >
         <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <span className="font-bold text-slate-800 text-sm">Notifications</span>
@@ -277,11 +277,11 @@ const DashboardLayout = ({ children }) => {
   };
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="min-h-screen bg-white">
       {/* Sidebar Overlay */}
-      {!isSidebarOpen && (
+      {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-950/10 backdrop-blur-[1px] z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-950/30 backdrop-blur-[2px] z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
@@ -292,7 +292,7 @@ const DashboardLayout = ({ children }) => {
           "fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-100 transition-all duration-300 ease-in-out transform flex flex-col",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full",
           isCollapsed ? "w-16" : "w-60",
-          "lg:relative lg:translate-x-0"
+          "lg:fixed lg:translate-x-0"
         )}
       >
         {/* Sidebar Logo */}
@@ -340,13 +340,14 @@ const DashboardLayout = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn("flex min-h-screen flex-col min-w-0 transition-[padding] duration-300", isCollapsed ? "lg:pl-16" : "lg:pl-60")}>
         {/* Topbar */}
-        <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-40">
-          <div className="flex items-center gap-4">
+        <header className="h-16 bg-white/95 backdrop-blur border-b border-slate-100 flex items-center justify-between gap-3 px-3 sm:px-4 lg:px-6 sticky top-0 z-30">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <button 
               onClick={() => isCollapsed ? setCollapsed(false) : setSidebarOpen(!isSidebarOpen)}
-              className="lg:hidden p-1.5 text-slate-500 hover:bg-slate-100 rounded-md transition-all"
+              className="lg:hidden inline-flex h-10 w-10 items-center justify-center text-slate-500 hover:bg-slate-100 rounded-md transition-all"
+              aria-label="Open navigation"
             >
               <Menu size={20} />
             </button>
@@ -361,7 +362,7 @@ const DashboardLayout = ({ children }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div className="relative">
               <button 
                 onClick={() => setNotifOpen(!isNotifOpen)}
@@ -383,11 +384,11 @@ const DashboardLayout = ({ children }) => {
               />
             </div>
             
-            <div className="h-4 w-px bg-slate-200 mx-1"></div>
+            <div className="hidden h-4 w-px bg-slate-200 mx-1 sm:block"></div>
             
             <button 
               onClick={() => toast.success(`Profile: ${user?.full_name}`)}
-              className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-slate-50 rounded-lg transition-all"
+              className="flex min-h-10 items-center gap-2 pl-1 pr-2 py-1 hover:bg-slate-50 rounded-lg transition-all"
             >
               <div className="w-7 h-7 bg-slate-900 rounded-md flex items-center justify-center text-white text-xs font-bold">
                 {user?.full_name?.[0]?.toUpperCase() || 'P'}
@@ -398,8 +399,8 @@ const DashboardLayout = ({ children }) => {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8 bg-white">
-          <div className="max-w-6xl mx-auto">
+        <main className="flex-1 overflow-y-auto custom-scrollbar bg-white px-3 py-4 sm:px-5 sm:py-6 lg:p-8">
+          <div className="mx-auto w-full max-w-screen-2xl">
             {children}
           </div>
         </main>

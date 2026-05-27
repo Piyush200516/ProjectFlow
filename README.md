@@ -1,302 +1,199 @@
 <p align="center">
-  <img src="frontend/src/assets/projectflow-logo.png" alt="ProjectFlow Edu Logo" width="180" />
+  <img src="frontend/src/assets/projectflow-logo.png" alt="ProjectFlow Logo" width="180" />
 </p>
 
-<h1 align="center">ProjectFlow Edu</h1>
+<h1 align="center">ProjectFlow</h1>
 
 <p align="center">
-  <strong>AI-Powered Academic Project Management Platform</strong>
+  <strong>AI-powered campus project management platform for students, mentors, HODs, admins, and super admins.</strong>
 </p>
 
 <p align="center">
+  <a href="https://projectflow-edu-app.netlify.app"><img alt="Live" src="https://img.shields.io/badge/Live-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white" /></a>
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-App_Router-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" />
   <img alt="Node.js" src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" />
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
-  <img alt="Redux" src="https://img.shields.io/badge/Redux_Toolkit-State-764ABC?style=for-the-badge&logo=redux&logoColor=white" />
-  <img alt="Socket.IO" src="https://img.shields.io/badge/Socket.IO-Realtime-010101?style=for-the-badge&logo=socket.io&logoColor=white" />
-  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-UI-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img alt="Prisma" src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white" />
+  <img alt="Redis" src="https://img.shields.io/badge/Redis-Upstash_DC382D?style=for-the-badge&logo=redis&logoColor=white" />
 </p>
 
----
+## Live Deployment
 
-## Project Overview
+- **Frontend Live URL:** https://projectflow-edu-app.netlify.app
+- **Current production host:** Netlify
+- **Current production API path:** `/api/*` via Netlify Functions
+- **Enterprise API foundation:** `/api/v2/*`
 
-**ProjectFlow Edu** is an AI-powered academic project workflow automation platform for engineering colleges. It converts the traditional offline student project lifecycle into a structured, transparent, and fully digital workflow for students, mentors, and Heads of Department.
+## Overview
 
-The platform is designed for academic project registration, team formation, HOD approval, mentor assignment, milestone tracking, document submission, review, marks tracking, and departmental visibility.
+ProjectFlow digitizes the complete campus project lifecycle: student account creation, project registration, team formation, HOD registration forms, approvals, mentor assignment, milestone tracking, document workflows, notifications, analytics, and real-time collaboration readiness.
 
-### Core Workflow
+The repository currently contains the active production React/Vite application plus a new enterprise-grade Next.js App Router workspace that is being built phase by phase.
 
-```mermaid
-flowchart LR
-  A["HOD creates registration form"] --> B["Students receive notifications"]
-  B --> C["Students create team and register project"]
-  C --> D["HOD approves or rejects"]
-  D --> E["Mentor gets assigned"]
-  E --> F["Timeline and milestones are created"]
-  F --> G["Students submit documents"]
-  G --> H["Mentor reviews submissions"]
-  H --> I["Marks and progress are tracked"]
-```
+## Latest Features Implemented
 
----
-
-## Problem Statement
-
-Most engineering colleges still manage student project workflows using paper forms, spreadsheets, messaging groups, and manual approval chains. This creates avoidable delays and poor visibility across departments.
-
-Common offline workflow issues include:
-
-- Manual project registration forms
-- No centralized tracking
-- Delayed approvals and mentor assignment
-- No real-time student notifications
-- Poor mentor-student coordination
-- Document submission delays
-- Limited transparency for HODs and departments
-- Difficulty tracking project progress, reviews, and marks
-
-ProjectFlow Edu solves these problems with a role-based digital project workflow built on React, Node.js, Express, and PostgreSQL.
-
----
-
-## Features Implemented
-
-### Auth
-
-- ✅ Student signup and login
-- ✅ Mentor login
-- ✅ HOD login
-- ✅ Role-based authentication
-- ✅ JWT-based protected sessions
-- ✅ Role-based frontend routing
-
-### Student
-
-- ✅ Profile settings
-- ✅ Semester update
-- ✅ View active HOD registration forms
-- ✅ Fill project registration form
-- ✅ Team creation
-- ✅ Duplicate email and roll number validation
-- ✅ Team member validation against registered students
-- ✅ Notifications
-- ✅ Timeline view
-- ✅ Dashboard
-- ✅ Document submission workflow foundation
-
-### HOD
-
-- ✅ Create registration form
-- ✅ Publish form
-- ✅ Send matching student notifications
-- ✅ View registration submissions
-- ✅ Approve or reject submissions
-- ✅ Assign mentor
-- ✅ Create project timeline
-- ✅ Dashboard statistics
-- ✅ Department project and student views
-
-### Mentor
-
-- ✅ Mentor login
-- ✅ View assigned teams and projects
-- ✅ Review workflow foundation
-- ✅ Document review routes
-- ✅ Milestone and template workflow foundation
-
-### System
-
-- ✅ PostgreSQL integration
-- ✅ Notifications system
-- ✅ Protected backend APIs
-- ✅ Protected frontend routes
-- ✅ Role-based routing
-- ✅ Frontend architecture upgraded with modern state, query, validation, table, realtime, analytics, and monitoring libraries
-
----
-
-## In Progress / Remaining Work
-
-- 🚧 Real-time Socket.IO integration verification with production backend events
-- 🚧 Mentor feedback workflow completion and polishing
-- 🚧 Marks automation and scoring rules
-- 🚧 Report export polishing
-- 🚧 Analytics dashboard polishing
-- 🚧 Document upload final verification across all roles
-- 🚧 Production deployment stabilization
-- 🚧 AI feature implementation and model integration
-
----
+- Student signup/login with normalized email handling
+- HOD, mentor, and student role-based routing
+- JWT-protected backend APIs
+- Forgot password API with real Nodemailer send flow
+- Reset token storage with hashed tokens
+- Production email diagnostics without logging secrets
+- HOD project registration forms
+- Student project registration and team member validation
+- HOD approval/rejection and mentor assignment workflows
+- Notifications and dashboard polling fallback
+- Socket.IO-ready backend and frontend realtime plumbing
+- Responsive auth UI restored and verified
+- Prisma 7 enterprise schema foundation
+- `/api/v2/auth` enterprise auth foundation
+- Redis-backed session architecture foundation
+- Audit log models and service foundation
+- Next.js App Router enterprise workspace
+- shadcn-style UI primitives for the enterprise workspace
+- React Query and Zustand foundation for the enterprise workspace
 
 ## Tech Stack
 
-### Frontend
+### Active Frontend
 
-- React.js
+- React 19
 - Vite
 - Tailwind CSS
+- React Router
 - Redux Toolkit
-- React Redux
 - Zustand
-- TanStack Query / React Query
+- TanStack Query
+- TanStack Table
 - React Hook Form
 - Zod
-- TanStack Table
-- TanStack Virtual
-- Socket.IO Client
-- Apache ECharts
-- ECharts for React
 - Framer Motion
-- Fuse.js
-- Axios
-- React Router DOM
-- Lucide React
+- Recharts / ECharts
+- Socket.IO Client
+- Sentry-ready monitoring
+
+### Enterprise Frontend Foundation
+
+- Next.js App Router
+- Tailwind CSS
+- shadcn/ui-style primitives
+- Framer Motion
+- TanStack Table
+- React Query
+- Zustand
+- Socket.IO Client
+- React DnD
+- Recharts
 
 ### Backend
 
 - Node.js
 - Express.js
-- JWT
-- bcrypt
 - PostgreSQL
-- pg
-- Socket.IO-ready architecture
-- Express Rate Limit
-- CORS
-- dotenv
+- Prisma ORM
+- Redis / Upstash-ready session cache
+- Socket.IO
+- JWT authentication
+- bcrypt password hashing
+- Nodemailer email flows
+- Express rate limiting
+- Multer upload foundation
 
 ### Database
 
 - PostgreSQL
+- Neon-compatible connection via `DATABASE_URL`
+- Prisma schema in `backend/prisma/schema.prisma`
+- Existing SQL migrations and compatibility schemas in `database/`
 
-### Monitoring
+## Authentication & Security
 
-- Sentry, enabled through `VITE_SENTRY_DSN`
+Current and enterprise auth capabilities include:
 
----
+- JWT auth
+- Role-based access control
+- Student, Mentor, HOD, Admin, Super Admin role model
+- Forgot password email flow
+- Password reset token hashing
+- Email verification foundation
+- Refresh token and session model foundation
+- Redis session cache foundation
+- Account lockout foundation
+- Login attempt tracking
+- Audit logs for sensitive auth operations
+- Rate limiting on auth routes
 
-## Architecture
+## Core Modules
 
-ProjectFlow Edu follows a role-based full-stack architecture.
+### HOD Registration Forms
 
-```mermaid
-flowchart TB
-  subgraph Frontend["Frontend - React + Vite"]
-    UI["Role-based UI"]
-    Redux["Redux Toolkit Auth Session"]
-    Zustand["Zustand UI State"]
-    Query["TanStack Query API Cache"]
-    Forms["React Hook Form + Zod"]
-  end
+- HOD can create registration forms
+- Forms can be published to students
+- Students can view active HOD forms
+- HOD can review student submissions
+- HOD can approve/reject projects and assign mentors
 
-  subgraph Backend["Backend - Node.js + Express"]
-    Routes["REST API Routes"]
-    Auth["JWT Auth Middleware"]
-    Controllers["Controllers and Services"]
-    Notifications["Notification Service"]
-  end
+### Student Project Registration
 
-  subgraph Realtime["Real-time Layer"]
-    SocketClient["Socket.IO Client"]
-    SocketServer["Socket.IO Backend Events - Ready"]
-  end
+- Student profile and semester-aware registration
+- Project form submission
+- Team member email and roll number validation
+- Duplicate prevention
+- Project workspace foundation
 
-  subgraph Database["Database - PostgreSQL"]
-    Tables["Academic Workflow Tables"]
-    Indexes["Performance Indexes"]
-  end
+### Real-Time Features
 
-  UI --> Redux
-  UI --> Zustand
-  UI --> Query
-  UI --> Forms
-  Query --> Routes
-  Routes --> Auth
-  Auth --> Controllers
-  Controllers --> Notifications
-  Controllers --> Tables
-  Tables --> Indexes
-  SocketClient -.fallback polling.-> Query
-  SocketClient -.future events.-> SocketServer
-  SocketServer -.invalidate cache.-> Query
-```
+- Socket.IO server setup
+- Project room join events
+- Message event foundation
+- Task update event foundation
+- Frontend Socket.IO client setup
+- Redis pub/sub planned for horizontal scaling
 
-### Frontend Architecture
+### Responsive UI
 
-- Redux Toolkit stores global auth/session state: `user`, `token`, `role`, and permissions.
-- Zustand stores lightweight UI state such as sidebar collapsed state, notification panel state, selected form, selected project, and modal state.
-- TanStack Query handles server state caching, retries, loading state, and polling fallback.
-- React Hook Form and Zod provide structured validation.
-- TanStack Table and Virtual provide scalable table foundations.
-- Socket.IO Client is wired for realtime readiness with polling fallback.
-- Sentry captures runtime and API failures when configured.
+- Restored polished signup/login UI
+- Responsive dashboard layout work
+- Mobile-aware auth and dashboard routes
+- Tailwind build verified with restored CSS pipeline
 
-### Backend Architecture
+## AI Roadmap
 
-- Express REST APIs with role-protected routes.
-- JWT authentication middleware.
-- PostgreSQL queries through `pg`.
-- Transaction usage in critical workflows such as project registration and team creation.
-- Notification utilities for batch notification creation.
+Planned AI capabilities:
 
-### Database Architecture
-
-- PostgreSQL relational schema.
-- Indexed workflow tables for faster lookups.
-- Team validation and one-active-team rules separated from payload duplicate validation.
-
-### Real-time Layer
-
-- Socket.IO Client is installed and wired.
-- Frontend cache invalidation is ready for notification, timeline, mentor feedback, form publish, and submission status events.
-- Polling fallback remains active until backend realtime events are finalized.
-
----
-
-## Database Modules
-
-Core PostgreSQL modules include:
-
-- `users`
-- `students`
-- `registration_forms`
-- `project_registrations`
-- `project_team_members`
-- `project_milestones`
-- `milestone_submissions`
-- `notifications`
-- `mentor_assignments`
-- `mentor_reviews`
-- `project_scores`
-- `activity_logs`
-
-Additional workflow tables may exist for compatibility and active modules, including project members, document submissions, tasks, forms, and timeline-related records.
-
----
+- AI project idea generator
+- Abstract generator
+- Problem statement improver
+- Plagiarism/similarity checker
+- Project health scoring
+- AI reviewer
+- Mentor recommendation engine
 
 ## Folder Structure
 
 ```text
 ProjectFlow/
 ├── backend/
+│   ├── prisma/
+│   │   └── schema.prisma
 │   ├── src/
 │   │   ├── config/
 │   │   ├── controllers/
 │   │   ├── middleware/
 │   │   ├── routes/
+│   │   ├── services/
 │   │   ├── utils/
 │   │   ├── app.js
 │   │   └── server.js
-│   ├── scripts/
-│   ├── uploads/
 │   └── package.json
 ├── database/
-│   ├── performance_indexes.sql
+│   ├── migrations/
 │   └── *.sql
+├── docs/
+│   ├── enterprise-architecture.md
+│   └── enterprise-deployment.md
 ├── frontend/
 │   ├── src/
-│   │   ├── assets/
 │   │   ├── components/
 │   │   ├── context/
 │   │   ├── hooks/
@@ -307,41 +204,91 @@ ProjectFlow/
 │   │   ├── App.jsx
 │   │   └── main.jsx
 │   └── package.json
+├── next-app/
+│   ├── src/app/
+│   ├── src/components/
+│   ├── src/hooks/
+│   ├── src/lib/
+│   ├── src/stores/
+│   └── package.json
+├── netlify.toml
 └── README.md
 ```
 
----
+## Screenshots
+
+> Add production screenshots here as the UI stabilizes.
+
+| Signup | Dashboard | HOD Forms |
+| --- | --- | --- |
+| `artifacts/signup-live-restored.png` | _Coming soon_ | _Coming soon_ |
+
+## Environment Variables
+
+Do not commit real secret values. Configure these in local `.env` files and deployment dashboards.
+
+### Backend
+
+```env
+DATABASE_URL=
+JWT_SECRET=
+FRONTEND_URL=
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+REDIS_URL=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+REDIS_HOST=
+REDIS_PORT=
+REDIS_PASSWORD=
+ACCESS_TOKEN_TTL=15m
+REFRESH_TOKEN_DAYS=30
+AUTH_LOCKOUT_LIMIT=5
+AUTH_LOCKOUT_MINUTES=15
+```
+
+### Active Frontend
+
+```env
+VITE_API_URL=
+VITE_SENTRY_DSN=
+```
+
+### Enterprise Next.js Frontend
+
+```env
+NEXT_PUBLIC_API_URL=
+```
 
 ## Installation
 
 ### Prerequisites
 
-- Node.js
+- Node.js 20+
 - npm
-- PostgreSQL
-- Git
+- PostgreSQL / Neon
+- Redis / Upstash for enterprise sessions and realtime scaling
+- SMTP provider, for example Gmail with App Password
 
 ### Backend
 
 ```bash
 cd backend
 npm install
+npm run prisma:generate
 npm run dev
 ```
 
-Backend runs on:
+Backend local URL:
 
 ```text
 http://localhost:5000
 ```
 
-Health check:
-
-```text
-http://localhost:5000/api/health
-```
-
-### Frontend
+### Active Frontend
 
 ```bash
 cd frontend
@@ -349,130 +296,143 @@ npm install
 npm run dev
 ```
 
-Frontend runs on:
+Frontend local URL:
 
 ```text
 http://localhost:5173
 ```
 
-or:
+### Enterprise Next.js Workspace
+
+```bash
+cd next-app
+npm install
+npm run dev
+```
+
+Next.js local URL:
 
 ```text
-http://127.0.0.1:5173
+http://localhost:3000
 ```
 
----
+## Build Commands
 
-## Environment Variables
-
-### Backend `.env`
-
-```env
-PORT=5000
-DATABASE_URL= databases URL
-JWT_SECRET=your_jwt_secret
+```bash
+cd frontend
+npm install
+npm run build
 ```
 
-Optional local PostgreSQL variables may also be used depending on setup:
-
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=projectflow_edu
+```bash
+cd backend
+npm install
+npx prisma validate
 ```
 
-### Frontend `.env`
-
-```env
-VITE_API_URL=http://localhost:5000/api
-VITE_SENTRY_DSN=
+```bash
+cd next-app
+npm install
+npm run build
 ```
 
-Sentry is disabled automatically when `VITE_SENTRY_DSN` is empty.
+## API Endpoints
 
----
+### Current Production Auth
 
-## Performance Optimizations
+```text
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/forgot-password
+GET  /api/auth/me
+```
 
-- React Query caching for server state
-- Polling fallback for notifications and realtime-ready features
-- TanStack Table foundation for large tables
-- TanStack Virtual integration for scalable table rendering
-- Fuse.js fuzzy search for client-side searching
-- Indexed PostgreSQL queries for project, student, notification, form, and milestone lookups
-- Efficient O(n) duplicate validation using `Set`
-- Batch notification insertion for matching students
-- Selective API columns instead of broad production `SELECT *` patterns where optimized
-- Transactions for critical registration and assignment workflows
+### Enterprise Auth Foundation
 
----
+```text
+POST /api/v2/auth/register
+POST /api/v2/auth/login
+POST /api/v2/auth/refresh
+POST /api/v2/auth/logout
+GET  /api/v2/auth/me
+POST /api/v2/auth/forgot-password
+POST /api/v2/auth/reset-password
+POST /api/v2/auth/email-verification
+POST /api/v2/auth/verify-email
+```
 
-## Security
+### Project/HOD/Student Modules
 
-- JWT authentication
-- bcrypt password hashing
-- Protected backend APIs
-- Role-based access control
-- Protected frontend routes
-- Input validation with Zod on the frontend
-- Parameterized PostgreSQL queries
-- CORS configuration for localhost and approved origins
-- Rate-limit middleware support
-- Sentry-based runtime/API error monitoring when configured
+```text
+GET    /api/health
+GET    /api/student/*
+POST   /api/student/*
+GET    /api/hod/*
+POST   /api/hod/*
+PATCH  /api/hod/*
+GET    /api/mentor/*
+POST   /api/mentor/*
+GET    /api/workflow/*
+POST   /api/workflow/*
+GET    /api/notifications/*
+PATCH  /api/notifications/*
+```
 
----
+## Deployment Guide
 
-## Deployment
+### Current Netlify Deployment
 
-### Frontend
+The active production app deploys from GitHub to Netlify.
 
-- Target: Vercel
-- Current priority: localhost-first verification
+```text
+Frontend build command:
+cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install
 
-### Backend
+Publish directory:
+frontend/dist
 
-- Current: localhost
-- Future target: Render or equivalent Node.js hosting
+Functions directory:
+backend/netlify/functions
+```
 
-### Database
+### Enterprise Target Deployment
 
-- Current: local PostgreSQL
-- Future target: managed PostgreSQL if production deployment is required
+- Next.js frontend: Vercel
+- Express backend: Render, Railway, or AWS
+- Database: Neon PostgreSQL
+- Redis: Upstash Redis
+- File storage: AWS S3 or Cloudinary
 
-No Firebase and no CDC are used in the current architecture.
+More details:
 
----
+- `docs/enterprise-architecture.md`
+- `docs/enterprise-deployment.md`
 
-## Future Scope
+## Verification Checklist
 
-Planned AI-powered enhancements:
+- Live URL opens
+- Login page loads
+- Create account page loads
+- Reset password page loads
+- Student dashboard route loads after login
+- HOD forms publish/show flow works with HOD credentials
+- Mobile responsive layout checked
+- Backend health check returns OK
+- Frontend build passes
+- Next.js enterprise build passes
+- Prisma schema validates
 
-- AI mentor suggestions based on project domain and faculty expertise
-- AI project recommendations for students
-- Plagiarism and similarity checks for submitted documents
-- Predictive project progress analytics
-- Smart deadline reminders
-- AI-generated review summaries
-- Intelligent risk detection for delayed teams
-- Automated rubric-based evaluation assistance
+## Known Operational Notes
 
----
-
-## Contributor
-
-**Piyush Mishra**
-
----
+- SMTP variables must be configured for reset-password emails to actually send.
+- Gmail requires an App Password; a normal Gmail password will not work.
+- `/api/v2/auth` requires Prisma migrations before use on a fresh database.
+- Redis/Upstash variables are listed and the architecture is ready, but production Redis must be configured in hosting.
 
 ## License
 
-This project is licensed under the **MIT License**.
+MIT License
 
----
+## Maintainer
 
-<p align="center">
-  <strong>ProjectFlow Edu</strong><br />
-  Built to modernize academic project workflows for engineering colleges.
-</p>
+Piyush Mishra

@@ -1,29 +1,27 @@
 const bcrypt = require('bcryptjs');
 const db = require('./src/config/db');
 
-const HOD_EMAIL = 'hodcs@acropolis.in';
-const HOD_PASSWORD = 'hod@123';
-const HOD_ROLE = 'hod';
-const HOD_NAME = 'Head of Department';
+const EMAIL = 'hodcs@acropolis.in';
+const PLAIN_PASSWORD = 'hod@123';
+const ROLE = 'hod';
+const FULL_NAME = 'Head of Department';
 
 (async () => {
   try {
-    // Generate hash
-    const hash = await bcrypt.hash(HOD_PASSWORD, 10);
-    console.log('Generated hash:', hash);
-
-    // Check if a HOD record exists
-    const [rows] = await db.execute('SELECT id, email FROM users WHERE role = $1', [HOD_ROLE]);
+    const hash = await bcrypt.hash(PLAIN_PASSWORD, 10);
+    // Check if HOD exists
+    const [rows] = await db.execute('SELECT id FROM users WHERE role = $1', [ROLE]);
     if (rows.length > 0) {
-      const hodId = rows[0].id;
-      await db.execute('UPDATE users SET email = $1, password_hash = $2, role = $3 WHERE id = $4', [HOD_EMAIL, hash, HOD_ROLE, hodId]);
-      console.log(`✅ Updated existing HOD (id ${hodId})`);
+      const userId = rows[0].id;
+      await db.execute('UPDATE users SET email = $1, password_hash = $2, role = $3 WHERE id = $4', [EMAIL, hash, ROLE, userId]);
+      console.log(`✅ Updated HOD (id ${userId}) with new email/password`);
     } else {
-      const [result] = await db.execute('INSERT INTO users (full_name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id', [HOD_NAME, HOD_EMAIL, hash, HOD_ROLE]);
-      console.log('✅ Inserted new HOD with id', result.insertId || result[0].id);
+      const [result] = await db.execute('INSERT INTO users (full_name, email, password_hash, role) VALUES ($1, $2, $3, $4)', [FULL_NAME, EMAIL, hash, ROLE]);
+      console.log(`✅ Created new HOD with id ${result.insertId}`);
     }
+    await db.pool.end();
   } catch (err) {
-    console.error('❌ Error in HOD upsert script:', err);
+    console.error('❌ Error upserting HOD:', err);
     process.exit(1);
   }
 })();

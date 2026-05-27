@@ -59,7 +59,41 @@ const sendPasswordResetEmail = async ({ to, fullName, resetLink }) => {
   return info;
 };
 
+const sendEmailVerification = async ({ to, fullName, verificationLink }) => {
+  console.log('[MAIL] SMTP_ENV', getSmtpDiagnostics());
+
+  const transporter = createTransporter();
+  const info = await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: 'Verify your ProjectFlow email',
+    text: [
+      `Hi ${fullName || 'there'},`,
+      '',
+      'Verify your ProjectFlow account using this link:',
+      verificationLink,
+      '',
+      'This link expires in 24 hours.',
+    ].join('\n'),
+    html: `
+      <p>Hi ${fullName || 'there'},</p>
+      <p>Verify your ProjectFlow account using this link:</p>
+      <p><a href="${verificationLink}">${verificationLink}</a></p>
+      <p>This link expires in 24 hours.</p>
+    `,
+  });
+
+  console.log('[MAIL] sendMail success', {
+    messageId: info.messageId,
+    accepted: info.accepted,
+    rejected: info.rejected,
+  });
+
+  return info;
+};
+
 module.exports = {
   sendPasswordResetEmail,
+  sendEmailVerification,
   getSmtpDiagnostics,
 };
