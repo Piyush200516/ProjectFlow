@@ -5,9 +5,9 @@ const getBaseURL = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  // Bulletproof fallback for production Vercel environments
+  // Bulletproof fallback for production Netlify/Vercel environments
   if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    return 'https://projectflow-backend-lsvr.onrender.com/api';
+    return '/api'; // Will be proxied by netlify.toml
   }
   return 'http://localhost:5000/api';
 };
