@@ -1,21 +1,11 @@
 import axios from 'axios';
 import * as Sentry from '@sentry/react';
 
-const getBaseURL = () => {
-  // Use VITE_API_URL only during local development (hostname includes localhost)
-  if (import.meta.env.VITE_API_URL && typeof window !== 'undefined' && (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) ) {
-    return import.meta.env.VITE_API_URL;
-  }
-  // Production Netlify environment – proxy via /api
-  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    return '/api'; // Netlify redirects to function
-  }
-  // Fallback for any other case (e.g., local dev without env var)
-  return 'http://localhost:5000/api';
-};
+const API_BASE_URL =
+  import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
 
 const api = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: API_BASE_URL,
 });
 
 // Attach JWT token from localStorage to every request
