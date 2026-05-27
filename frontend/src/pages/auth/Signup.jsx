@@ -24,6 +24,7 @@ const Signup = () => {
       confirmPassword: '',
       rollNumber: '',
       branch: '1',
+      semester: '6',
       section: '1',
       subsection: '1',
     },
@@ -31,7 +32,7 @@ const Signup = () => {
 
   const onSubmit = async (formData) => {
     try {
-      await signup(formData.email, formData.password, formData.name, 'student', formData.rollNumber, formData.branch, formData.section, formData.subsection);
+      await signup(formData.email, formData.password, formData.name, 'student', formData.rollNumber, formData.branch, formData.section, formData.subsection, formData.semester);
       toast.success('Account created! Welcome to ProjectFlow.');
       navigate('/student/dashboard', { replace: true });
     } catch (error) {
@@ -75,6 +76,13 @@ const Signup = () => {
                   <option value="2">Information Technology</option>
                   <option value="3">Electronics & Communication</option>
                   <option value="4">Mechanical Engineering</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-900 ml-1">Semester</label>
+                <select required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all text-sm" {...register('semester')}>
+                  {[5,6,7,8].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
 

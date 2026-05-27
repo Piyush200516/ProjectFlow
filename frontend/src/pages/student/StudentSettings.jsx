@@ -42,7 +42,7 @@ const emptyProfile = {
   roll_number: '',
   branch_id: 1,
   academic_year: generateAcademicYears()[1],
-  semester: 1,
+  semester: 6,
   section: '1',
   subsection: '1',
   profile_locked: false,
@@ -73,7 +73,7 @@ const StudentSettings = () => {
         ...emptyProfile,
         ...data.student,
         branch_id: data.student?.branch_id || 1,
-        semester: data.student?.semester || 1,
+        semester: data.student?.semester || 6,
         section: data.student?.section || '1',
         subsection: data.student?.subsection || '1',
       };
@@ -238,7 +238,7 @@ const StudentSettings = () => {
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Semester</label>
                         <select value={profile.semester} onChange={(event) => handleFieldChange('semester', event.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium">
-                          {[1, 2, 3, 4, 5, 6, 7, 8].map(semester => <option key={semester} value={semester}>{semester}</option>)}
+                          {[5, 6, 7, 8].map(semester => <option key={semester} value={semester}>{semester}</option>)}
                         </select>
                       </div>
                       <div className="space-y-2">

@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
-  const register = async (email, password, full_name, role = 'student', roll_number = '', branch_id = '1', section = '1', subsection = '1') => {
+  const register = async (email, password, full_name, role = 'student', roll_number = '', branch_id = '1', section = '1', subsection = '1', semester = '6') => {
     const { data } = await api.post('/auth/register', {
       email,
       password,
@@ -66,6 +66,7 @@ export const AuthProvider = ({ children }) => {
       branch_id,
       section,
       subsection,
+      semester,
     });
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));

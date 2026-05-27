@@ -11,6 +11,7 @@ export const signupSchema = z.object({
   name: z.string().trim().min(2, 'Full name is required'),
   rollNumber: z.string().trim().min(1, 'Roll number is required').transform((value) => value.toUpperCase()),
   branch: z.string().min(1, 'Branch is required'),
+  semester: z.coerce.number().int().min(5, 'Only semester 5 to 8 students are allowed').max(8, 'Only semester 5 to 8 students are allowed'),
   section: z.string().min(1, 'Section is required'),
   subsection: z.string().min(1, 'Subsection is required'),
   email: emailSchema,
@@ -22,7 +23,7 @@ export const signupSchema = z.object({
 });
 
 export const studentSettingsSchema = z.object({
-  semester: z.coerce.number().int().min(1).max(8),
+  semester: z.coerce.number().int().min(5).max(8),
 });
 
 export const hodRegistrationFormSchema = z.object({

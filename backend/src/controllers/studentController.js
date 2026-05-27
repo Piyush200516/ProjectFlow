@@ -281,8 +281,11 @@ exports.updateProfile = async (req, res) => {
   const { semester } = req.body;
   const parsedSemester = Number(semester);
 
-  if (!Number.isInteger(parsedSemester) || parsedSemester < 1 || parsedSemester > 8) {
-    return res.status(400).json({ success: false, message: 'Semester must be between 1 and 8' });
+  if (!Number.isInteger(parsedSemester) || parsedSemester < 5 || parsedSemester > 8) {
+    return res.status(400).json({
+      success: false,
+      message: 'Only semester 5 to 8 students are allowed'
+    });
   }
 
   try {

@@ -117,7 +117,7 @@ CREATE TABLE students (
     user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     roll_number VARCHAR(20) NOT NULL UNIQUE,
     branch_id INT NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
-    semester INT NOT NULL CHECK (semester BETWEEN 1 AND 8),
+    semester INT NOT NULL CONSTRAINT semester_check CHECK (semester BETWEEN 5 AND 8),
     academic_year VARCHAR(10) NOT NULL,
     current_score DECIMAL(5, 2) DEFAULT 0.00 CHECK (current_score BETWEEN 0.00 AND 100.00),
     contribution_score DECIMAL(5, 2) DEFAULT 0.00 CHECK (contribution_score BETWEEN 0.00 AND 100.00),
