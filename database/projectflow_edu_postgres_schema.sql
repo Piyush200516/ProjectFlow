@@ -681,13 +681,16 @@ INSERT INTO branches (department_id, name, code) VALUES
 (3, 'Mechanical Engineering', 'ME');
 
 -- B. Seed System Users (Credentials specified in requirements)
-INSERT INTO users (email, password_hash, role, full_name, profile_image, is_active) VALUES
-('admin@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'admin', 'System Administrator', NULL, TRUE),
-('hod@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'hod', 'Dr. Alok Chandra', NULL, TRUE),
-('mentor@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'mentor', 'Dr. Priya Sharma', NULL, TRUE),
-('student@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Piyush Mishra', NULL, TRUE),
-('student2@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Rohan Verma', NULL, TRUE),
-('student3@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Anjali Gupta', NULL, TRUE);
+INSERT INTO users (id, email, password_hash, role, full_name, profile_image, is_active) VALUES
+(1, 'admin@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'admin', 'System Administrator', NULL, TRUE),
+(2, 'hod@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'hod', 'Dr. Alok Chandra', NULL, TRUE),
+(3, 'mentor@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'mentor', 'Dr. Priya Sharma', NULL, TRUE),
+(4, 'coordinator@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'hod', 'Dr. Neha Rao', NULL, TRUE),
+(5, 'student@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Piyush Mishra', NULL, TRUE),
+(6, 'student2@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Rohan Verma', NULL, TRUE),
+(7, 'student3@college.edu', '$2b$10$r/19AAW90ZkALfccvTktm.hRcoOOzDbYADAngvwyyrnsOo4SYaxu6', 'student', 'Anjali Gupta', NULL, TRUE);
+
+SELECT setval('users_id_seq', 7, TRUE);
 
 -- C. Seed Faculty Profile Details
 INSERT INTO mentors (user_id, department_id, designation, specialization, max_projects) VALUES
