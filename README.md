@@ -10,12 +10,18 @@
 
 <p align="center">
   <a href="https://projectflow-edu-app.netlify.app"><img alt="Live" src="https://img.shields.io/badge/Live-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white" /></a>
-  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" />
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-App_Router-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/React-v19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" />
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-v16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" />
   <img alt="Node.js" src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" />
+  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+  <img alt="JWT" src="https://img.shields.io/badge/JWT-Authentication-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white" />
+  <br />
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
+  <img alt="MySQL" src="https://img.shields.io/badge/MySQL-Database-4479A1?style=for-the-badge&logo=mysql&logoColor=white" />
   <img alt="Prisma" src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white" />
   <img alt="Redis" src="https://img.shields.io/badge/Redis-Upstash_DC382D?style=for-the-badge&logo=redis&logoColor=white" />
+  <img alt="Vercel" src="https://img.shields.io/badge/Vercel-Deployment-000000?style=for-the-badge&logo=vercel&logoColor=white" />
+  <img alt="Render" src="https://img.shields.io/badge/Render-Deployment-46E3B7?style=for-the-badge&logo=render&logoColor=white" />
 </p>
 
 ## Live Deployment
@@ -31,80 +37,124 @@ ProjectFlow digitizes the complete campus project lifecycle: student account cre
 
 The repository currently contains the active production React/Vite application plus a new enterprise-grade Next.js App Router workspace that is being built phase by phase.
 
-## Latest Features Implemented
+## 🚀 Latest Updates (Last 24 Hours)
 
-- Student signup/login with normalized email handling
-- HOD, mentor, and student role-based routing
-- JWT-protected backend APIs
-- Forgot password API with real Nodemailer send flow
-- Reset token storage with hashed tokens
-- Production email diagnostics without logging secrets
-- HOD project registration forms
-- Student project registration and team member validation
-- HOD approval/rejection and mentor assignment workflows
-- Notifications and dashboard polling fallback
-- Socket.IO-ready backend and frontend realtime plumbing
-- Responsive auth UI restored and verified
-- Prisma 7 enterprise schema foundation
-- `/api/v2/auth` enterprise auth foundation
-- Redis-backed session architecture foundation
-- Audit log models and service foundation
-- Next.js App Router enterprise workspace
-- shadcn-style UI primitives for the enterprise workspace
-- React Query and Zustand foundation for the enterprise workspace
+> **Last Updated:** May 28, 2026 (05:58 AM IST)
+
+### New Features Added
+- **Real Forgot Password Flow**: Integrated Nodemailer in the backend (`backend/src/utils/emailService.js`) to support real email reset flow, complete with secure hashed token storage and a 30-minute token expiration limit.
+- **Enterprise Workspace Initialization**: Set up the Next.js App Router project structure (`next-app/`) configured with shadcn/ui components, custom state store (Zustand), and React Query integration.
+- **Student Dashboard Compatibility**: Implemented new endpoint dashboard route mappings for student statistics data compatible with local and production deployment databases.
+- **Form Publish Visibility Control**: Added server-side checks and migrations for registration forms, ensuring students can only access forms that have been published and are active.
+
+### UI/UX Improvements
+- **Tailwind v4 Styling Pipeline Restored**: Restored Tailwind CSS building pipeline in the React Vite frontend, correcting imports inside `frontend/src/index.css` and configuring `tailwind.config.cjs` and `postcss.config.cjs`.
+- **Responsive Auth Forms**: Verified and restored fully responsive signup and login layouts for Student, HOD, and Mentor routes.
+- **Next.js Enterprise Components**: Constructed initial UI library using Radix UI primitives and Class Variance Authority in `next-app/src/components/ui/` featuring button, card, input, badge, and switch elements with light/dark theme toggle support.
+
+### Backend/API Changes
+- **Netlify Serverless Deployment**: Adapted Express server backend to execute within the Netlify Functions environment using `serverless-http`.
+- **Express Version Adjustments**: Downgraded backend Express dependency to `v4.22.2` to resolve serverless request body-parsing constraints.
+- **CORS Configuration**: Restructured Express CORS middleware to permit credentials, handle preflight options, and explicitly whitelist the production URL `projectflow-edu-app.netlify.app`.
+- **Dynamic Frontend API Base URL**: Added dynamic detection of the production base path vs local host in frontend client requests to support transparent proxying.
+
+### Database Changes
+- **Database Schema Migrations**:
+  - Restored student semester validation to range strictly between semesters 5-8 (`20260527_restrict_student_semesters.sql`).
+  - Added dashboard status compatibility schemas (`20260527_dashboard_route_compat.sql`).
+  - Added registration form visibility rules table fields (`20260527_registration_form_publish_visibility.sql`).
+- **Postgres Seeding Fixes**: Corrected seeding user and role IDs mismatched in SQL script `database/projectflow_edu_postgres_schema.sql`.
+
+### Authentication Updates
+- **Email Normalization**: Standardized all authentication routes (login, register, forgot-password) to sanitize and lowercase emails, preventing login mismatches due to capitalization.
+- **HOD Login Alignment**: Patched credential mapping and validation within the backend authentication controllers for HOD role login requests.
+- **HOD User Management Scripting**: Introduced helper management and credentials scripts (`check-hod.js`, `hod-upsert.js`, `manage-hod.js`, `scripts/update_hod_credentials.js`) to manage administrative personnel entries directly in postgres tables.
+
+### Deployment Changes
+- **Proxy and Routing Rule Configuration**: Added `netlify.toml` containing explicit redirects rules mapping `/api/*` requests to the Netlify functions base directory `/api.js`.
+- **Rate-Limiter IP Resolution**: Optimized express-rate-limit to extract the real remote client IP address from the Netlify header `x-nf-client-connection-ip`.
+
+### Bug Fixes
+- Fixed student registration form draft visibility so students cannot view or register for unpublished HOD forms.
+- Fixed case-sensitive email login block by standardizing normalization to lowercase in database queries.
+- Corrected database seed constraints referencing primary user IDs.
+- Restored broken CSS/Tailwind compiled output path configurations on the client.
+- Fixed backend HOD authentication status checks.
+
+### Performance Optimizations
+- Implemented client IP resolution middleware for rate limiter optimization under serverless environments.
+- Optimized database query response payloads for dashboard status tracking.
+
+### New Technologies/Libraries Added
+- **Backend**: `serverless-http` (v4.0.0) for running serverless endpoints on Netlify.
+- **Enterprise Workspace**: `next` (v16.2.6), `react` (v19.2.4), `tailwindcss` (v4.2.1), `lucide-react` (v1.16.0), `radix-ui` (v1.4.3), `zustand` (v5.0.13), `@tanstack/react-query` (v5.100.14), `framer-motion` (v12.40.0).
+
+### Pending Work / Next Steps
+- Migrate dashboard, project registration, and HOD forms features into the Next.js App Router workspace (`next-app/`).
+- Connect and configure production-grade Redis (Upstash) in live settings.
+- Implement production SMTP settings for the forgot password flow inside Netlify environment dashboard configuration.
+
+---
+
+## Core Features & Capabilities
+
+- **Role-Based Access**: Dedicated student, mentor, HOD, and administrative workspaces.
+- **HOD Registration Forms**: Creation, publication, and workflow controls for custom project forms.
+- **Student Project Registration**: Complete validation logic for semesters, team member emails, and registration numbers.
+- **Mentorship Mapping**: HOD-driven approval process with automatic and manual mentor allocation.
+- **Real-Time Collaboration**: Express Socket.IO connection rooms mapped to active student-mentor projects.
+- **Enterprise Foundations**: Prisma 7 database schemas, `/api/v2/auth` security middleware, session caching, and admin audit logging.
 
 ## Tech Stack
 
 ### Active Frontend
 
-- React 19
-- Vite
-- Tailwind CSS
-- React Router
-- Redux Toolkit
-- Zustand
-- TanStack Query
-- TanStack Table
-- React Hook Form
-- Zod
-- Framer Motion
-- Recharts / ECharts
-- Socket.IO Client
-- Sentry-ready monitoring
+- **React**: `^19.2.6`
+- **Vite**: `^8.0.12`
+- **Tailwind CSS**: `^4.3.0`
+- **React Router**: `^7.15.1`
+- **Redux Toolkit**: `^2.12.0`
+- **Zustand**: `^5.0.13`
+- **TanStack React Query**: `^5.100.14`
+- **TanStack Table**: `^8.21.3`
+- **React Hook Form**: `^7.76.1`
+- **Zod**: `^4.4.3`
+- **Framer Motion**: `^12.40.0`
+- **ECharts for React**: `^3.0.6` & **echarts**: `^6.1.0`
+- **Socket.IO Client**: `^4.8.3`
+- **Sentry-ready monitoring**: `@sentry/react ^10.53.1`
 
 ### Enterprise Frontend Foundation
 
-- Next.js App Router
-- Tailwind CSS
-- shadcn/ui-style primitives
-- Framer Motion
-- TanStack Table
-- React Query
-- Zustand
-- Socket.IO Client
-- React DnD
-- Recharts
+- **Next.js**: `^16.2.6` (App Router)
+- **Tailwind CSS**: `^4.2.1`
+- **shadcn**: `^4.7.0` (UI primitives)
+- **Framer Motion**: `^12.40.0`
+- **TanStack Table**: `^8.21.3`
+- **React Query**: `^5.100.14`
+- **Zustand**: `^5.0.13`
+- **Socket.IO Client**: `^4.8.3`
+- **React DnD**: `^16.0.1`
+- **Recharts**: `^3.8.1`
 
 ### Backend
 
-- Node.js
-- Express.js
-- PostgreSQL
-- Prisma ORM
-- Redis / Upstash-ready session cache
-- Socket.IO
-- JWT authentication
-- bcrypt password hashing
-- Nodemailer email flows
-- Express rate limiting
-- Multer upload foundation
+- **Node.js**: `20+`
+- **Express.js**: `^4.22.2` (Downgraded for serverless compatibility)
+- **Prisma Client**: `^7.8.0`
+- **Serverless HTTP**: `^4.0.0` (Netlify integration)
+- **Socket.IO**: `^4.8.3`
+- **JWT**: `jsonwebtoken ^9.0.3` & `bcryptjs ^3.0.3`
+- **Nodemailer**: `^8.0.9` (Password reset / mail flows)
+- **Express Rate Limit**: `^8.5.2`
+- **Redis Integration**: `ioredis ^5.10.1` & `bullmq ^5.76.8`
+- **Database Driver**: `pg ^8.20.0` & `mysql2 ^3.22.3`
 
 ### Database
 
-- PostgreSQL
-- Neon-compatible connection via `DATABASE_URL`
-- Prisma schema in `backend/prisma/schema.prisma`
-- Existing SQL migrations and compatibility schemas in `database/`
+- **PostgreSQL**: Managed via Neon-compatible connection strings
+- **Prisma ORM**: Schema defined in `backend/prisma/schema.prisma`
+- **Compatibility**: Legacy migrations and SQL schemas structured in `database/`
 
 ## Authentication & Security
 
@@ -217,11 +267,9 @@ ProjectFlow/
 
 ## Screenshots
 
-> Add production screenshots here as the UI stabilizes.
-
-| Signup | Dashboard | HOD Forms |
+| Signup Screen | Student Timeline (Smoke Test) | HOD Forms |
 | --- | --- | --- |
-| `artifacts/signup-live-restored.png` | _Coming soon_ | _Coming soon_ |
+| ![Signup Live Restored](artifacts/signup-live-restored.png) | ![Student Timeline Smoke](artifacts/student-timeline-smoke.png) | _Coming soon_ |
 
 ## Environment Variables
 
