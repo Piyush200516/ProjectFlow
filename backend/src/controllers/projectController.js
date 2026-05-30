@@ -15,6 +15,24 @@ const columnExists = async (tableName, columnName) => {
   return result.rows.length > 0;
 };
 
+const ensureProjectRegistrationMembersTable = async () => {
+  await db.pool.query(`
+    CREATE TABLE IF NOT EXISTS project_registration_members (
+      id SERIAL PRIMARY KEY,
+      registration_id INT,
+      submission_id INT,
+      form_id INT,
+      user_id INT,
+      student_name VARCHAR(150),
+      student_email VARCHAR(150),
+      roll_number VARCHAR(50),
+      team_role VARCHAR(50) DEFAULT 'Member',
+      is_leader BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+};
+
 // @desc    Get all projects for the logged-in user (based on role)
 // @route   GET /api/projects
 // @access  Private
@@ -26,8 +44,23 @@ exports.getProjects = async (req, res) => {
     let params = [];
 
     if (role === 'student') {
+      await ensureProjectRegistrationMembersTable();
       query = `
-        SELECT p.*,
+        SELECT p.id,
+               p.registration_id,
+               p.title,
+               p.type,
+               p.team_name,
+               p.description,
+               p.start_date,
+               p.end_date,
+               p.status,
+               p.progress_percent,
+               p.branch_id,
+               p.created_by,
+               p.mentor_id,
+               p.created_at,
+               p.updated_at,
                rf.deadline as registration_deadline,
                rfs.status as registration_status
         FROM projects p
@@ -38,9 +71,41 @@ exports.getProjects = async (req, res) => {
          AND rfs.project_title = p.title
         LEFT JOIN registration_forms rf ON rf.id = rfs.form_id
         WHERE pm.student_id = ?
-        ORDER BY p.created_at DESC
+        UNION ALL
+        SELECT COALESCE(p.id, pr.id) AS id,
+               pr.id AS registration_id,
+               rfs.project_title AS title,
+               rf.project_type AS type,
+               pr.team_name,
+               COALESCE(rfs.abstract, rfs.problem_statement) AS description,
+               NULL::date AS start_date,
+               NULL::date AS end_date,
+               rfs.status,
+               COALESCE(p.progress_percent, 0) AS progress_percent,
+               rf.branch_id,
+               rfs.leader_id AS created_by,
+               COALESCE(p.mentor_id, pr.mentor_id) AS mentor_id,
+               rfs.submitted_at AS created_at,
+               rfs.updated_at,
+               rf.deadline AS registration_deadline,
+               rfs.status AS registration_status
+        FROM registration_form_submissions rfs
+        JOIN registration_forms rf ON rf.id = rfs.form_id
+        LEFT JOIN project_team_members ptm
+          ON ptm.submission_id = rfs.id
+         AND (ptm.user_id = ? OR ptm.student_id = ? OR ptm.student_user_id = ?)
+        LEFT JOIN project_registration_members prm
+          ON prm.submission_id = rfs.id
+         AND prm.user_id = ?
+        LEFT JOIN project_registrations pr
+          ON pr.id = COALESCE(ptm.project_registration_id, prm.registration_id)
+          OR (pr.created_by = rfs.leader_id AND pr.title = rfs.project_title)
+        LEFT JOIN projects p ON p.registration_id = pr.id
+        WHERE (rfs.leader_id = ? OR ptm.id IS NOT NULL OR prm.id IS NOT NULL)
+          AND p.id IS NULL
+        ORDER BY created_at DESC
       `;
-      params = [id];
+      params = [id, id, id, id, id, id];
     } else if (role === 'mentor') {
       query = `
         SELECT DISTINCT p.*

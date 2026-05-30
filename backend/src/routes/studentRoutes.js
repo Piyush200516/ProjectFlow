@@ -7,6 +7,7 @@ const {
   getProfile,
   updateProfile,
   getActiveRegistrationForms,
+  getRegistrationStatus,
   getMyProject,
   getDocumentWorkspace,
   submitMilestoneWorkspace,
@@ -41,6 +42,7 @@ const upload = multer({
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
 router.get('/registration-forms/active', protect, getActiveRegistrationForms);
+router.get('/registration-status', protect, getRegistrationStatus);
 router.get('/my-project', protect, getMyProject);
 router.get('/document-workspace', protect, getDocumentWorkspace);
 router.post('/milestone-submit', protect, upload.single('file'), submitMilestoneWorkspace);

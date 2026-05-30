@@ -161,6 +161,84 @@ const ensureProjectTeamMembersCompatibility = async (client = db.pool) => {
   }
 };
 
+const ensureProjectRegistrationMembersCompatibility = async (client = db.pool) => {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS project_registration_members (
+      id SERIAL PRIMARY KEY,
+      registration_id INT,
+      submission_id INT,
+      form_id INT,
+      user_id INT,
+      student_name VARCHAR(150),
+      student_email VARCHAR(150) NOT NULL,
+      roll_number VARCHAR(50),
+      team_role VARCHAR(50) DEFAULT 'Member',
+      is_leader BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  const statements = [
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS registration_id INT`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS submission_id INT`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS form_id INT`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS user_id INT`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS student_name VARCHAR(150)`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS student_email VARCHAR(150)`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS roll_number VARCHAR(50)`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS team_role VARCHAR(50) DEFAULT 'Member'`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS is_leader BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE project_registration_members ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE project_registration_members ALTER COLUMN registration_id DROP NOT NULL`,
+    `ALTER TABLE project_registration_members ALTER COLUMN submission_id DROP NOT NULL`,
+    `ALTER TABLE project_registration_members ALTER COLUMN form_id DROP NOT NULL`,
+    `ALTER TABLE project_registration_members ALTER COLUMN user_id DROP NOT NULL`,
+    `ALTER TABLE project_registration_members ALTER COLUMN student_email DROP NOT NULL`
+  ];
+
+  for (const statement of statements) {
+    try {
+      await client.query(statement);
+    } catch (error) {
+      if (error.code !== '42703') {
+        throw error;
+      }
+    }
+  }
+
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_project_registration_members_unique_email
+    ON project_registration_members (registration_id, lower(student_email))
+    WHERE registration_id IS NOT NULL AND student_email IS NOT NULL
+  `);
+
+  await client.query(`
+    INSERT INTO project_registration_members
+      (registration_id, submission_id, form_id, user_id, student_name, student_email, roll_number, team_role, is_leader, created_at)
+    SELECT DISTINCT ON (ptm.project_registration_id, lower(ptm.email))
+           ptm.project_registration_id,
+           ptm.submission_id,
+           ptm.form_id,
+           COALESCE(ptm.user_id, ptm.student_id, ptm.student_user_id),
+           ptm.full_name,
+           ptm.email,
+           ptm.roll_number,
+           CASE WHEN COALESCE(ptm.is_leader, ptm.is_team_leader, false) THEN 'Team Leader' ELSE COALESCE(ptm.role, 'Member') END,
+           COALESCE(ptm.is_leader, ptm.is_team_leader, false),
+           COALESCE(ptm.created_at, CURRENT_TIMESTAMP)
+    FROM project_team_members ptm
+    WHERE ptm.project_registration_id IS NOT NULL
+      AND ptm.email IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM project_registration_members prm
+        WHERE prm.registration_id = ptm.project_registration_id
+          AND lower(prm.student_email) = lower(ptm.email)
+      )
+    ORDER BY ptm.project_registration_id, lower(ptm.email), COALESCE(ptm.is_leader, ptm.is_team_leader, false) DESC
+  `);
+};
+
 const getStudentProfileByUserId = async (client, userId) => {
   const { rows } = await client.query(`
     SELECT s.user_id,
@@ -348,11 +426,14 @@ exports.updateProfile = async (req, res) => {
 exports.getActiveRegistrationForms = async (req, res) => {
   try {
     await ensureRegistrationFormPublishColumns();
+    await ensureProjectRegistrationMembersCompatibility();
     const userId = req.user.id;
 
     // Get student details
     const [studentData] = await db.execute(`
       SELECT s.user_id,
+             COALESCE(s.email, u.email) AS email,
+             s.roll_number,
              s.branch_id,
              s.academic_year,
              s.semester,
@@ -360,6 +441,7 @@ exports.getActiveRegistrationForms = async (req, res) => {
              s.subsection,
              b.name as branch_name
       FROM students s
+      JOIN users u ON u.id = s.user_id
       LEFT JOIN branches b ON s.branch_id = b.id
       WHERE s.user_id = $1
     `, [userId]);
@@ -411,7 +493,25 @@ exports.getActiveRegistrationForms = async (req, res) => {
                EXISTS (
                  SELECT 1
                  FROM registration_form_submissions rfs
-                 WHERE rfs.form_id = rf.id AND rfs.leader_id = $5
+                 LEFT JOIN project_registration_members prm
+                   ON prm.submission_id = rfs.id
+                   OR (prm.form_id = rfs.form_id AND prm.registration_id IS NOT NULL)
+                 WHERE (rfs.form_id = rf.id AND rfs.leader_id = $5)
+                    OR (
+                      rfs.form_id = rf.id
+                      AND (
+                        prm.user_id = $5
+                        OR LOWER(prm.student_email) = LOWER($6)
+                        OR UPPER(prm.roll_number) = UPPER($7)
+                        OR EXISTS (
+                          SELECT 1
+                          FROM jsonb_array_elements(COALESCE(rfs.team_members, '[]'::jsonb)) AS member
+                          WHERE NULLIF(member->>'user_id', '')::int = $5
+                             OR LOWER(member->>'email') = LOWER($6)
+                             OR UPPER(member->>'roll_number') = UPPER($7)
+                        )
+                      )
+                    )
                ) as has_submitted
         FROM registration_forms rf
         WHERE (LOWER(COALESCE(rf.status, '')) = 'published' OR rf.is_published = TRUE)
@@ -429,7 +529,15 @@ exports.getActiveRegistrationForms = async (req, res) => {
         AND (deadline IS NULL OR deadline >= CURRENT_TIMESTAMP)
         ORDER BY created_at DESC
         LIMIT 20
-      `, [student.branch_id, sSemester, sSection, sSubsection || null, userId]);
+      `, [
+        student.branch_id,
+        sSemester,
+        sSection,
+        sSubsection || null,
+        userId,
+        student.email || '',
+        student.roll_number || ''
+      ]);
       
       forms = matchingForms;
       console.log("Matched forms:", forms);
@@ -667,6 +775,7 @@ exports.submitRegistrationForm = async (req, res) => {
 
     await ensureStudentProfileCompatibility();
     await ensureProjectTeamMembersCompatibility(client);
+    await ensureProjectRegistrationMembersCompatibility(client);
 
     // Get form details
     const formResult = await client.query(`
@@ -772,6 +881,34 @@ exports.submitRegistrationForm = async (req, res) => {
     const candidateUserIds = [leaderId, ...verifiedMembers.map((member) => member.user_id)];
     const candidateEmails = new Set([normalizeComparable(leaderProfile.email), ...verifiedMembers.map((member) => normalizeComparable(member.email))]);
     const candidateRolls = new Set([normalizeComparable(leaderProfile.roll_number), ...verifiedMembers.map((member) => normalizeComparable(member.roll_number))]);
+
+    const existingSameFormSubmissions = await client.query(`
+      SELECT 1
+      FROM registration_form_submissions rfs
+      LEFT JOIN project_registration_members prm
+        ON prm.submission_id = rfs.id
+       OR prm.form_id = rfs.form_id
+      WHERE rfs.form_id = $4
+        AND rfs.status IN ('Pending', 'Approved')
+        AND (
+          rfs.leader_id = ANY($1::int[])
+          OR prm.user_id = ANY($1::int[])
+          OR LOWER(prm.student_email) = ANY($2::text[])
+          OR UPPER(prm.roll_number) = ANY($3::text[])
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(COALESCE(rfs.team_members, '[]'::jsonb)) AS member
+            WHERE NULLIF(member->>'user_id', '')::int = ANY($1::int[])
+               OR LOWER(member->>'email') = ANY($2::text[])
+               OR UPPER(member->>'roll_number') = ANY($3::text[])
+          )
+        )
+      LIMIT 1
+    `, [candidateUserIds, [...candidateEmails], [...candidateRolls], id]);
+
+    if (existingSameFormSubmissions.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'Form Already Submitted' });
+    }
 
     const existingSubmissions = await client.query(`
       SELECT 1
@@ -884,6 +1021,31 @@ exports.submitRegistrationForm = async (req, res) => {
       VALUES ${insertPlaceholders}
     `, insertValues);
 
+    const registrationMemberValues = [];
+    const registrationMemberPlaceholders = allMembersForInsert.map((member, index) => {
+      const offset = index * 10;
+      const isLeader = member.role === 'Team Leader';
+      registrationMemberValues.push(
+        legacyProjectRegistrationId,
+        submission.id,
+        id,
+        member.user_id,
+        member.full_name,
+        member.email,
+        member.roll_number,
+        member.role,
+        isLeader,
+        new Date()
+      );
+      return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10})`;
+    }).join(', ');
+
+    await client.query(`
+      INSERT INTO project_registration_members
+      (registration_id, submission_id, form_id, user_id, student_name, student_email, roll_number, team_role, is_leader, created_at)
+      VALUES ${registrationMemberPlaceholders}
+    `, registrationMemberValues);
+
     await client.query('COMMIT');
 
     const notifiedStudents = await createTeamNotifications({
@@ -929,6 +1091,7 @@ exports.getMyProject = async (req, res) => {
   try {
     const studentId = req.user.id;
     await ensureProjectTeamMembersCompatibility();
+    await ensureProjectRegistrationMembersCompatibility();
 
     const submissionResult = await db.pool.query(`
       SELECT s.id,
@@ -963,14 +1126,17 @@ exports.getMyProject = async (req, res) => {
       LEFT JOIN project_team_members ptm
         ON ptm.submission_id = s.id
        AND (ptm.user_id = $1 OR ptm.student_id = $1 OR ptm.student_user_id = $1)
+      LEFT JOIN project_registration_members prm
+        ON prm.submission_id = s.id
+       AND (prm.user_id = $1 OR LOWER(prm.student_email) = LOWER((SELECT email FROM users WHERE id = $1)) OR UPPER(prm.roll_number) = UPPER((SELECT roll_number FROM students WHERE user_id = $1)))
       LEFT JOIN project_registrations pr
-        ON pr.id = ptm.project_registration_id
+        ON pr.id = COALESCE(ptm.project_registration_id, prm.registration_id)
         OR (pr.created_by = s.leader_id AND pr.title = s.project_title)
       LEFT JOIN projects p
         ON p.registration_id = pr.id
         OR (p.created_by = s.leader_id AND p.title = s.project_title)
       LEFT JOIN users mentor ON mentor.id = p.mentor_id
-      WHERE s.leader_id = $1 OR ptm.id IS NOT NULL
+      WHERE s.leader_id = $1 OR ptm.id IS NOT NULL OR prm.id IS NOT NULL
       ORDER BY
         CASE s.status WHEN 'Pending' THEN 1 WHEN 'Approved' THEN 2 WHEN 'Rejected' THEN 3 ELSE 4 END,
         s.submitted_at DESC,
@@ -1182,6 +1348,55 @@ exports.getMyProject = async (req, res) => {
     });
   } catch (error) {
     console.error('getMyProject error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getRegistrationStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await ensureProjectTeamMembersCompatibility();
+    await ensureProjectRegistrationMembersCompatibility();
+
+    const result = await db.pool.query(`
+      SELECT s.id AS submission_id,
+             s.form_id,
+             s.project_title,
+             s.project_domain,
+             s.status,
+             s.submitted_at,
+             pr.id AS project_registration_id,
+             f.project_type,
+             f.title AS form_title
+      FROM registration_form_submissions s
+      JOIN registration_forms f ON f.id = s.form_id
+      LEFT JOIN project_team_members ptm
+        ON ptm.submission_id = s.id
+       AND (ptm.user_id = $1 OR ptm.student_id = $1 OR ptm.student_user_id = $1)
+      LEFT JOIN project_registration_members prm
+        ON prm.submission_id = s.id
+       AND (
+         prm.user_id = $1
+         OR LOWER(prm.student_email) = LOWER((SELECT email FROM users WHERE id = $1))
+         OR UPPER(prm.roll_number) = UPPER((SELECT roll_number FROM students WHERE user_id = $1))
+       )
+      LEFT JOIN project_registrations pr
+        ON pr.id = COALESCE(ptm.project_registration_id, prm.registration_id)
+        OR (pr.created_by = s.leader_id AND pr.title = s.project_title)
+      WHERE s.leader_id = $1 OR ptm.id IS NOT NULL OR prm.id IS NOT NULL
+      ORDER BY s.submitted_at DESC, s.id DESC
+      LIMIT 1
+    `, [userId]);
+
+    const registration = result.rows[0] || null;
+    res.json({
+      success: true,
+      submitted: Boolean(registration),
+      registration,
+      message: registration ? 'Form Already Submitted' : 'No registration submitted'
+    });
+  } catch (error) {
+    console.error('getRegistrationStatus error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

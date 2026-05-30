@@ -914,14 +914,40 @@ exports.getStudentActiveStatus = async (req, res) => {
       });
     }
 
-    // 2. Check active pending submission
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS project_registration_members (
+        id SERIAL PRIMARY KEY,
+        registration_id INT,
+        submission_id INT,
+        form_id INT,
+        user_id INT,
+        student_name VARCHAR(150),
+        student_email VARCHAR(150),
+        roll_number VARCHAR(50),
+        team_role VARCHAR(50) DEFAULT 'Member',
+        is_leader BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 2. Check active pending registration submission
     const [activeSubmissions] = await db.execute(
-      `SELECT pfs.id, pfs.title, pfs.status, pfs.domain, f.project_type
-       FROM project_form_submissions pfs
-       JOIN team_members tm ON pfs.id = tm.submission_id
-       JOIN project_forms f ON pfs.form_id = f.id
-       WHERE tm.student_id = ? AND pfs.status = 'Pending'`,
-      [studentId]
+      `SELECT rfs.id,
+              rfs.project_title AS title,
+              rfs.status,
+              rfs.project_domain AS domain,
+              f.project_type
+       FROM registration_form_submissions rfs
+       JOIN registration_forms f ON rfs.form_id = f.id
+       LEFT JOIN project_team_members ptm
+         ON ptm.submission_id = rfs.id
+        AND (ptm.user_id = ? OR ptm.student_id = ? OR ptm.student_user_id = ?)
+       LEFT JOIN project_registration_members prm
+         ON prm.submission_id = rfs.id
+        AND prm.user_id = ?
+       WHERE (rfs.leader_id = ? OR ptm.id IS NOT NULL OR prm.id IS NOT NULL)
+         AND rfs.status = 'Pending'`,
+      [studentId, studentId, studentId, studentId, studentId]
     );
 
     if (activeSubmissions.length > 0) {
