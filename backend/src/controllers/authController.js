@@ -31,6 +31,7 @@ const RESET_TOKEN_TTL_MINUTES = 30;
 })();
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
 
 const getFrontendUrl = () => {
   return (process.env.FRONTEND_URL || 'https://projectflow-edu-app.netlify.app').replace(/\/+$/, '');
@@ -134,6 +135,7 @@ exports.login = async (req, res) => {
       [normalizedEmail]
     );
     const user = users[0];
+    const normalizedRole = normalizeRole(user?.role);
 
     // If no user found, respond early
     if (!user) {
@@ -162,7 +164,7 @@ exports.login = async (req, res) => {
       console.log('BCRYPT_MATCH:', bcryptMatch);
     }
 
-    if (!['student', 'mentor', 'hod'].includes(user.role)) {
+    if (!['student', 'mentor', 'hod'].includes(normalizedRole)) {
       return res.status(403).json({ message: 'This role is no longer supported.' });
     }
 
@@ -183,7 +185,7 @@ exports.login = async (req, res) => {
         id: user.id,
         full_name: user.full_name,
         email: user.email,
-        role: user.role,
+        role: normalizedRole,
       }
     });
   } catch (error) {

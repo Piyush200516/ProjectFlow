@@ -5,7 +5,6 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
-const enterpriseAuthRoutes = require('./routes/enterpriseAuthRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const documentRoutes = require('./routes/documentRoutes');
@@ -92,7 +91,14 @@ app.get('/api/health', async (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/v2/auth', enterpriseAuthRoutes);
+app.use('/api/v2/auth', (req, res, next) => {
+  try {
+    const enterpriseAuthRoutes = require('./routes/enterpriseAuthRoutes');
+    return enterpriseAuthRoutes(req, res, next);
+  } catch (error) {
+    return next(error);
+  }
+});
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/documents', documentRoutes);
