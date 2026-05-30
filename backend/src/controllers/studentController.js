@@ -825,29 +825,26 @@ exports.submitRegistrationForm = async (req, res) => {
     try {
       const legacyRegistration = await client.query(`
         INSERT INTO project_registrations
-        (title, description, project_type, branch, academic_year, semester, section, domain, abstract, created_by, status, problem_statement, tech_stack)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Pending', $11, $12)
+        (registration_form_id, submission_id, title, project_domain, problem_statement, abstract, tech_stack, team_name, github_link, status, created_by, branch_id, academic_year, semester, section, subsection)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, $11, $12, $13, $14, $15)
         RETURNING id
       `, [
+        id,
+        submission.id,
         project_title,
+        project_domain,
+        problem_statement || '',
         abstract || problem_statement || '',
+        tech_stack || '',
         project_type || form.project_type || 'Minor Project',
-        form.branch || form.branch_id || leaderProfile.branch_name || 'CSE',
+        github_link || null,
+        leaderId,
+        form.branch_id || leaderProfile.branch_id,
         form.academic_year || leaderProfile.academic_year,
         form.semester || leaderProfile.semester,
         normalizeComparable(form.section) === 'all' ? leaderProfile.section : (form.section || leaderProfile.section),
-        project_domain,
-        abstract || '',
-        leaderId,
-        problem_statement || '',
-        tech_stack || ''
+        normalizeComparable(form.subsection) === 'all' ? leaderProfile.subsection : (form.subsection || leaderProfile.subsection)
       ]);
-      if (github_link) {
-        await client.query(
-          `UPDATE project_registrations SET github_link = $1 WHERE id = $2`,
-          [github_link, legacyRegistration.rows[0]?.id]
-        );
-      }
       legacyProjectRegistrationId = legacyRegistration.rows[0]?.id || submission.id;
     } catch (error) {
       if (error.code !== '42P01') {
@@ -915,7 +912,11 @@ exports.submitRegistrationForm = async (req, res) => {
       console.error('submitRegistrationForm rollback error:', rollbackError);
     }
     console.error('submitRegistrationForm error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Registration submit failed',
+      error: error.message
+    });
   } finally {
     client.release();
   }
