@@ -12,9 +12,9 @@ const academicYears = Array.from({ length: 5 }, (_, index) => {
   const start = currentYear - 2 + index;
   return `${start}-${String(start + 1).slice(-2)}`;
 });
-const semesters = [1, 2, 3, 4, 5, 6, 7, 8];
-const sections = ['1', '2', '3', 'A', 'B', 'C', 'ALL'];
-const subsections = ['1', '2', '3', 'A', 'B', 'C', 'ALL'];
+const semesters = [5, 6, 7, 8];
+const sections = ['1', '2', '3', '4', '5', '6', 'ALL'];
+const subsections = ['1', '2', 'ALL'];
 
 const emptyForm = {
   year: academicYears[2] || '',
