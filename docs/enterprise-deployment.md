@@ -15,7 +15,7 @@ npm run build
 4. Add environment variables:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-backend.example.com/api/v2
+NEXT_PUBLIC_API_URL=https://project-flow-ed3n.vercel.app/api
 ```
 
 ## Backend: Render, Railway, or AWS
@@ -41,7 +41,7 @@ npm start
 NODE_ENV=production
 DATABASE_URL=postgresql://...
 JWT_SECRET=...
-FRONTEND_URL=https://your-frontend.vercel.app
+FRONTEND_URL=https://project-flow-blush.vercel.app
 REDIS_HOST=...
 REDIS_PORT=6379
 REDIS_PASSWORD=...

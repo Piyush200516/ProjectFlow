@@ -12,6 +12,11 @@ const {
 // Lazy initialize tables just in case they don't exist (since sandboxing prevents migrations)
 (async () => {
     try {
+        const hasUsers = await db.tableExists('users');
+        if (!hasUsers) {
+            return;
+        }
+
         const createRegistrationFormsTable = `
             CREATE TABLE IF NOT EXISTS registration_forms (
                 id SERIAL PRIMARY KEY,
@@ -126,6 +131,169 @@ const normalizeTarget = (value) => {
 
 const isAllTarget = (value) => normalizeTarget(value) === 'ALL';
 
+const normalizeMentorAllocationPayload = (body) => ({
+  year: String(body.year || body.academic_year || '').trim(),
+  semester: parseInt(body.semester, 10),
+  section: normalizeTarget(body.section),
+  subsection: normalizeTarget(body.subsection),
+  mentorId: parseInt(body.mentorId || body.mentor_id, 10)
+});
+
+const ensureMentorAllocationTables = async (client = db.pool) => {
+  const query = (sql, params = []) => client.query(sql, params);
+
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_name VARCHAR(150)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_email VARCHAR(150)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS mentor_assignments (
+      id SERIAL PRIMARY KEY,
+      mentor_id INT REFERENCES users(id) ON DELETE CASCADE,
+      mentor_user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+      registration_id INT,
+      submission_id INT,
+      assigned_by INT REFERENCES users(id) ON DELETE SET NULL,
+      section VARCHAR(10),
+      subsection VARCHAR(10),
+      academic_year VARCHAR(20),
+      branch VARCHAR(100),
+      domain VARCHAR(100),
+      allocation_id INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`ALTER TABLE IF EXISTS mentor_assignments ADD COLUMN IF NOT EXISTS mentor_user_id INT REFERENCES users(id) ON DELETE CASCADE`);
+  await query(`ALTER TABLE IF EXISTS mentor_assignments ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`);
+  await query(`ALTER TABLE IF EXISTS mentor_assignments ADD COLUMN IF NOT EXISTS allocation_id INT`);
+  await query(`ALTER TABLE IF EXISTS mentor_assignments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS mentor_allocations (
+      id SERIAL PRIMARY KEY,
+      academic_year VARCHAR(20) NOT NULL,
+      semester INT NOT NULL,
+      section VARCHAR(10) NOT NULL,
+      subsection VARCHAR(10) NOT NULL,
+      mentor_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mentor_name VARCHAR(150) NOT NULL,
+      mentor_email VARCHAR(150) NOT NULL,
+      created_by_hod INT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`ALTER TABLE mentor_allocations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_mentor_allocations_unique_cohort
+    ON mentor_allocations (academic_year, semester, UPPER(section), UPPER(subsection))
+  `);
+};
+
+const formatMentorAllocation = (allocation) => ({
+  ...allocation,
+  year: allocation.academic_year,
+  mentorId: allocation.mentor_id,
+  mentorName: allocation.mentor_name,
+  mentorEmail: allocation.mentor_email,
+  createdByHod: allocation.created_by_hod
+});
+
+const getMentorById = async (client, mentorId) => {
+  const result = await client.query(`
+    SELECT u.id, u.full_name, u.email
+    FROM users u
+    WHERE u.id = $1 AND u.role = 'mentor' AND COALESCE(u.is_active, TRUE) = TRUE
+    LIMIT 1
+  `, [mentorId]);
+  return result.rows[0] || null;
+};
+
+const syncMentorAllocationAssignments = async (client, allocation, previousAllocation = null) => {
+  const studentUpdate = await client.query(`
+    UPDATE students
+    SET mentor_id = $1,
+        mentor_name = $2,
+        mentor_email = $3,
+        updated_at = NOW()
+    WHERE semester = $4
+      AND ($5 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($5))
+      AND ($6 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($6))
+  `, [
+    allocation.mentor_id,
+    allocation.mentor_name,
+    allocation.mentor_email,
+    allocation.semester,
+    allocation.section,
+    allocation.subsection
+  ]);
+
+  const projectUpdate = await client.query(`
+    UPDATE projects
+    SET mentor_id = $1,
+        updated_at = NOW()
+    WHERE academic_year = $2
+      AND semester = $3
+      AND ($4 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($4))
+      AND ($5 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($5))
+  `, [
+    allocation.mentor_id,
+    allocation.academic_year,
+    allocation.semester,
+    allocation.section,
+    allocation.subsection
+  ]);
+
+  const assignmentUpdate = await client.query(`
+    UPDATE mentor_assignments ma
+    SET mentor_id = $1,
+        mentor_user_id = $1,
+        allocation_id = $2,
+        updated_at = NOW()
+    WHERE ma.academic_year = $3
+      AND ($4 = 'ALL' OR UPPER(COALESCE(ma.section, '')) = UPPER($4))
+      AND ($5 = 'ALL' OR UPPER(COALESCE(ma.subsection, '')) = UPPER($5))
+  `, [
+    allocation.mentor_id,
+    allocation.id,
+    allocation.academic_year,
+    allocation.section,
+    allocation.subsection
+  ]);
+
+  const syncResult = {
+    studentsUpdated: studentUpdate.rowCount || 0,
+    projectsUpdated: projectUpdate.rowCount || 0,
+    mentorAssignmentsUpdated: assignmentUpdate.rowCount || 0,
+    oldMentor: previousAllocation
+      ? {
+          id: previousAllocation.mentor_id,
+          name: previousAllocation.mentor_name,
+          email: previousAllocation.mentor_email
+        }
+      : null,
+    newMentor: {
+      id: allocation.mentor_id,
+      name: allocation.mentor_name,
+      email: allocation.mentor_email
+    }
+  };
+
+  console.log('[MENTOR_ALLOCATION_SYNC]', {
+    allocationId: allocation.id,
+    year: allocation.academic_year,
+    semester: allocation.semester,
+    section: allocation.section,
+    subsection: allocation.subsection,
+    ...syncResult
+  });
+
+  return syncResult;
+};
+
 const ensureRegistrationFormPublishColumns = async () => {
   await db.execute(`ALTER TABLE registration_forms ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE`);
   await db.execute(`UPDATE registration_forms SET is_published = TRUE WHERE LOWER(COALESCE(status, '')) = 'published'`);
@@ -140,7 +308,34 @@ const defaultTimelineMilestones = [
   { title: 'GitHub Final Submission', document_type: 'github' }
 ];
 
+const ensureProjectApprovalCompatibility = async (client) => {
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS registration_id INT`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS branch VARCHAR(100)`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS semester INT`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS section VARCHAR(10)`);
+  await client.query(`ALTER TABLE project_members ADD COLUMN IF NOT EXISTS registration_id INT`);
+  await client.query(`ALTER TABLE project_members ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'Member'`);
+  await client.query(`ALTER TABLE project_members ADD COLUMN IF NOT EXISTS is_leader BOOLEAN DEFAULT FALSE`);
+
+  await client.query(`ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_type_check`);
+  await client.query(`
+    ALTER TABLE projects
+    ADD CONSTRAINT projects_type_check
+    CHECK (type IN (
+      'Mini Project',
+      'Minor Project',
+      'Major Project',
+      'Hackathon Project',
+      'Final Year Project',
+      'Research Project'
+    ))
+  `);
+};
+
 const syncApprovedProjectForSubmission = async (client, submissionId, mentorId = null) => {
+  await ensureProjectApprovalCompatibility(client);
+
   const submissionResult = await client.query(`
     SELECT s.id,
            s.form_id,
@@ -1067,6 +1262,12 @@ exports.approveRegistrationSubmission = async (req, res) => {
     const { id } = req.params;
     const { remarks } = req.body;
 
+    console.log('[HOD_APPROVE] request', {
+      params: req.params,
+      body: req.body,
+      actor: req.user?.id,
+    });
+
     await client.query('BEGIN');
     const result = await client.query(`
       UPDATE registration_form_submissions 
@@ -1080,7 +1281,14 @@ exports.approveRegistrationSubmission = async (req, res) => {
     }
 
     const submission = result.rows[0];
+    console.log('[HOD_APPROVE] submission updated', {
+      id: submission.id,
+      status: submission.status,
+      project_title: submission.project_title,
+    });
+
     const syncedProject = await syncApprovedProjectForSubmission(client, submission.id);
+    console.log('[HOD_APPROVE] project sync result', syncedProject);
     await client.query('COMMIT');
 
     const notifiedStudents = await createTeamNotifications({
@@ -1107,7 +1315,15 @@ exports.approveRegistrationSubmission = async (req, res) => {
     } catch (rollbackError) {
       console.error('approveRegistrationSubmission rollback error:', rollbackError);
     }
-    console.error('approveRegistrationSubmission error:', error);
+    console.error('approveRegistrationSubmission error:', {
+      params: req.params,
+      body: req.body,
+      message: error.message,
+      code: error.code,
+      constraint: error.constraint,
+      detail: error.detail,
+      stack: error.stack,
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   } finally {
     client.release();
@@ -1244,6 +1460,254 @@ exports.assignMentor = async (req, res) => {
       console.error('assignMentor rollback error:', rollbackError);
     }
     console.error('assignMentor error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.getMentorAllocations = async (req, res) => {
+  try {
+    await ensureMentorAllocationTables();
+    const result = await db.pool.query(`
+      SELECT ma.*,
+             hod.full_name AS hod_name,
+             COUNT(DISTINCT s.user_id)::int AS student_count
+      FROM mentor_allocations ma
+      LEFT JOIN users hod ON hod.id = ma.created_by_hod
+      LEFT JOIN students s
+        ON s.semester = ma.semester
+       AND (ma.section = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER(ma.section))
+       AND (ma.subsection = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER(ma.subsection))
+      GROUP BY ma.id, hod.full_name
+      ORDER BY ma.created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: result.rows.map(formatMentorAllocation)
+    });
+  } catch (error) {
+    console.error('getMentorAllocations error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.createMentorAllocation = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const payload = normalizeMentorAllocationPayload(req.body);
+    console.log('[MENTOR_ALLOCATION_CREATE] payload:', payload);
+
+    if (!payload.year || Number.isNaN(payload.semester) || !payload.section || !payload.subsection || Number.isNaN(payload.mentorId)) {
+      return res.status(400).json({ message: 'Academic year, semester, section, subsection, and mentor are required.' });
+    }
+
+    await client.query('BEGIN');
+    await ensureMentorAllocationTables(client);
+
+    const duplicate = await client.query(`
+      SELECT id
+      FROM mentor_allocations
+      WHERE academic_year = $1
+        AND semester = $2
+        AND UPPER(section) = UPPER($3)
+        AND UPPER(subsection) = UPPER($4)
+      LIMIT 1
+    `, [payload.year, payload.semester, payload.section, payload.subsection]);
+
+    if (duplicate.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: 'This year, semester, section, and subsection already has a mentor allocation.' });
+    }
+
+    const mentor = await getMentorById(client, payload.mentorId);
+    if (!mentor) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'Invalid mentor selection.' });
+    }
+
+    const result = await client.query(`
+      INSERT INTO mentor_allocations
+      (academic_year, semester, section, subsection, mentor_id, mentor_name, mentor_email, created_by_hod)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      payload.year,
+      payload.semester,
+      payload.section,
+      payload.subsection,
+      mentor.id,
+      mentor.full_name,
+      mentor.email,
+      req.user.id
+    ]);
+
+    const sync = await syncMentorAllocationAssignments(client, result.rows[0]);
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      success: true,
+      message: 'Mentor allocation created successfully.',
+      sync,
+      data: formatMentorAllocation(result.rows[0])
+    });
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('createMentorAllocation rollback error:', rollbackError);
+    }
+    console.error('createMentorAllocation error:', {
+      message: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.updateMentorAllocation = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const allocationId = parseInt(req.params.id, 10);
+    const payload = normalizeMentorAllocationPayload(req.body);
+    console.log('[MENTOR_ALLOCATION_UPDATE] params:', req.params, 'payload:', payload);
+
+    if (Number.isNaN(allocationId)) {
+      return res.status(400).json({ message: 'Valid allocation id is required.' });
+    }
+
+    if (!payload.year || Number.isNaN(payload.semester) || !payload.section || !payload.subsection || Number.isNaN(payload.mentorId)) {
+      return res.status(400).json({ message: 'Academic year, semester, section, subsection, and mentor are required.' });
+    }
+
+    await client.query('BEGIN');
+    await ensureMentorAllocationTables(client);
+
+    const existing = await client.query('SELECT * FROM mentor_allocations WHERE id = $1 FOR UPDATE', [allocationId]);
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Mentor allocation not found.' });
+    }
+
+    const duplicate = await client.query(`
+      SELECT id
+      FROM mentor_allocations
+      WHERE id <> $5
+        AND academic_year = $1
+        AND semester = $2
+        AND UPPER(section) = UPPER($3)
+        AND UPPER(subsection) = UPPER($4)
+      LIMIT 1
+    `, [payload.year, payload.semester, payload.section, payload.subsection, allocationId]);
+
+    if (duplicate.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: 'This year, semester, section, and subsection already has a mentor allocation.' });
+    }
+
+    const mentor = await getMentorById(client, payload.mentorId);
+    if (!mentor) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'Invalid mentor selection.' });
+    }
+
+    const result = await client.query(`
+      UPDATE mentor_allocations
+      SET academic_year = $1,
+          semester = $2,
+          section = $3,
+          subsection = $4,
+          mentor_id = $5,
+          mentor_name = $6,
+          mentor_email = $7,
+          updated_at = NOW()
+      WHERE id = $8
+      RETURNING *
+    `, [
+      payload.year,
+      payload.semester,
+      payload.section,
+      payload.subsection,
+      mentor.id,
+      mentor.full_name,
+      mentor.email,
+      allocationId
+    ]);
+
+    const sync = await syncMentorAllocationAssignments(client, result.rows[0], existing.rows[0]);
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Mentor allocation updated successfully.',
+      sync,
+      data: formatMentorAllocation(result.rows[0])
+    });
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('updateMentorAllocation rollback error:', rollbackError);
+    }
+    console.error('updateMentorAllocation error:', {
+      message: error.message,
+      stack: error.stack,
+      params: req.params,
+      body: req.body
+    });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.deleteMentorAllocation = async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const allocationId = parseInt(req.params.id, 10);
+    console.log('[MENTOR_ALLOCATION_DELETE] params:', req.params);
+
+    if (Number.isNaN(allocationId)) {
+      return res.status(400).json({ message: 'Valid allocation id is required.' });
+    }
+
+    await client.query('BEGIN');
+    await ensureMentorAllocationTables(client);
+
+    const result = await client.query('DELETE FROM mentor_allocations WHERE id = $1 RETURNING *', [allocationId]);
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Mentor allocation not found.' });
+    }
+
+    await client.query(`
+      UPDATE mentor_assignments
+      SET allocation_id = NULL,
+          updated_at = NOW()
+      WHERE allocation_id = $1
+    `, [allocationId]);
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      message: 'Mentor allocation deleted successfully.',
+      data: formatMentorAllocation(result.rows[0])
+    });
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('deleteMentorAllocation rollback error:', rollbackError);
+    }
+    console.error('deleteMentorAllocation error:', {
+      message: error.message,
+      stack: error.stack,
+      params: req.params
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   } finally {
     client.release();

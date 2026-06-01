@@ -22,7 +22,7 @@ const publicUser = (user) => ({
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
-const frontendUrl = () => (process.env.FRONTEND_URL || 'https://projectflow-edu-app.netlify.app').replace(/\/+$/, '');
+const frontendUrl = () => (process.env.FRONTEND_URL || 'https://projectflow-auth.vercel.app').replace(/\/+$/, '');
 
 const register = async ({ payload, req }) => {
   const email = normalizeEmail(payload.email);

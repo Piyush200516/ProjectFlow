@@ -7,6 +7,7 @@ const {
   getMentorStats,
   getReviewQueue,
   getAssignedProjects,
+  getAllocatedStudents,
   createMentorMilestones,
   updateMentorMilestone,
   uploadMilestoneTemplate,
@@ -45,6 +46,7 @@ const templateUpload = upload.fields([
 router.get('/dashboard', protect, authorize('mentor', 'hod', 'admin'), getMentorStats);
 router.get('/reviews', protect, authorize('mentor', 'hod', 'admin'), getReviewQueue);
 router.get('/assigned-projects', protect, authorize('mentor', 'hod', 'admin'), getAssignedProjects);
+router.get('/allocated-students', protect, authorize('mentor', 'hod', 'admin'), getAllocatedStudents);
 router.post('/milestones', protect, authorize('mentor', 'hod', 'admin'), createMentorMilestones);
 router.patch('/milestones/:id', protect, authorize('mentor', 'hod', 'admin'), updateMentorMilestone);
 router.post('/templates/upload', protect, authorize('mentor', 'hod', 'admin'), templateUpload, uploadMilestoneTemplate);

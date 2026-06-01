@@ -40,6 +40,7 @@ const HodDashboard = lazy(() => import('./pages/hod/HodDashboard'));
 const HodProjects = lazy(() => import('./pages/hod/HodProjects'));
 const HodStudents = lazy(() => import('./pages/hod/HodStudents'));
 const HodApprovals = lazy(() => import('./pages/hod/HodApprovals'));
+const HodMentorAllocations = lazy(() => import('./pages/hod/HodMentorAllocations'));
 const HodTemplates = lazy(() => import('./pages/hod/HodTemplates'));
 const HodSubmissionTracking = lazy(() => import('./pages/hod/HodSubmissionTracking'));
 
@@ -218,6 +219,7 @@ function App() {
             <Route path="projects" element={<HodProjects />} />
             <Route path="students" element={<HodStudents />} />
             <Route path="approvals" element={<HodApprovals />} />
+            <Route path="mentor-allocations" element={<HodMentorAllocations />} />
             <Route path="analytics" element={<HodDashboard />} />
             <Route path="templates" element={<HodTemplates />} />
             <Route path="submission-tracking" element={<HodSubmissionTracking />} />

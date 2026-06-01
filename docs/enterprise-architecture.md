@@ -75,7 +75,7 @@ SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASS=...
 SMTP_FROM=ProjectFlow <...>
-FRONTEND_URL=https://projectflow-edu-app.netlify.app
+FRONTEND_URL=https://project-flow-blush.vercel.app
 ACCESS_TOKEN_TTL=15m
 REFRESH_TOKEN_DAYS=30
 AUTH_LOCKOUT_LIMIT=5
@@ -85,5 +85,5 @@ AUTH_LOCKOUT_MINUTES=15
 Next.js:
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-backend.example.com/api/v2
+NEXT_PUBLIC_API_URL=https://project-flow-ed3n.vercel.app/api
 ```

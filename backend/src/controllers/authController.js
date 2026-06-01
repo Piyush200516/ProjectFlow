@@ -10,21 +10,31 @@ const RESET_TOKEN_TTL_MINUTES = 30;
 // Lazy initialize students table columns if they don't exist
 (async () => {
   try {
-    await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS section VARCHAR(10);');
-    await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS subsection VARCHAR(10);');
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS password_reset_tokens (
-        id SERIAL PRIMARY KEY,
-        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        token_hash VARCHAR(64) NOT NULL UNIQUE,
-        expires_at TIMESTAMP NOT NULL,
-        used_at TIMESTAMP NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    const [hasUsers, hasStudents] = await Promise.all([
+      db.tableExists('users'),
+      db.tableExists('students'),
+    ]);
+
+    if (hasStudents) {
+      await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS section VARCHAR(10);');
+      await db.execute('ALTER TABLE students ADD COLUMN IF NOT EXISTS subsection VARCHAR(10);');
+    }
+
+    if (hasUsers) {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash VARCHAR(64) NOT NULL UNIQUE,
+          expires_at TIMESTAMP NOT NULL,
+          used_at TIMESTAMP NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);'
       );
-    `);
-    await db.execute(
-      'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);'
-    );
+    }
   } catch (err) {
     console.warn("Optional auth schema initialization failed:", err.message);
   }
@@ -34,7 +44,7 @@ const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex'
 const normalizeRole = (role) => String(role || '').trim().toLowerCase();
 
 const getFrontendUrl = () => {
-  return (process.env.FRONTEND_URL || 'https://projectflow-edu-app.netlify.app').replace(/\/+$/, '');
+  return (process.env.FRONTEND_URL || 'https://projectflow-auth.vercel.app').replace(/\/+$/, '');
 };
 
 // @desc    Register a new student

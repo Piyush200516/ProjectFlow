@@ -255,8 +255,20 @@ const StudentProjectForm = () => {
       setSelectedForm(prev => ({...prev, has_submitted: true}));
       navigate('/student/dashboard', { replace: true });
     } catch (error) {
-      console.error('Registration failed:', error);
-      toast.error(error.response?.data?.message || 'Failed to submit registration form.');
+      const status = error.response?.status;
+      const message = error.response?.data?.message || error.message || 'Failed to submit registration form.';
+      console.error('Registration failed:', {
+        status,
+        message,
+        response: error.response?.data,
+        payload: {
+          formId: selectedForm.id,
+          project_title: formData.title,
+          project_domain: formData.domain,
+          team_member_count: submittedMembers.length,
+        },
+      });
+      toast.error(status ? `${message} (${status})` : message);
     } finally {
       setSubmitting(false);
     }

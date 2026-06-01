@@ -84,7 +84,15 @@ const HodApprovals = () => {
       }
       refreshInitData();
     } catch (error) {
-      toast.error(`Failed to ${actionType} submission`);
+      const status = error.response?.status;
+      const message = error.response?.data?.message || error.message || `Failed to ${actionType} submission`;
+      console.error(`HOD ${actionType} failed:`, {
+        status,
+        message,
+        response: error.response?.data,
+        submissionId: activeSubmission?.id,
+      });
+      toast.error(status ? `${message} (${status})` : message);
     } finally {
       setProcessingId(null);
       setActiveSubmission(null);

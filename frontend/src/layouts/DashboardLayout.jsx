@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -18,6 +19,7 @@ import {
   ShieldCheck,
   Building2,
   Users,
+  UserCheck,
   Calendar as CalendarIcon,
   MessageCircle
 } from 'lucide-react';
@@ -32,9 +34,10 @@ import { useUiStore } from '../store/uiStore';
 import { queryClient } from '../lib/queryClient';
 import { AnimatePresence, motion } from 'framer-motion';
 
-const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
+const SidebarItem = ({ icon: Icon, label, href, active, collapsed, onClick }) => (
   <Link 
     to={href} 
+    onClick={onClick}
     className={cn(
       "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 relative group",
       active 
@@ -141,9 +144,10 @@ const DashboardLayout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const notificationEndpoint = user?.role === 'student' ? '/student/notifications' : '/notifications';
+  const userRole = user?.role;
+  const notificationEndpoint = userRole === 'student' ? '/student/notifications' : '/notifications';
   const { data: notifications = [] } = useApiQuery(
-    queryKeys.studentNotifications({ role: user?.role, limit: 10 }),
+    queryKeys.studentNotifications({ role: userRole, limit: 10 }),
     notificationEndpoint,
     {
       params: { limit: 10 },
@@ -189,7 +193,7 @@ const DashboardLayout = ({ children }) => {
         await fetchNotifications();
       }
       setNotifOpen(false);
-      if (user?.role === 'student') {
+      if (userRole === 'student') {
         const target = getNotificationTarget(notif);
         if (target) {
           navigate(target);
@@ -198,11 +202,11 @@ const DashboardLayout = ({ children }) => {
     } catch (error) {
       console.error("Failed to read notification");
     }
-  }, [fetchNotifications, navigate, user?.role]);
+  }, [fetchNotifications, navigate, setNotifOpen, userRole]);
 
   const handleReadAllNotifications = useCallback(async () => {
     try {
-      const endpoint = user?.role === 'student'
+      const endpoint = userRole === 'student'
         ? '/student/notifications/read-all'
         : '/notifications/read-all';
       await api.patch(endpoint);
@@ -210,7 +214,7 @@ const DashboardLayout = ({ children }) => {
     } catch (error) {
       console.error("Failed to mark all notifications as read");
     }
-  }, [fetchNotifications, user?.role]);
+  }, [fetchNotifications, userRole]);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
   const visibleUnreadCount = Math.min(unreadCount, 3);
@@ -262,6 +266,7 @@ const DashboardLayout = ({ children }) => {
       { icon: Building2, label: 'Projects', href: '/hod/projects' },
       { icon: Users, label: 'Students', href: '/hod/students' },
       { icon: ShieldCheck, label: 'Approvals', href: '/hod/approvals' },
+      { icon: UserCheck, label: 'Mentor Allocation', href: '/hod/mentor-allocations' },
       { icon: BarChart3, label: 'Analytics', href: '/hod/analytics' },
       { icon: FileText, label: 'Dept Templates', href: '/hod/templates' },
       { icon: CheckSquare, label: 'Doc Tracking', href: '/hod/submission-tracking' },
@@ -272,12 +277,11 @@ const DashboardLayout = ({ children }) => {
 
   const handleLogout = () => {
     logout();
-    toast.success('Logged out successfully');
-    navigate(`/auth/${user?.role || 'student'}/login`, { replace: true });
+    navigate('/auth/student/login');
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden">
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -296,7 +300,7 @@ const DashboardLayout = ({ children }) => {
         )}
       >
         {/* Sidebar Logo */}
-        <div className="h-16 flex items-center px-5 shrink-0">
+        <div className="h-16 flex items-center px-5 shrink-0 justify-between">
           <Link to="/" className="flex items-center gap-2.5 w-full">
             <img 
               src={logo} 
@@ -309,16 +313,25 @@ const DashboardLayout = ({ children }) => {
               </span>
             )}
           </Link>
+          {/* Mobile close button */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-md"
+            aria-label="Close navigation"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Navigation */}
         <div className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto custom-scrollbar">
           {currentMenu.map((item) => (
-            <SidebarItem 
+            <SidebarItem
               key={item.href}
               {...item}
               active={location.pathname === item.href || (item.href !== '/' && location.pathname.startsWith(item.href))}
               collapsed={isCollapsed}
+              onClick={() => { if (window.innerWidth < 1024) setSidebarOpen(false); }}
             />
           ))}
         </div>
@@ -345,9 +358,15 @@ const DashboardLayout = ({ children }) => {
         <header className="h-16 bg-white/95 backdrop-blur border-b border-slate-100 flex items-center justify-between gap-3 px-3 sm:px-4 lg:px-6 sticky top-0 z-30">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <button 
-              onClick={() => isCollapsed ? setCollapsed(false) : setSidebarOpen(!isSidebarOpen)}
+              onClick={() => {
+                if (window.innerWidth < 1024) {
+                  setSidebarOpen(!isSidebarOpen);
+                } else {
+                  setCollapsed(!isCollapsed);
+                }
+              }}
               className="lg:hidden inline-flex h-10 w-10 items-center justify-center text-slate-500 hover:bg-slate-100 rounded-md transition-all"
-              aria-label="Open navigation"
+              aria-label="Toggle navigation"
             >
               <Menu size={20} />
             </button>

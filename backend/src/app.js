@@ -23,16 +23,10 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.set('trust proxy', 1);
 
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-  'http://127.0.0.1:5000',
-  // Production Netlify domain
+  'https://projectflow-auth.vercel.app',
   'https://projectflow-edu-app.netlify.app',
-  // Existing Vercel deployments (keep if needed)
-  'https://project-flow-git-main-piyushmishra21052003-6587s-projects.vercel.app'
+  'http://localhost:5173',
+  'http://localhost:3000'
 ];
 
 // CORS options

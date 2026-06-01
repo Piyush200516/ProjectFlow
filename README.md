@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://projectflow-edu-app.netlify.app"><img alt="Live" src="https://img.shields.io/badge/Live-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white" /></a>
+  <a href="https://project-flow-blush.vercel.app"><img alt="Live" src="https://img.shields.io/badge/Live-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" /></a>
   <img alt="React" src="https://img.shields.io/badge/React-v19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" />
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-v16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" />
   <img alt="Node.js" src="https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=node.js&logoColor=white" />
@@ -26,9 +26,9 @@
 
 ## Live Deployment
 
-- **Frontend Live URL:** https://projectflow-edu-app.netlify.app
-- **Current production host:** Netlify
-- **Current production API path:** `/api/*` via Netlify Functions
+- **Frontend Live URL:** https://project-flow-blush.vercel.app
+- **Backend API URL:** https://project-flow-ed3n.vercel.app/api
+- **Current production host:** Vercel
 - **Enterprise API foundation:** `/api/v2/*`
 
 ## Overview
@@ -53,9 +53,9 @@ The repository currently contains the active production React/Vite application p
 - **Next.js Enterprise Components**: Constructed initial UI library using Radix UI primitives and Class Variance Authority in `next-app/src/components/ui/` featuring button, card, input, badge, and switch elements with light/dark theme toggle support.
 
 ### Backend/API Changes
-- **Netlify Serverless Deployment**: Adapted Express server backend to execute within the Netlify Functions environment using `serverless-http`.
+- **Vercel Serverless Deployment**: Adapted Express server backend to execute in the Vercel serverless environment.
 - **Express Version Adjustments**: Downgraded backend Express dependency to `v4.22.2` to resolve serverless request body-parsing constraints.
-- **CORS Configuration**: Restructured Express CORS middleware to permit credentials, handle preflight options, and explicitly whitelist the production URL `projectflow-edu-app.netlify.app`.
+- **CORS Configuration**: Restructured Express CORS middleware to permit credentials, handle preflight options, and explicitly whitelist the production URL `https://project-flow-blush.vercel.app`.
 - **Dynamic Frontend API Base URL**: Added dynamic detection of the production base path vs local host in frontend client requests to support transparent proxying.
 
 ### Database Changes
@@ -280,7 +280,7 @@ Do not commit real secret values. Configure these in local `.env` files and depl
 ```env
 DATABASE_URL=
 JWT_SECRET=
-FRONTEND_URL=
+FRONTEND_URL=https://project-flow-blush.vercel.app
 SMTP_HOST=
 SMTP_PORT=
 SMTP_USER=
@@ -301,14 +301,14 @@ AUTH_LOCKOUT_MINUTES=15
 ### Active Frontend
 
 ```env
-VITE_API_URL=
+VITE_API_URL=https://project-flow-ed3n.vercel.app/api
 VITE_SENTRY_DSN=
 ```
 
 ### Enterprise Next.js Frontend
 
 ```env
-NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_API_URL=https://project-flow-ed3n.vercel.app/api
 ```
 
 ## Installation

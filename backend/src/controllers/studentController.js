@@ -77,6 +77,66 @@ const ensureRegistrationFormPublishColumns = async () => {
   await db.execute(`ALTER TABLE registration_forms ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT FALSE`);
   await db.execute(`UPDATE registration_forms SET is_published = TRUE WHERE LOWER(COALESCE(status, '')) = 'published'`);
 };
+
+const ensureProjectRegistrationsCompatibility = async (client = db.pool) => {
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS registration_id INT`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS branch VARCHAR(100)`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS semester INT`);
+  await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS section VARCHAR(10)`);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS project_registrations (
+      id SERIAL PRIMARY KEY,
+      registration_form_id INT REFERENCES registration_forms(id) ON DELETE SET NULL,
+      submission_id INT REFERENCES registration_form_submissions(id) ON DELETE SET NULL,
+      title VARCHAR(255) NOT NULL,
+      project_domain VARCHAR(150),
+      problem_statement TEXT,
+      abstract TEXT,
+      tech_stack TEXT,
+      team_name VARCHAR(150),
+      github_link TEXT,
+      status VARCHAR(50) DEFAULT 'Approved',
+      created_by INT REFERENCES users(id) ON DELETE SET NULL,
+      mentor_id INT REFERENCES users(id) ON DELETE SET NULL,
+      branch_id INT REFERENCES branches(id) ON DELETE SET NULL,
+      academic_year VARCHAR(20),
+      semester INT,
+      section VARCHAR(10),
+      subsection VARCHAR(10),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  const statements = [
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS registration_form_id INT REFERENCES registration_forms(id) ON DELETE SET NULL`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS submission_id INT REFERENCES registration_form_submissions(id) ON DELETE SET NULL`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS title VARCHAR(255)`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS project_domain VARCHAR(150)`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS problem_statement TEXT`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS abstract TEXT`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS tech_stack TEXT`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS team_name VARCHAR(150)`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS github_link TEXT`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Approved'`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS created_by INT REFERENCES users(id) ON DELETE SET NULL`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS branch_id INT REFERENCES branches(id) ON DELETE SET NULL`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS semester INT`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS section VARCHAR(10)`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE project_registrations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE project_registrations ALTER COLUMN title DROP NOT NULL`
+  ];
+
+  for (const statement of statements) {
+    await client.query(statement);
+  }
+};
 const fileMatchesAllowedFormats = (fileName, allowedFormats) => {
   if (!allowedFormats) return true;
   const formats = String(allowedFormats)
@@ -162,6 +222,9 @@ const ensureProjectTeamMembersCompatibility = async (client = db.pool) => {
 };
 
 const ensureProjectRegistrationMembersCompatibility = async (client = db.pool) => {
+  await ensureProjectTeamMembersCompatibility(client);
+  await ensureProjectRegistrationsCompatibility(client);
+
   await client.query(`
     CREATE TABLE IF NOT EXISTS project_registration_members (
       id SERIAL PRIMARY KEY,
@@ -426,6 +489,7 @@ exports.updateProfile = async (req, res) => {
 exports.getActiveRegistrationForms = async (req, res) => {
   try {
     await ensureRegistrationFormPublishColumns();
+    await ensureProjectRegistrationsCompatibility();
     await ensureProjectRegistrationMembersCompatibility();
     const userId = req.user.id;
 
@@ -774,6 +838,7 @@ exports.submitRegistrationForm = async (req, res) => {
     }
 
     await ensureStudentProfileCompatibility();
+    await ensureProjectRegistrationsCompatibility(client);
     await ensureProjectTeamMembersCompatibility(client);
     await ensureProjectRegistrationMembersCompatibility(client);
 
@@ -1090,6 +1155,7 @@ exports.submitRegistrationForm = async (req, res) => {
 exports.getMyProject = async (req, res) => {
   try {
     const studentId = req.user.id;
+    await ensureProjectRegistrationsCompatibility();
     await ensureProjectTeamMembersCompatibility();
     await ensureProjectRegistrationMembersCompatibility();
 

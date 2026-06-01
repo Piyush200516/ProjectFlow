@@ -156,12 +156,41 @@ const ensureTasksTable = async () => {
   `);
 };
 
+const ensureMentorAllocationTables = async (client = db.pool) => {
+  const query = (sql, params = []) => client.query(sql, params);
+
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_name VARCHAR(150)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_email VARCHAR(150)`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS mentor_allocations (
+      id SERIAL PRIMARY KEY,
+      academic_year VARCHAR(20) NOT NULL,
+      semester INT NOT NULL,
+      section VARCHAR(10) NOT NULL,
+      subsection VARCHAR(10) NOT NULL,
+      mentor_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mentor_name VARCHAR(150) NOT NULL,
+      mentor_email VARCHAR(150) NOT NULL,
+      created_by_hod INT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_mentor_allocations_unique_cohort
+    ON mentor_allocations (academic_year, semester, UPPER(section), UPPER(subsection))
+  `);
+};
+
 // @desc    Get mentor dashboard stats
 // @route   GET /api/mentor/dashboard
 // @access  Private (Mentor)
 exports.getMentorStats = async (req, res) => {
   try {
     await ensureTasksTable();
+    await ensureMentorAllocationTables();
     const mentorId = req.user.id;
 
     // Count assigned projects
@@ -210,16 +239,75 @@ exports.getMentorStats = async (req, res) => {
       [mentorId]
     );
 
+    const allocatedStudents = await db.pool.query(`
+      SELECT COUNT(DISTINCT s.user_id)::int AS count
+      FROM mentor_allocations ma
+      JOIN students s
+        ON s.semester = ma.semester
+       AND (ma.section = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER(ma.section))
+       AND (ma.subsection = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER(ma.subsection))
+      WHERE ma.mentor_id = $1
+    `, [mentorId]);
+
     res.json({
       assigned: parseInt(assigned[0].count || 0, 10),
       pending: parseInt(pending[0].count || 0, 10),
       completed: parseInt(completed[0].count || 0, 10),
       lateSubmissions: parseInt(late[0].count || 0, 10),
       averageMarks: average[0].average_marks || 0,
+      allocatedStudents: allocatedStudents.rows[0]?.count || 0,
       feedback: parseInt(pending[0].count || 0, 10)
     });
   } catch (error) {
     console.error('getMentorStats error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.getAllocatedStudents = async (req, res) => {
+  try {
+    await ensureMentorAllocationTables();
+    const mentorId = req.user.id;
+
+    const result = await db.pool.query(`
+      SELECT DISTINCT
+             u.id,
+             u.full_name,
+             u.email,
+             u.is_active,
+             s.roll_number,
+             s.academic_year,
+             s.semester,
+             s.section,
+             s.subsection,
+             s.mentor_name,
+             s.mentor_email,
+             b.name AS branch_name,
+             ma.id AS allocation_id,
+             ma.created_at AS allocated_at,
+             0 AS score
+      FROM mentor_allocations ma
+      JOIN students s
+        ON s.semester = ma.semester
+       AND (ma.section = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER(ma.section))
+       AND (ma.subsection = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER(ma.subsection))
+      JOIN users u ON u.id = s.user_id
+      LEFT JOIN branches b ON b.id = s.branch_id
+      WHERE ma.mentor_id = $1
+        AND u.role = 'student'
+      ORDER BY u.full_name ASC
+    `, [mentorId]);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('getAllocatedStudents error:', {
+      message: error.message,
+      stack: error.stack,
+      mentorId: req.user?.id
+    });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

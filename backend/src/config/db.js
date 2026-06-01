@@ -42,6 +42,11 @@ const checkConnection = async () => {
   }
 };
 
+const tableExists = async (tableName) => {
+  const result = await pool.query('SELECT to_regclass($1) AS table_name', [`public.${tableName}`]);
+  return Boolean(result.rows[0]?.table_name);
+};
+
 const executeQuery = async (sql, params = []) => {
   let modifiedSql = convertPlaceholders(sql);
   
@@ -129,5 +134,6 @@ module.exports = {
     };
   },
   pool,
-  checkConnection
+  checkConnection,
+  tableExists
 };
