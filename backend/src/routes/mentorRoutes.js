@@ -47,6 +47,8 @@ router.get('/dashboard', protect, authorize('mentor', 'hod', 'admin'), getMentor
 router.get('/reviews', protect, authorize('mentor', 'hod', 'admin'), getReviewQueue);
 router.get('/assigned-projects', protect, authorize('mentor', 'hod', 'admin'), getAssignedProjects);
 router.get('/allocated-students', protect, authorize('mentor', 'hod', 'admin'), getAllocatedStudents);
+router.get('/students', protect, authorize('mentor', 'hod', 'admin'), getAllocatedStudents);
+router.get('/teams', protect, authorize('mentor', 'hod', 'admin'), getAssignedProjects);
 router.post('/milestones', protect, authorize('mentor', 'hod', 'admin'), createMentorMilestones);
 router.patch('/milestones/:id', protect, authorize('mentor', 'hod', 'admin'), updateMentorMilestone);
 router.post('/templates/upload', protect, authorize('mentor', 'hod', 'admin'), templateUpload, uploadMilestoneTemplate);

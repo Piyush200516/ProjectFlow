@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   PageHeader, 
@@ -34,6 +34,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import api from '../../lib/api';
+import { toast } from 'sonner';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -41,22 +42,31 @@ const StudentDashboard = () => {
   const [tasks, setTasks] = useState([]);
   const [activeForms, setActiveForms] = useState([]);
   const [myProject, setMyProject] = useState(null);
+  const [studentProfile, setStudentProfile] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [refreshingRegistration, setRefreshingRegistration] = useState(false);
   const [lastRegistrationRefresh, setLastRegistrationRefresh] = useState(null);
+  const toastedNotificationIds = useRef(new Set());
 
   const fetchMyProject = useCallback(async () => {
-    const { data } = await api.get('/student/my-project');
+    const [projectRes, profileRes] = await Promise.all([
+      api.get('/student/my-project'),
+      api.get('/student/profile')
+    ]);
+    const data = projectRes.data;
+    const profile = profileRes.data?.student || null;
+    setStudentProfile(profile);
     setMyProject(data?.project || null);
   }, []);
 
   const fetchFormsAndNotifications = useCallback(async () => {
     setRefreshingRegistration(true);
     try {
-      const [formsRes, notificationsRes, myProjectRes] = await Promise.all([
+      const [formsRes, notificationsRes, myProjectRes, profileRes] = await Promise.all([
         api.get('/student/registration-forms/active'),
         api.get('/student/notifications', { params: { limit: 10 } }),
-        api.get('/student/my-project')
+        api.get('/student/my-project'),
+        api.get('/student/profile')
       ]);
       const forms = formsRes.data?.forms || [];
       const latestNotifications = notificationsRes.data?.notifications || [];
@@ -64,7 +74,18 @@ const StudentDashboard = () => {
       console.log('Notifications loaded:', latestNotifications.length);
       setActiveForms(forms);
       setNotifications(latestNotifications);
+      latestNotifications
+        .filter((notification) => !notification.is_read && (notification.type === 'mentor_assignment' || notification.reference_type === 'mentor_assignment'))
+        .forEach((notification) => {
+          if (!toastedNotificationIds.current.has(notification.id)) {
+            toastedNotificationIds.current.add(notification.id);
+            toast.success(notification.title || 'Mentor Assigned', {
+              description: notification.message,
+            });
+          }
+        });
       setMyProject(myProjectRes.data?.project || null);
+      setStudentProfile(profileRes.data?.student || null);
       setLastRegistrationRefresh(new Date());
     } catch (error) {
       console.error('Failed to load registration updates:', error);
@@ -93,8 +114,26 @@ const StudentDashboard = () => {
 
     fetchDashboard();
     fetchFormsAndNotifications();
-    const interval = window.setInterval(fetchFormsAndNotifications, 60000);
-    return () => window.clearInterval(interval);
+    
+    const handleProfileUpdate = () => {
+      console.log('Profile updated event received. Refreshing dashboard details...');
+      fetchMyProject();
+      fetchFormsAndNotifications();
+    };
+
+    const interval = window.setInterval(fetchFormsAndNotifications, 30000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchFormsAndNotifications();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('profile-updated', handleProfileUpdate);
+    
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+    };
   }, [fetchFormsAndNotifications, fetchMyProject]);
 
   const activeProject = projects[0];
@@ -126,6 +165,11 @@ const StudentDashboard = () => {
   const latestRegistrationNotification = useMemo(() => notifications.find(
     notification => notification.type === 'registration_form' || notification.reference_type === 'registration_form'
   ), [notifications]);
+
+  const assignedMentor = {
+    name: studentProfile?.mentor_name || myProject?.mentor?.name || '',
+    email: studentProfile?.mentor_email || myProject?.mentor?.email || '',
+  };
 
   const formatDeadline = (value) => {
     if (!value) return 'No deadline';
@@ -159,6 +203,28 @@ const StudentDashboard = () => {
         <StatCard icon={Clock} label="Deadlines" value={upcomingDeadlines} color="amber" />
         <StatCard icon={AlertCircle} label="Feedback" value="2" trend="down" trendValue="1" color="indigo" />
       </div>
+
+      <SectionCard title="Assigned Academic Details" subtitle="Latest mentor mapping from HOD allocation">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Assigned Mentor</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{assignedMentor.name || 'Not assigned'}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-400">{assignedMentor.email || 'Mentor email unavailable'}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Year / Semester</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{studentProfile?.year || studentProfile?.academic_year || 'N/A'} / Sem {studentProfile?.semester || 'N/A'}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Section</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{studentProfile?.section || 'N/A'}</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Subsection</p>
+            <p className="mt-1 text-sm font-bold text-slate-800">{studentProfile?.subsection || 'N/A'}</p>
+          </div>
+        </div>
+      </SectionCard>
 
       <SectionCard
         title={myProject ? 'My Assigned Project' : 'Project Registration'}
@@ -209,8 +275,26 @@ const StudentDashboard = () => {
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Assigned Mentor</p>
                   <p className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-slate-800">
-                    <UserCheck size={14} /> {myProject.mentor?.name || 'Not assigned'}
+                    <UserCheck size={14} /> {assignedMentor.name || 'Not assigned'}
                   </p>
+                  {assignedMentor.email && (
+                    <p className="mt-1 text-xs font-semibold text-slate-400">{assignedMentor.email}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Year / Semester</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">{studentProfile?.year || studentProfile?.academic_year || myProject.form?.academic_year || 'N/A'} / Sem {studentProfile?.semester || myProject.form?.semester || 'N/A'}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Section</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">{studentProfile?.section || myProject.form?.section || 'N/A'}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Subsection</p>
+                  <p className="mt-1 text-sm font-bold text-slate-800">{studentProfile?.subsection || myProject.form?.subsection || 'N/A'}</p>
                 </div>
               </div>
 

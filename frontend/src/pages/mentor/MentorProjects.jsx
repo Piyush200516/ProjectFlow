@@ -26,8 +26,8 @@ const MentorProjects = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const { data } = await api.get('/projects');
-        setProjects(data);
+        const { data } = await api.get('/mentor/teams');
+        setProjects(data?.teams || data?.projects || data?.data || []);
       } catch (error) {
         console.error('Failed to fetch mentor projects:', error);
         toast.error('Failed to load assigned projects');
@@ -39,7 +39,7 @@ const MentorProjects = () => {
   }, []);
 
   const filteredProjects = projects.filter(p => 
-    p.title.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.title || p.project_title || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -79,7 +79,7 @@ const MentorProjects = () => {
         {filteredProjects.length > 0 ? filteredProjects.map((project) => (
           <SectionCard 
             key={project.id}
-            title={project.title}
+            title={project.title || project.project_title}
             subtitle={project.type}
             headerActions={
               <button 
@@ -93,28 +93,28 @@ const MentorProjects = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                  <StatusBadge status={project.status} variant={project.status === 'Completed' ? 'success' : 'info'} />
-                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{project.progress}%</span>
+                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{project.progress || project.progress_percent || 0}%</span>
               </div>
 
               <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                  <div 
                    className="h-full bg-slate-900 rounded-full transition-all duration-1000" 
-                   style={{ width: `${project.progress}%` }}
+                   style={{ width: `${project.progress || project.progress_percent || 0}%` }}
                  ></div>
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map((_, i) => (
+                    {(project.team_members?.length ? project.team_members.slice(0, 3) : [1, 2, 3]).map((member, i) => (
                       <div key={i} className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
-                        {i + 1}
+                        {member?.full_name?.[0] || i + 1}
                       </div>
                     ))}
                  </div>
                  <div className="flex items-center gap-3 text-slate-400">
                     <div className="flex items-center gap-1">
                        <Users size={14} />
-                       <span className="text-[10px] font-bold">4</span>
+                       <span className="text-[10px] font-bold">{project.team_members?.length || 0}</span>
                     </div>
                     <div className="flex items-center gap-1">
                        <Clock size={14} />

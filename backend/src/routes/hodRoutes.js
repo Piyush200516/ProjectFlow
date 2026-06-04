@@ -52,6 +52,7 @@ router.post('/assign-mentor', ...hodOnly, assignMentor);
 router.get('/mentor-allocations', ...hodOnly, getMentorAllocations);
 router.post('/mentor-allocations', ...hodOnly, createMentorAllocation);
 router.patch('/mentor-allocations/:id', ...hodOnly, updateMentorAllocation);
+router.put('/mentor-allocations/:id', ...hodOnly, updateMentorAllocation);
 router.delete('/mentor-allocations/:id', ...hodOnly, deleteMentorAllocation);
 router.get('/marks-report', ...hodOnly, getMarksReport);
 router.post('/final-evaluation', ...hodOnly, createFinalEvaluation);

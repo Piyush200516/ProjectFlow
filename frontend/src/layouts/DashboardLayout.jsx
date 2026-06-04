@@ -152,7 +152,7 @@ const DashboardLayout = ({ children }) => {
     {
       params: { limit: 10 },
       enabled: Boolean(user),
-      refetchInterval: 60_000,
+      refetchInterval: 30_000,
       select: (data) => data?.notifications || data || [],
     }
   );

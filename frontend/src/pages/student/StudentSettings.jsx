@@ -1,89 +1,75 @@
 import React, { useEffect, useState } from 'react';
 import { 
   User, 
-  Bell, 
-  Shield, 
-  Globe, 
   Mail,
   Camera,
   Loader2,
   RotateCcw,
-  Save
+  Save,
+  Phone,
+  Bookmark,
+  Hash,
+  Activity,
+  Layers,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { 
   PageHeader, 
-  SectionCard 
+  SectionCard,
+  StatusBadge
 } from '../../components/common/PremiumComponents';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
-import { cn } from '../../utils/utils';
 import api from '../../lib/api';
 
-const branchOptions = [
-  { id: 1, name: 'Computer Science & Engineering' },
-  { id: 2, name: 'Electronics & Communication Engineering' },
-];
-
-const generateAcademicYears = () => {
-  const date = new Date();
-  const currentYear = date.getFullYear();
-  const currentMonth = date.getMonth();
-  const currentAcademicStartYear = currentMonth < 6 ? currentYear - 1 : currentYear;
-
-  return Array.from({ length: 5 }, (_, index) => {
-    const start = currentAcademicStartYear - 1 + index;
-    return `${start}-${String(start + 1).slice(-2)}`;
-  });
-};
+const academicYears = ["2026-27", "2027-28", "2028-29"];
 
 const emptyProfile = {
   full_name: '',
-  email: '',
   roll_number: '',
-  branch_id: 1,
-  academic_year: generateAcademicYears()[1],
-  semester: 6,
+  branch: '',
+  semester: 5,
   section: '1',
   subsection: '1',
-  profile_locked: false,
-  profile_updated_at: null,
+  university_email: '',
+  academic_year: '2026-27',
+  mobile_number: '',
+  profile_image: '',
+  is_active: true
 };
 
 const StudentSettings = () => {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('profile');
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const { user, updateUser } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState(emptyProfile);
   const [savedProfile, setSavedProfile] = useState(emptyProfile);
-  const academicYears = generateAcademicYears();
-
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'display', label: 'Display & Language', icon: Globe },
-  ];
 
   const fetchProfile = async () => {
-    setIsLoadingProfile(true);
+    setIsLoading(true);
     try {
       const { data } = await api.get('/student/profile');
-      const nextProfile = {
-        ...emptyProfile,
-        ...data.student,
-        branch_id: data.student?.branch_id || 1,
-        semester: data.student?.semester || 6,
-        section: data.student?.section || '1',
-        subsection: data.student?.subsection || '1',
-      };
-      setProfile(nextProfile);
-      setSavedProfile(nextProfile);
+      if (data && data.student) {
+        const studentData = {
+          ...emptyProfile,
+          ...data.student,
+          semester: data.student.semester || 5,
+          section: String(data.student.section || '1'),
+          subsection: String(data.student.subsection || '1'),
+          academic_year: academicYears.includes(data.student.academic_year) 
+            ? data.student.academic_year 
+            : '2026-27',
+          profile_image: data.student.profile_image || ''
+        };
+        setProfile(studentData);
+        setSavedProfile(studentData);
+      }
     } catch (error) {
       console.error('Failed to load student profile:', error);
-      toast.error(error.response?.data?.message || 'Failed to load profile');
+      toast.error(error.response?.data?.message || 'Failed to load profile from database');
     } finally {
-      setIsLoadingProfile(false);
+      setIsLoading(false);
     }
   };
 
@@ -97,40 +83,79 @@ const StudentSettings = () => {
 
   const handleReset = () => {
     setProfile(savedProfile);
-    toast.info('Profile form reset');
+    toast.info('Form reset to last saved profile');
   };
 
   const handleSave = async () => {
-    if (activeTab !== 'profile') return;
-    const requiredFields = ['full_name', 'email', 'roll_number', 'branch_id', 'academic_year', 'semester', 'section', 'subsection'];
-    const missing = requiredFields.find(field => !String(profile[field] || '').trim());
-    if (missing) {
-      toast.error('Please fill all required profile fields');
+    // Validations
+    if (!profile.full_name || String(profile.full_name).trim() === '') {
+      toast.error('Full name is required');
+      return;
+    }
+    if (!profile.mobile_number || String(profile.mobile_number).trim() === '') {
+      toast.error('Mobile number is required');
+      return;
+    }
+    if (!profile.section || String(profile.section).trim() === '') {
+      toast.error('Section is required');
+      return;
+    }
+    if (!profile.subsection || String(profile.subsection).trim() === '') {
+      toast.error('Subsection is required');
+      return;
+    }
+
+    if (!academicYears.includes(profile.academic_year)) {
+      toast.error('Invalid academic year. Please choose from the dropdown options.');
       return;
     }
 
     setIsSaving(true);
     try {
-      const { data } = await api.put('/student/profile', {
+      const { data } = await api.put('/student/profile/update', {
+        full_name: profile.full_name,
         semester: Number(profile.semester),
+        section: profile.section,
+        subsection: profile.subsection,
+        academic_year: profile.academic_year,
+        mobile_number: profile.mobile_number,
+        profile_image: profile.profile_image
       });
-      const nextProfile = { ...emptyProfile, ...data.student };
-      setProfile(nextProfile);
-      setSavedProfile(nextProfile);
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-        localStorage.setItem('user', JSON.stringify({
-          ...parsedUser,
-          full_name: data.student.full_name,
-          name: data.student.full_name,
-          email: data.student.email,
-        }));
+
+      if (data && data.student) {
+        const studentData = {
+          ...emptyProfile,
+          ...data.student,
+          semester: data.student.semester || 5,
+          section: String(data.student.section || '1'),
+          subsection: String(data.student.subsection || '1'),
+          academic_year: data.student.academic_year,
+          profile_image: data.student.profile_image || ''
+        };
+        
+        setProfile(studentData);
+        setSavedProfile(studentData);
+
+        // Update local auth context
+        if (user) {
+          const updatedUser = {
+            ...user,
+            full_name: studentData.full_name,
+            name: studentData.full_name,
+            profile_photo: studentData.profile_image
+          };
+          updateUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+
+        // Trigger global event to refresh dashboard
+        window.dispatchEvent(new CustomEvent('profile-updated'));
+
+        toast.success(data.message || 'Profile saved successfully in database');
       }
-      toast.success(data.message || 'Semester updated successfully');
     } catch (error) {
       console.error('Failed to save profile:', error);
-      toast.error(error.response?.data?.message || 'Failed to save profile');
+      toast.error(error.response?.data?.message || 'Failed to save changes');
     } finally {
       setIsSaving(false);
     }
@@ -139,13 +164,13 @@ const StudentSettings = () => {
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       <PageHeader 
-        title="Settings" 
-        description="Manage your account preferences and system settings."
+        title="Academic Profile" 
+        description="Manage your verified profile details, section allocation, and contact information."
         actions={
           <button 
             onClick={handleSave}
-            disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl flex items-center justify-center gap-2 font-black shadow-xl shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-70"
+            disabled={isSaving || isLoading}
+            className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 rounded-xl flex items-center justify-center gap-2 font-semibold shadow-md transition-all active:scale-95 disabled:opacity-50"
           >
             {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
             {isSaving ? 'Saving...' : 'Save Changes'}
@@ -153,150 +178,248 @@ const StudentSettings = () => {
         }
       />
 
-      <div className="flex flex-col lg:flex-row gap-10">
-        {/* Sidebar Tabs */}
-        <div className="w-full lg:w-64 space-y-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm",
-                activeTab === tab.id 
-                  ? "bg-white text-blue-600 shadow-sm border border-slate-200" 
-                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-              )}
-            >
-              <tab.icon size={18} />
-              {tab.label}
-            </button>
-          ))}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-10 h-10 animate-spin text-slate-800" />
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Visual Profile Card */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-subtle p-6 flex flex-col items-center text-center group">
+              <div className="relative mb-5">
+                <div className="w-28 h-28 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-slate-700 text-4xl font-extrabold shadow-inner overflow-hidden">
+                  {profile.profile_image ? (
+                    <img 
+                      src={profile.profile_image} 
+                      alt="Student Profile" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = '';
+                      }}
+                    />
+                  ) : (
+                    (profile.full_name || 'S')[0].toUpperCase()
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 p-2 bg-white border border-slate-200 rounded-lg shadow-sm text-slate-500">
+                  <User size={16} />
+                </div>
+              </div>
 
-        {/* Content Area */}
-        <div className="flex-1 max-w-3xl">
-          {activeTab === 'profile' && (
-            <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-              <SectionCard title="Academic Profile" subtitle="Update the details used for HOD form visibility and notifications">
-                <div className="flex flex-col md:flex-row items-center gap-8 mb-10 pb-8 border-b border-slate-50">
-                  <div className="relative group">
-                    <div className="w-24 h-24 bg-blue-100 rounded-3xl flex items-center justify-center text-blue-700 text-3xl font-black shadow-lg">
-                      {(profile.full_name || user?.full_name || user?.name || 'S')?.[0]?.toUpperCase()}
-                    </div>
-                    <button className="absolute -bottom-2 -right-2 p-2 bg-white border border-slate-200 rounded-xl shadow-lg text-slate-500 hover:text-blue-600 transition-all">
-                      <Camera size={16} />
-                    </button>
+              <h3 className="text-lg font-bold text-slate-900">{profile.full_name || 'Student Profile'}</h3>
+              <p className="text-slate-500 text-xs mt-1 font-medium">{profile.university_email}</p>
+              
+              <div className="mt-4 inline-flex items-center gap-2">
+                <StatusBadge 
+                  status={profile.is_active ? "Active Student" : "Inactive Account"} 
+                  variant={profile.is_active ? "success" : "error"} 
+                />
+              </div>
+
+              <div className="w-full mt-6 pt-6 border-t border-slate-100 grid grid-cols-2 gap-4 text-left text-xs">
+                <div>
+                  <p className="text-slate-400 font-bold uppercase tracking-wider">Roll Number</p>
+                  <p className="text-slate-700 font-semibold mt-1">{profile.roll_number || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-bold uppercase tracking-wider">Branch</p>
+                  <p className="text-slate-700 font-semibold mt-1">{profile.branch || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Editable Profile Sections */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Section 1: Personal Information */}
+            <SectionCard title="1. Personal Information" subtitle="Basic identity settings">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <User size={14} /> Full Name
+                  </label>
+                  <input 
+                    value={profile.full_name} 
+                    onChange={(e) => handleFieldChange('full_name', e.target.value)} 
+                    type="text" 
+                    placeholder="Enter full name"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all font-medium text-sm" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Camera size={14} /> Profile Image URL
+                  </label>
+                  <input 
+                    value={profile.profile_image} 
+                    onChange={(e) => handleFieldChange('profile_image', e.target.value)} 
+                    type="text" 
+                    placeholder="Enter image URL"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all font-medium text-sm" 
+                  />
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* Section 2: Academic Information */}
+            <SectionCard title="2. Academic Information" subtitle="Verification details, batch status, and section mapping">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Hash size={14} /> Roll Number
+                  </label>
+                  <input 
+                    disabled 
+                    value={profile.roll_number} 
+                    type="text" 
+                    className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-medium text-sm cursor-not-allowed" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Layers size={14} /> Branch
+                  </label>
+                  <input 
+                    disabled 
+                    value={profile.branch} 
+                    type="text" 
+                    className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-medium text-sm cursor-not-allowed" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Bookmark size={14} /> Academic Year
+                  </label>
+                  <select 
+                    value={profile.academic_year} 
+                    onChange={(e) => handleFieldChange('academic_year', e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all font-medium text-sm"
+                  >
+                    {academicYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Layers size={14} /> Semester
+                  </label>
+                  <select 
+                    value={profile.semester} 
+                    onChange={(e) => handleFieldChange('semester', e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all font-medium text-sm"
+                  >
+                    {[5, 6, 7, 8].map(semester => (
+                      <option key={semester} value={semester}>Semester {semester}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    Section
+                  </label>
+                  <select 
+                    value={profile.section} 
+                    onChange={(e) => handleFieldChange('section', e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all font-medium text-sm"
+                  >
+                    {['1', '2', '3', '4', '5', '6'].map(sec => (
+                      <option key={sec} value={sec}>Section {sec}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    Subsection
+                  </label>
+                  <select 
+                    value={profile.subsection} 
+                    onChange={(e) => handleFieldChange('subsection', e.target.value)} 
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all font-medium text-sm"
+                  >
+                    {['1', '2'].map(subsec => (
+                      <option key={subsec} value={subsec}>Subsection {subsec}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* Section 3: Contact Information */}
+            <SectionCard title="3. Contact Information" subtitle="How you can be reached">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Phone size={14} /> Mobile Number
+                  </label>
+                  <input 
+                    value={profile.mobile_number} 
+                    onChange={(e) => handleFieldChange('mobile_number', e.target.value)} 
+                    type="text" 
+                    placeholder="Enter mobile number"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 outline-none transition-all font-medium text-sm" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <Mail size={14} /> University Email
+                  </label>
+                  <input 
+                    disabled 
+                    value={profile.university_email} 
+                    type="email" 
+                    className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-medium text-sm cursor-not-allowed" 
+                  />
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* Section 4: Account Information */}
+            <SectionCard title="4. Account Information" subtitle="Current status of the profile on ProjectFlow">
+              <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                    <CheckCircle2 size={20} />
                   </div>
-                  <div className="text-center md:text-left">
-                    <h3 className="text-xl font-black text-slate-900">{profile.full_name || user?.full_name || user?.name}</h3>
-                    <p className="text-slate-500 text-sm">{profile.email || user?.email}</p>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-2 px-2 py-0.5 bg-blue-50 rounded-full inline-block">
-                      Verified Student
-                    </p>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">PostgreSQL Verified Status</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">Your profile is synchronized in real time with the PostgreSQL database.</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                  <span className="text-xs font-bold text-slate-700">Verified</span>
+                </div>
+              </div>
+            </SectionCard>
 
-                {isLoadingProfile ? (
-                  <div className="flex items-center justify-center py-16">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-900">
-                      Only Semester can be updated from this page. Contact HOD/Admin for other profile corrections.
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Full Name</label>
-                        <input disabled value={profile.full_name} onChange={(event) => handleFieldChange('full_name', event.target.value)} type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium disabled:text-slate-400 disabled:cursor-not-allowed" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Email ID</label>
-                        <div className="relative">
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                          <input disabled value={profile.email} onChange={(event) => handleFieldChange('email', event.target.value)} type="email" className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium disabled:text-slate-400 disabled:cursor-not-allowed" />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Roll Number</label>
-                        <input disabled value={profile.roll_number} onChange={(event) => handleFieldChange('roll_number', event.target.value)} type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium disabled:text-slate-400 disabled:cursor-not-allowed" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Branch</label>
-                        <select disabled value={profile.branch_id} onChange={(event) => handleFieldChange('branch_id', event.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium disabled:text-slate-400 disabled:cursor-not-allowed">
-                          {branchOptions.map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Academic Year</label>
-                        <select disabled value={profile.academic_year} onChange={(event) => handleFieldChange('academic_year', event.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium disabled:text-slate-400 disabled:cursor-not-allowed">
-                          {academicYears.map(year => <option key={year} value={year}>{year}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Semester</label>
-                        <select value={profile.semester} onChange={(event) => handleFieldChange('semester', event.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium">
-                          {[5, 6, 7, 8].map(semester => <option key={semester} value={semester}>{semester}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Section</label>
-                        <select disabled value={profile.section} onChange={(event) => handleFieldChange('section', event.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium disabled:text-slate-400 disabled:cursor-not-allowed">
-                          {[1, 2, 3, 4, 5, 6].map(section => <option key={section} value={section}>{section}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Subsection</label>
-                        <select disabled value={profile.subsection} onChange={(event) => handleFieldChange('subsection', event.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all font-medium disabled:text-slate-400 disabled:cursor-not-allowed">
-                          {[1, 2].map(subsection => <option key={subsection} value={subsection}>{subsection}</option>)}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-100">
-                      <button type="button" onClick={handleReset} disabled={isSaving} className="px-6 py-3 rounded-2xl border border-slate-200 text-slate-600 font-black text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-                        <RotateCcw size={16} />
-                        Reset
-                      </button>
-                      <button type="button" onClick={handleSave} disabled={isSaving} className="px-6 py-3 rounded-2xl bg-blue-600 text-white font-black text-sm hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-                        {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        Save Changes
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </SectionCard>
+            {/* Form Action Buttons */}
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-100">
+              <button 
+                type="button" 
+                onClick={handleReset} 
+                disabled={isSaving} 
+                className="px-6 py-3 rounded-lg border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <RotateCcw size={16} />
+                Reset Form
+              </button>
+              <button 
+                type="button" 
+                onClick={handleSave} 
+                disabled={isSaving} 
+                className="px-6 py-3 rounded-lg bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                Save Changes
+              </button>
             </div>
-          )}
-
-          {activeTab === 'notifications' && (
-            <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-               <SectionCard title="Notification Preferences" subtitle="Control how you receive updates">
-                  <div className="space-y-4">
-                    {[
-                      { title: 'Project Updates', desc: 'When a team member updates a task or milestone' },
-                      { title: 'Mentor Feedback', desc: 'When a mentor provides feedback on your review request' },
-                      { title: 'System Alerts', desc: 'Important platform updates and maintenance notices' },
-                      { title: 'Deadline Reminders', desc: 'Get notified 24h before a task deadline' },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">{item.title}</p>
-                          <p className="text-[10px] text-slate-500">{item.desc}</p>
-                        </div>
-                        <div className="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
-                          <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-               </SectionCard>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

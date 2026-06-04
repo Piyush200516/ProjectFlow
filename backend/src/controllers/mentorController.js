@@ -159,13 +159,33 @@ const ensureTasksTable = async () => {
 const ensureMentorAllocationTables = async (client = db.pool) => {
   const query = (sql, params = []) => client.query(sql, params);
 
+  // Ensure projects table has academic cohort columns
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`);
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS semester INT`);
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS section VARCHAR(10)`);
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`);
+  await query(`ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(20)`);
+
+  // Ensure students table has academic cohort & mentor columns
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS year INT`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS branch VARCHAR(100)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS department VARCHAR(100)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS section VARCHAR(10)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`);
   await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_name VARCHAR(150)`);
   await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_email VARCHAR(150)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
+  // Initialize seed students with section/subsection to match cohort queries
+  await query(`UPDATE students SET section = COALESCE(section, '1'), subsection = COALESCE(subsection, '1') WHERE semester = 6`);
+  await query(`UPDATE students SET year = CEIL(semester::numeric / 2)::int WHERE year IS NULL AND semester IS NOT NULL`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS mentor_allocations (
       id SERIAL PRIMARY KEY,
+      year INT,
       academic_year VARCHAR(20) NOT NULL,
       semester INT NOT NULL,
       section VARCHAR(10) NOT NULL,
@@ -178,6 +198,7 @@ const ensureMentorAllocationTables = async (client = db.pool) => {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await query(`ALTER TABLE mentor_allocations ADD COLUMN IF NOT EXISTS year INT`);
   await query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_mentor_allocations_unique_cohort
     ON mentor_allocations (academic_year, semester, UPPER(section), UPPER(subsection))
@@ -244,6 +265,8 @@ exports.getMentorStats = async (req, res) => {
       FROM mentor_allocations ma
       JOIN students s
         ON s.semester = ma.semester
+       AND (ma.year IS NULL OR COALESCE(s.year, CEIL(s.semester::numeric / 2)::int) = ma.year)
+       AND (ma.academic_year = '' OR COALESCE(s.academic_year, '') = '' OR s.academic_year = ma.academic_year)
        AND (ma.section = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER(ma.section))
        AND (ma.subsection = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER(ma.subsection))
       WHERE ma.mentor_id = $1
@@ -274,8 +297,10 @@ exports.getAllocatedStudents = async (req, res) => {
              u.id,
              u.full_name,
              u.email,
+             u.mobile_number,
              u.is_active,
              s.roll_number,
+             s.year,
              s.academic_year,
              s.semester,
              s.section,
@@ -283,18 +308,30 @@ exports.getAllocatedStudents = async (req, res) => {
              s.mentor_name,
              s.mentor_email,
              b.name AS branch_name,
+             COALESCE(b.name, s.branch, s.department) AS department,
+             COALESCE(p.title, pr.title, rfs.project_title) AS project_title,
              ma.id AS allocation_id,
+             ma.year AS allocation_year,
+             ma.academic_year AS allocation_academic_year,
              ma.created_at AS allocated_at,
              0 AS score
       FROM mentor_allocations ma
       JOIN students s
         ON s.semester = ma.semester
+       AND (ma.year IS NULL OR COALESCE(s.year, CEIL(s.semester::numeric / 2)::int) = ma.year)
+       AND (ma.academic_year = '' OR COALESCE(s.academic_year, '') = '' OR s.academic_year = ma.academic_year)
        AND (ma.section = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER(ma.section))
        AND (ma.subsection = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER(ma.subsection))
       JOIN users u ON u.id = s.user_id
       LEFT JOIN branches b ON b.id = s.branch_id
+      LEFT JOIN project_team_members ptm ON COALESCE(ptm.user_id, ptm.student_id, ptm.student_user_id) = u.id
+      LEFT JOIN project_registrations pr ON pr.id = ptm.project_registration_id
+      LEFT JOIN registration_form_submissions rfs ON rfs.id = ptm.submission_id
+      LEFT JOIN projects p ON p.registration_id = pr.id OR p.created_by = u.id
       WHERE ma.mentor_id = $1
         AND u.role = 'student'
+        AND u.is_active = TRUE
+        AND (s.academic_year >= '2025-26' OR s.academic_year IS NULL)
       ORDER BY u.full_name ASC
     `, [mentorId]);
 
@@ -337,23 +374,36 @@ exports.getReviewQueue = async (req, res) => {
 exports.getAssignedProjects = async (req, res) => {
   try {
     await ensureAdvancedWorkflowTables();
+    await ensureMentorAllocationTables();
     const result = await db.pool.query(`
-      SELECT COALESCE(p.id, ma.project_id) AS id,
-             COALESCE(p.registration_id, ma.registration_id) AS project_registration_id,
-             ma.submission_id,
-             COALESCE(p.title, pr.title, rfs.project_title, 'Project') AS project_title,
-             COALESCE(p.title, pr.title, rfs.project_title, 'Project') AS title,
+      SELECT p.id,
+             p.registration_id AS project_registration_id,
+             rfs.id AS submission_id,
+             p.title AS project_title,
+             p.title,
              COALESCE(p.status, pr.status, rfs.status, 'Approved') AS status,
              p.type,
-             p.team_name,
-             p.progress_percent,
+             COALESCE(p.team_name, p.title) AS team_name,
+             COALESCE(p.progress_percent, 0) AS progress_percent,
+             COALESCE(p.progress_percent, 0) AS progress,
+             p.academic_year,
+             CEIL(p.semester::numeric / 2)::int AS year,
+             p.semester,
+             p.section,
+             p.subsection,
              ps.total_marks,
+             leader.full_name AS team_leader,
+             COALESCE(rfs.status, pr.status, p.status, 'Pending') AS submission_status,
+             COALESCE(pr.status, p.status, rfs.status, 'Pending') AS approval_status,
+             COALESCE(rfs.remarks, '') AS mentor_remarks,
              COALESCE(
                jsonb_agg(
                  DISTINCT jsonb_build_object(
                    'id', COALESCE(u.id, ptm.user_id, ptm.student_id, ptm.student_user_id),
                    'full_name', COALESCE(u.full_name, ptm.full_name),
                    'email', COALESCE(u.email, ptm.email),
+                   'mobile_number', u.mobile_number,
+                   'department', COALESCE(b.name, s.branch, s.department),
                    'roll_number', ptm.roll_number,
                    'role', ptm.role,
                    'is_leader', COALESCE(ptm.is_leader, ptm.is_team_leader, false)
@@ -363,27 +413,34 @@ exports.getAssignedProjects = async (req, res) => {
              ) AS team_members,
              COUNT(DISTINCT ms.id) FILTER (WHERE COALESCE(ms.review_status, ms.status) = 'submitted') AS pending_reviews,
              COUNT(DISTINCT ms.id) FILTER (WHERE ms.is_late = TRUE) AS late_submissions
-      FROM mentor_assignments ma
-      LEFT JOIN projects p
-        ON p.id = ma.project_id
-        OR p.registration_id = ma.registration_id
-      LEFT JOIN project_registrations pr ON pr.id = COALESCE(p.registration_id, ma.registration_id)
-      LEFT JOIN registration_form_submissions rfs ON rfs.id = ma.submission_id
-      LEFT JOIN project_scores ps ON ps.project_registration_id = COALESCE(p.registration_id, ma.registration_id)
+      FROM mentor_allocations ma
+      JOIN projects p
+        ON p.mentor_id = ma.mentor_id
+       AND p.semester = ma.semester
+       AND (ma.year IS NULL OR CEIL(p.semester::numeric / 2)::int = ma.year)
+       AND (ma.academic_year = '' OR COALESCE(p.academic_year, '') = '' OR p.academic_year = ma.academic_year)
+       AND (ma.section = 'ALL' OR UPPER(COALESCE(p.section, '')) = UPPER(ma.section))
+       AND (ma.subsection = 'ALL' OR UPPER(COALESCE(p.subsection, '')) = UPPER(ma.subsection))
+      LEFT JOIN project_registrations pr ON pr.id = p.registration_id
+      LEFT JOIN registration_form_submissions rfs
+        ON rfs.project_title = p.title
+       AND rfs.leader_id = p.created_by
+      LEFT JOIN project_scores ps ON ps.project_registration_id = p.registration_id
       LEFT JOIN project_team_members ptm
-        ON ptm.project_registration_id = COALESCE(p.registration_id, ma.registration_id)
-        OR ptm.submission_id = ma.submission_id
+        ON ptm.project_registration_id = p.registration_id
+        OR ptm.submission_id = rfs.id
       LEFT JOIN users u ON u.id = COALESCE(ptm.user_id, ptm.student_id, ptm.student_user_id)
+      LEFT JOIN students s ON s.user_id = u.id
+      LEFT JOIN branches b ON b.id = s.branch_id
+      LEFT JOIN users leader ON leader.id = p.created_by
       LEFT JOIN milestone_submissions ms
-        ON ms.project_registration_id = COALESCE(p.registration_id, ma.registration_id)
+        ON ms.project_registration_id = p.registration_id
         OR ms.project_id = p.id
-      WHERE COALESCE(ma.mentor_user_id, ma.mentor_id) = $1
-        AND COALESCE(p.id, ma.project_id) IS NOT NULL
-      GROUP BY p.id, ma.project_id, p.registration_id, ma.registration_id, ma.submission_id,
-               pr.title, pr.status, rfs.project_title, rfs.status, ps.total_marks
+      WHERE ma.mentor_id = $1
+      GROUP BY p.id, p.registration_id, rfs.id, pr.status, rfs.status, rfs.remarks, ps.total_marks, leader.full_name
       ORDER BY MAX(COALESCE(p.updated_at, p.created_at, pr.created_at, rfs.submitted_at, NOW())) DESC
     `, [req.user.id]);
-    res.json({ success: true, projects: result.rows });
+    res.json({ success: true, projects: result.rows, teams: result.rows, data: result.rows });
   } catch (error) {
     console.error('getAssignedProjects error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

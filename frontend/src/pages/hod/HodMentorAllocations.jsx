@@ -7,11 +7,7 @@ import { queryClient } from '../../lib/queryClient';
 import api from '../../lib/api';
 import { toast } from 'sonner';
 
-const currentYear = new Date().getFullYear();
-const academicYears = Array.from({ length: 5 }, (_, index) => {
-  const start = currentYear - 2 + index;
-  return `${start}-${String(start + 1).slice(-2)}`;
-});
+const academicYears = ["2026-27", "2027-28", "2028-29"];
 const semesters = [5, 6, 7, 8];
 const sections = ['1', '2', '3', '4', '5', '6', 'ALL'];
 const subsections = ['1', '2', 'ALL'];
@@ -96,12 +92,13 @@ const HodMentorAllocations = () => {
         mentorId: Number(form.mentorId),
       };
 
+      let response;
       if (editingId) {
-        await api.patch(`/hod/mentor-allocations/${editingId}`, payload);
-        toast.success('Mentor allocation updated');
+        response = await api.put(`/hod/mentor-allocations/${editingId}`, payload);
+        toast.success(`Mentor allocation updated. ${response.data?.sync?.studentsUpdated || 0} students synced.`);
       } else {
-        await api.post('/hod/mentor-allocations', payload);
-        toast.success('Mentor allocation created');
+        response = await api.post('/hod/mentor-allocations', payload);
+        toast.success(`Mentor allocation created. ${response.data?.sync?.studentsUpdated || 0} students synced.`);
       }
 
       await Promise.all([

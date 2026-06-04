@@ -1,7 +1,9 @@
 const db = require('./src/config/db');
+require('./src/controllers/hodController');
 
 async function test() {
   try {
+    await new Promise(resolve => setTimeout(resolve, 1500));
     console.log("=== 1. HOD form saved? ===");
     const [forms] = await db.execute(`
       SELECT id, title, branch, academic_year, semester, section, status, start_date, deadline

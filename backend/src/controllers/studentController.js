@@ -14,15 +14,53 @@ const ensureStudentProfileCompatibility = async () => {
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS full_name VARCHAR(100)`);
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS email VARCHAR(100)`);
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS branch_name VARCHAR(100)`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS year INT`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS mentor_name VARCHAR(150)`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS mentor_email VARCHAR(150)`);
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS section VARCHAR(10)`);
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`);
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS profile_locked BOOLEAN DEFAULT FALSE`);
   await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS profile_updated_at TIMESTAMP`);
+  // New columns for student settings sync
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(20)`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS profile_photo TEXT`);
+  // New column for active status
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
+  
+  // Specific columns requested in STEP 4 / 6
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS branch VARCHAR(100)`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS university_email VARCHAR(100)`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS profile_image TEXT`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`);
+  await db.execute(`ALTER TABLE students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS mentor_allocations (
+      id SERIAL PRIMARY KEY,
+      year INT,
+      academic_year VARCHAR(20) NOT NULL DEFAULT '',
+      semester INT NOT NULL,
+      section VARCHAR(10) NOT NULL,
+      subsection VARCHAR(10) NOT NULL,
+      mentor_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mentor_name VARCHAR(150) NOT NULL,
+      mentor_email VARCHAR(150) NOT NULL,
+      created_by_hod INT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await db.execute(`ALTER TABLE mentor_allocations ADD COLUMN IF NOT EXISTS year INT`);
+  await db.execute(`ALTER TABLE mentor_allocations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
   await db.execute(`
     UPDATE students s
     SET full_name = COALESCE(s.full_name, u.full_name),
         email = COALESCE(s.email, u.email),
-        branch_name = COALESCE(s.branch_name, (SELECT name FROM branches WHERE id = s.branch_id))
+        university_email = COALESCE(s.university_email, s.email, u.email),
+        branch_name = COALESCE(s.branch_name, (SELECT name FROM branches WHERE id = s.branch_id)),
+        branch = COALESCE(s.branch, s.branch_name, (SELECT name FROM branches WHERE id = s.branch_id)),
+        profile_image = COALESCE(s.profile_image, s.profile_photo)
     FROM users u
     WHERE u.id = s.user_id
   `);
@@ -308,15 +346,32 @@ const getStudentProfileByUserId = async (client, userId) => {
            s.roll_number,
            s.branch_id,
            COALESCE(s.branch_name, b.name) AS branch_name,
+           s.year,
            s.academic_year,
            s.semester,
            s.section,
            s.subsection,
+           COALESCE(ma.mentor_id, s.mentor_id) AS mentor_id,
+           COALESCE(ma.mentor_name, s.mentor_name) AS mentor_name,
+           COALESCE(ma.mentor_email, s.mentor_email) AS mentor_email,
            COALESCE(s.full_name, u.full_name) AS full_name,
            COALESCE(s.email, u.email) AS email
     FROM students s
     JOIN users u ON u.id = s.user_id
     LEFT JOIN branches b ON b.id = s.branch_id
+    LEFT JOIN LATERAL (
+      SELECT allocation.mentor_id,
+             allocation.mentor_name,
+             allocation.mentor_email
+      FROM mentor_allocations allocation
+      WHERE allocation.semester = s.semester
+        AND (allocation.year IS NULL OR COALESCE(s.year, CEIL(s.semester::numeric / 2)::int) = allocation.year)
+        AND (allocation.academic_year = '' OR COALESCE(s.academic_year, '') = '' OR s.academic_year = allocation.academic_year)
+        AND (allocation.section = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER(allocation.section))
+        AND (allocation.subsection = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER(allocation.subsection))
+      ORDER BY allocation.updated_at DESC, allocation.id DESC
+      LIMIT 1
+    ) ma ON TRUE
     WHERE s.user_id = $1
     LIMIT 1
   `, [userId]);
@@ -395,91 +450,176 @@ const toTeamMemberPayload = (student, role = 'Member') => ({
   role
 });
 
+
+
 exports.getProfile = async (req, res) => {
+  const userId = req.user.id;
   try {
     await ensureStudentProfileCompatibility();
-    const [students] = await db.execute(`
-      SELECT
-        u.full_name,
-        u.email,
-        s.roll_number,
-        s.branch_id,
-        b.name as branch_name,
-        s.academic_year,
-        s.semester,
-        s.section,
-        s.subsection,
-        COALESCE(s.profile_locked, FALSE) as profile_locked,
-        s.profile_updated_at
-      FROM users u
-      LEFT JOIN students s ON s.user_id = u.id
-      LEFT JOIN branches b ON b.id = s.branch_id
-      WHERE u.id = $1 AND u.role = 'student'
-    `, [req.user.id]);
 
-    if (students.length === 0) {
-      return res.status(404).json({ success: false, message: 'Student profile not found' });
+    let profileResult = await db.pool.query(
+      `SELECT
+        full_name,
+        roll_number,
+        branch,
+        semester,
+        section,
+        subsection,
+        university_email,
+        academic_year,
+        mobile_number,
+        profile_image,
+        is_active
+       FROM students
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (profileResult.rows.length === 0) {
+      // If student profile doesn't exist, create it with data from users table
+      const userResult = await db.pool.query(
+        `SELECT full_name, email FROM users WHERE id = $1`,
+        [userId]
+      );
+      const user = userResult.rows[0] || {};
+      
+      await db.pool.query(
+        `INSERT INTO students (user_id, full_name, email, university_email, is_active)
+         VALUES ($1, $2, $3, $4, TRUE)
+         ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE`,
+        [userId, user.full_name, user.email, user.email]
+      );
+
+      // Re-sync to populate branch, etc.
+      await ensureStudentProfileCompatibility();
+
+      profileResult = await db.pool.query(
+        `SELECT
+          full_name,
+          roll_number,
+          branch,
+          semester,
+          section,
+          subsection,
+          university_email,
+          academic_year,
+          mobile_number,
+          profile_image,
+          is_active
+         FROM students
+         WHERE user_id = $1`,
+        [userId]
+      );
     }
 
-    res.json({ success: true, student: students[0] });
+    res.json({ success: true, student: profileResult.rows[0] });
   } catch (error) {
     console.error('getProfile error:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
 exports.updateProfile = async (req, res) => {
-  const { semester } = req.body;
-  const parsedSemester = Number(semester);
+  const userId = req.user.id;
+  const {
+    full_name,
+    semester,
+    section,
+    subsection,
+    academic_year,
+    mobile_number,
+    profile_image
+  } = req.body;
 
-  if (!Number.isInteger(parsedSemester) || parsedSemester < 5 || parsedSemester > 8) {
-    return res.status(400).json({
-      success: false,
-      message: 'Only semester 5 to 8 students are allowed'
-    });
+  // Validation: Academic Year must be one of allowed years
+  const ALLOWED_ACADEMIC_YEARS = ['2026-27', '2027-28', '2028-29'];
+  if (!academic_year || !ALLOWED_ACADEMIC_YEARS.includes(academic_year)) {
+    return res.status(400).json({ success: false, message: 'Invalid academic year. Only 2026-27, 2027-28, 2028-29 are allowed.' });
+  }
+
+  // Validation: Semester must be between 5 and 8
+  const parsedSemester = Number(semester);
+  if (isNaN(parsedSemester) || !Number.isInteger(parsedSemester) || parsedSemester < 5 || parsedSemester > 8) {
+    return res.status(400).json({ success: false, message: 'Semester must be an integer between 5 and 8' });
+  }
+
+  // Validation: required fields check
+  if (!full_name || String(full_name).trim() === '') {
+    return res.status(400).json({ success: false, message: 'Full name cannot be empty' });
+  }
+  if (!mobile_number || String(mobile_number).trim() === '') {
+    return res.status(400).json({ success: false, message: 'Mobile number cannot be empty' });
+  }
+  if (!section || String(section).trim() === '') {
+    return res.status(400).json({ success: false, message: 'Section cannot be empty' });
+  }
+  if (!subsection || String(subsection).trim() === '') {
+    return res.status(400).json({ success: false, message: 'Subsection cannot be empty' });
   }
 
   try {
     await ensureStudentProfileCompatibility();
-    const updateResult = await db.pool.query(
+
+    // 1. Run the required UPDATE query from STEP 6
+    await db.pool.query(
       `UPDATE students
-       SET semester = $1
-       WHERE user_id = $2
-       RETURNING user_id`,
-      [parsedSemester, req.user.id]
+       SET
+         full_name = $1,
+         semester = $2,
+         section = $3,
+         subsection = $4,
+         academic_year = $5,
+         mobile_number = $6,
+         updated_at = NOW()
+       WHERE user_id = $7`,
+      [
+        full_name,
+        parsedSemester,
+        section,
+        subsection,
+        academic_year,
+        mobile_number,
+        userId
+      ]
     );
 
-    if (updateResult.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Student profile not found' });
+    // 2. If profile_image is provided, save it too (both profile_image and profile_photo)
+    if (profile_image !== undefined) {
+      await db.pool.query(
+        `UPDATE students
+         SET profile_image = $1, profile_photo = $1
+         WHERE user_id = $2`,
+        [profile_image, userId]
+      );
     }
 
-    const studentResult = await db.pool.query(`
-      SELECT
-        u.full_name,
-        u.email,
-        s.roll_number,
-        s.branch_id,
-        b.name as branch_name,
-        s.academic_year,
-        s.semester,
-        s.section,
-        s.subsection,
-        COALESCE(s.profile_locked, FALSE) as profile_locked,
-        s.profile_updated_at
-      FROM users u
-      JOIN students s ON s.user_id = u.id
-      LEFT JOIN branches b ON b.id = s.branch_id
-      WHERE u.id = $1
-    `, [req.user.id]);
+    // 3. Fetch and return the updated profile
+    const profileResult = await db.pool.query(
+      `SELECT
+        full_name,
+        roll_number,
+        branch,
+        semester,
+        section,
+        subsection,
+        university_email,
+        academic_year,
+        mobile_number,
+        profile_image,
+        is_active
+       FROM students
+       WHERE user_id = $1`,
+      [userId]
+    );
 
     res.json({
       success: true,
-      message: 'Semester updated successfully',
-      student: studentResult.rows[0]
+      message: 'Profile updated successfully',
+      student: profileResult.rows[0]
     });
   } catch (error) {
     console.error('updateProfile error:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -1155,9 +1295,20 @@ exports.submitRegistrationForm = async (req, res) => {
 exports.getMyProject = async (req, res) => {
   try {
     const studentId = req.user.id;
+    await ensureStudentProfileCompatibility();
     await ensureProjectRegistrationsCompatibility();
     await ensureProjectTeamMembersCompatibility();
     await ensureProjectRegistrationMembersCompatibility();
+
+    const studentProfile = await getStudentProfileByUserId(db.pool, studentId);
+    const syncedMentor = studentProfile?.mentor_id
+      ? {
+          id: studentProfile.mentor_id,
+          name: studentProfile.mentor_name,
+          email: studentProfile.mentor_email,
+          assigned_at: null,
+        }
+      : null;
 
     const submissionResult = await db.pool.query(`
       SELECT s.id,
@@ -1293,14 +1444,14 @@ exports.getMyProject = async (req, res) => {
           form: null,
           team_leader: directTeamResult.rows.find((member) => member.is_leader) || null,
           team_members: directTeamResult.rows,
-          mentor: directProject.mentor_id
+          mentor: syncedMentor || (directProject.mentor_id
             ? {
                 id: directProject.mentor_id,
                 name: directProject.mentor_name,
                 email: directProject.mentor_email,
                 assigned_at: null,
               }
-            : null,
+            : null),
           timeline: directTimelineResult.rows,
           progress_percent: directProject.progress_percent || 0,
           team_name: directProject.team_name,
@@ -1363,7 +1514,7 @@ exports.getMyProject = async (req, res) => {
     `, [project.form_id, project.project_registration_id, project.project_id]);
 
     const assignment = assignmentResult.rows[0] || null;
-    const mentor = assignment
+    const mentor = syncedMentor || (assignment
       ? {
           id: assignment.mentor_id,
           name: assignment.mentor_name,
@@ -1377,7 +1528,7 @@ exports.getMyProject = async (req, res) => {
             email: project.mentor_email,
             assigned_at: null,
           }
-        : null;
+        : null);
 
     res.json({
       success: true,

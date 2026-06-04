@@ -8,8 +8,8 @@ const {
 const { protect } = require('../middleware/authMiddleware');
 
 router.get('/', protect, getNotifications);
-router.patch('/:id/read', protect, markNotificationAsRead);
 router.patch('/read-all', protect, markAllNotificationsAsRead);
 router.put('/read-all', protect, markAllNotificationsAsRead);
+router.patch('/:id/read', protect, markNotificationAsRead);
 
 module.exports = router;

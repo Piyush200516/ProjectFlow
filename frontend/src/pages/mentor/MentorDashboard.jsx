@@ -40,16 +40,22 @@ const MentorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [teams, setTeams] = useState([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [statsRes, reviewsRes] = await Promise.all([
+        const [statsRes, reviewsRes, studentsRes, teamsRes] = await Promise.all([
           api.get('/mentor/dashboard'),
-          api.get('/mentor/reviews')
+          api.get('/mentor/reviews'),
+          api.get('/mentor/students'),
+          api.get('/mentor/teams')
         ]);
         setStats(statsRes.data);
         setReviews(reviewsRes.data);
+        setStudents(studentsRes.data?.data || studentsRes.data || []);
+        setTeams(teamsRes.data?.teams || teamsRes.data?.projects || teamsRes.data?.data || []);
       } catch (error) {
         console.error('Failed to fetch mentor dashboard:', error);
         toast.error('Failed to load dashboard data');
@@ -58,6 +64,17 @@ const MentorDashboard = () => {
       }
     };
     fetchDashboardData();
+
+    const refreshTimer = window.setInterval(fetchDashboardData, 30_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchDashboardData();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(refreshTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   if (loading) {
@@ -81,6 +98,21 @@ const MentorDashboard = () => {
     { name: 'Week 3', submissions: 15 },
     { name: 'Week 4', submissions: 22 },
   ];
+
+  const assignedCohorts = Array.from(
+    new Map(
+      students.map((student) => {
+        const key = `${student.allocation_id}-${student.year || student.allocation_year || student.academic_year}-${student.semester}-${student.section}-${student.subsection}`;
+        return [key, {
+          allocationId: student.allocation_id,
+          year: student.year || student.allocation_year || student.academic_year || student.allocation_academic_year || 'N/A',
+          semester: student.semester || 'N/A',
+          section: student.section || '-',
+          subsection: student.subsection || '-',
+        }];
+      })
+    ).values()
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -182,6 +214,79 @@ const MentorDashboard = () => {
           </SectionCard>
         </div>
       </div>
+
+      <SectionCard title="Assigned Academic Details" subtitle="Current HOD mentor allocation">
+        {assignedCohorts.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+            {assignedCohorts.map((cohort) => (
+              <div key={`${cohort.allocationId}-${cohort.year}-${cohort.semester}-${cohort.section}-${cohort.subsection}`} className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Year / Semester</p>
+                <p className="mt-1 text-sm font-black text-slate-800">{cohort.year} / Sem {cohort.semester}</p>
+                <p className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Section</p>
+                <p className="mt-1 text-sm font-bold text-slate-600">{cohort.section} - {cohort.subsection}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 text-xs font-bold">No academic allocation assigned yet</div>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Assigned Teams" subtitle="Teams and members visible through your current allocation">
+        {teams.length > 0 ? (
+          <div className="space-y-4">
+            {teams.map((team) => (
+              <div key={team.id || team.project_registration_id} className="rounded-lg border border-slate-100 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-black text-slate-800">{team.team_name || team.title || 'Team'}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-400">Leader: {team.team_leader || 'N/A'} • {team.academic_year || team.year || 'N/A'} / Sem {team.semester || 'N/A'} / {team.section || '-'}-{team.subsection || '-'}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={team.status || 'Active'} variant="info" />
+                    <StatusBadge status={team.approval_status || 'Pending'} variant={(team.approval_status || '').toLowerCase() === 'approved' ? 'success' : 'warning'} />
+                  </div>
+                </div>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                        <th className="pb-3">Student</th>
+                        <th className="pb-3">Enrollment</th>
+                        <th className="pb-3">Mobile</th>
+                        <th className="pb-3">Department</th>
+                        <th className="pb-3">Project</th>
+                        <th className="pb-3">Progress</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {(team.team_members || []).map((member) => (
+                        <tr key={`${team.id}-${member.id || member.email}`} className="transition-colors hover:bg-slate-50/60">
+                          <td className="py-3">
+                            <p className="text-sm font-bold text-slate-800">{member.full_name || 'Student'}</p>
+                            <p className="text-xs font-semibold text-slate-400">{member.email || 'N/A'}</p>
+                          </td>
+                          <td className="py-3 text-xs font-bold text-slate-500">{member.roll_number || 'N/A'}</td>
+                          <td className="py-3 text-xs font-bold text-slate-500">{member.mobile_number || 'N/A'}</td>
+                          <td className="py-3 text-xs font-bold text-slate-500">{member.department || 'N/A'}</td>
+                          <td className="py-3 text-xs font-bold text-slate-500">{team.project_title || team.title || 'N/A'}</td>
+                          <td className="py-3 text-xs font-bold text-slate-500">
+                            {team.submission_status || 'Pending'} / {team.approval_status || 'Pending'}
+                            {team.mentor_remarks ? <span className="block text-slate-400">{team.mentor_remarks}</span> : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 text-xs font-bold">No assigned teams found</div>
+        )}
+      </SectionCard>
     </div>
   );
 };

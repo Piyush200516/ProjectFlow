@@ -130,23 +130,74 @@ const normalizeTarget = (value) => {
 };
 
 const isAllTarget = (value) => normalizeTarget(value) === 'ALL';
+const ALLOWED_ACADEMIC_YEARS = ['2026-27', '2027-28', '2028-29'];
 
-const normalizeMentorAllocationPayload = (body) => ({
-  year: String(body.year || body.academic_year || '').trim(),
-  semester: parseInt(body.semester, 10),
-  section: normalizeTarget(body.section),
-  subsection: normalizeTarget(body.subsection),
-  mentorId: parseInt(body.mentorId || body.mentor_id, 10)
-});
+const isEligibleAcademicYear = (value) => {
+  const trimmed = String(value || '').trim();
+  return ALLOWED_ACADEMIC_YEARS.includes(trimmed);
+};
+
+const eligibleAcademicYearSql = (column = 'academic_year') => (
+  `${column} = ANY(ARRAY['2026-27','2027-28','2028-29'])`
+);
+
+const normalizeMentorAllocationPayload = (body) => {
+  const rawYear = body.year ?? body.year_level ?? '';
+  const academicYear = String(body.academic_year || '').trim();
+  const yearText = String(rawYear).trim();
+  const numericYear = /^\d+$/.test(yearText) ? parseInt(yearText, 10) : null;
+
+  return {
+    year: yearText || academicYear,
+    academicYear: academicYear || (numericYear === null ? yearText : null),
+    yearLevel: numericYear,
+    semester: parseInt(body.semester, 10),
+    section: normalizeTarget(body.section),
+    subsection: normalizeTarget(body.subsection),
+    mentorId: parseInt(body.mentorId || body.mentor_id, 10)
+  };
+};
 
 const ensureMentorAllocationTables = async (client = db.pool) => {
   const query = (sql, params = []) => client.query(sql, params);
 
+  // Ensure projects table has academic cohort columns
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`);
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS semester INT`);
+  await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS section VARCHAR(10)`);
   await query(`ALTER TABLE IF EXISTS projects ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`);
+
+  // Ensure students table has academic cohort & mentor columns
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS year INT`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS academic_year VARCHAR(20)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS section VARCHAR(10)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS subsection VARCHAR(10)`);
   await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_id INT REFERENCES users(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_name VARCHAR(150)`);
   await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS mentor_email VARCHAR(150)`);
+  await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'active'`);
   await query(`ALTER TABLE IF EXISTS students ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
+  // Initialize seed students with section/subsection to match cohort queries
+  await query(`UPDATE students SET section = COALESCE(section, '1'), subsection = COALESCE(subsection, '1') WHERE semester = 6`);
+  await query(`UPDATE students SET year = CEIL(semester::numeric / 2)::int WHERE year IS NULL AND semester IS NOT NULL`);
+  await query(`UPDATE students SET status = 'active' WHERE status IS NULL`);
+  const archivedStudents = await query(`
+    UPDATE students
+    SET status = 'archived',
+        mentor_id = NULL,
+        mentor_name = NULL,
+        mentor_email = NULL,
+        updated_at = NOW()
+    WHERE ${eligibleAcademicYearSql('academic_year')} IS NOT TRUE
+      AND COALESCE(status, 'active') <> 'archived'
+  `);
+  if (archivedStudents.rowCount) {
+    console.log('[ACADEMIC_YEAR_ARCHIVE]', {
+      archivedStudentsCount: archivedStudents.rowCount,
+      minAcademicYearStart: ALLOWED_ACADEMIC_YEARS
+    });
+  }
   await query(`
     CREATE TABLE IF NOT EXISTS mentor_assignments (
       id SERIAL PRIMARY KEY,
@@ -174,6 +225,7 @@ const ensureMentorAllocationTables = async (client = db.pool) => {
   await query(`
     CREATE TABLE IF NOT EXISTS mentor_allocations (
       id SERIAL PRIMARY KEY,
+      year INT,
       academic_year VARCHAR(20) NOT NULL,
       semester INT NOT NULL,
       section VARCHAR(10) NOT NULL,
@@ -186,6 +238,7 @@ const ensureMentorAllocationTables = async (client = db.pool) => {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await query(`ALTER TABLE mentor_allocations ADD COLUMN IF NOT EXISTS year INT`);
   await query(`ALTER TABLE mentor_allocations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
   await query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_mentor_allocations_unique_cohort
@@ -195,7 +248,8 @@ const ensureMentorAllocationTables = async (client = db.pool) => {
 
 const formatMentorAllocation = (allocation) => ({
   ...allocation,
-  year: allocation.academic_year,
+  year: allocation.year || allocation.academic_year,
+  academicYear: allocation.academic_year,
   mentorId: allocation.mentor_id,
   mentorName: allocation.mentor_name,
   mentorEmail: allocation.mentor_email,
@@ -212,7 +266,241 @@ const getMentorById = async (client, mentorId) => {
   return result.rows[0] || null;
 };
 
+const tableExistsForClient = async (client, tableName) => {
+  const result = await client.query('SELECT to_regclass($1) AS table_name', [`public.${tableName}`]);
+  return Boolean(result.rows[0]?.table_name);
+};
+
+const getTableColumns = async (client, tableName) => {
+  const result = await client.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = $1
+  `, [tableName]);
+  return new Set(result.rows.map((row) => row.column_name));
+};
+
+const quoteIdentifier = (identifier) => {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
+    throw new Error(`Unsafe SQL identifier: ${identifier}`);
+  }
+  return `"${identifier}"`;
+};
+
+const ensureNotificationsTableForClient = async (client) => {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      type VARCHAR(50),
+      reference_id INT,
+      reference_type VARCHAR(50),
+      is_read BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await client.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id INT`);
+  await client.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_type VARCHAR(50)`);
+  await client.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE`);
+  await client.query(`ALTER TABLE notifications ALTER COLUMN type TYPE VARCHAR(50)`);
+  await client.query(`ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check`);
+};
+
+const insertMentorAllocationNotifications = async (client, allocation, syncedStudents) => {
+  await ensureNotificationsTableForClient(client);
+
+  const rows = [];
+  const studentIds = [...new Set((syncedStudents || []).map((student) => student.user_id).filter(Boolean))];
+  for (const studentId of studentIds) {
+    rows.push({
+      userId: studentId,
+      title: 'Mentor Assigned',
+      message: `You have been assigned to mentor ${allocation.mentor_name}.`,
+      type: 'mentor_assignment',
+      referenceId: allocation.id,
+      referenceType: 'mentor_assignment'
+    });
+  }
+
+  if (allocation.mentor_id) {
+    rows.push({
+      userId: allocation.mentor_id,
+      title: 'Mentor Assigned',
+      message: `You have been assigned to mentor Semester ${allocation.semester}, Section ${allocation.section}, Subsection ${allocation.subsection}.`,
+      type: 'mentor_assignment',
+      referenceId: allocation.id,
+      referenceType: 'mentor_assignment'
+    });
+  }
+
+  if (rows.length === 0) {
+    return { inserted: 0, studentNotifications: 0, mentorNotifications: 0 };
+  }
+
+  const values = [];
+  const placeholders = rows.map((row, index) => {
+    const offset = index * 7;
+    values.push(row.userId, row.title, row.message, row.type, row.referenceId, row.referenceType, false);
+    return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`;
+  }).join(', ');
+
+  const result = await client.query(`
+    INSERT INTO notifications
+    (user_id, title, message, type, reference_id, reference_type, is_read)
+    VALUES ${placeholders}
+  `, values);
+
+  return {
+    inserted: result.rowCount || 0,
+    studentNotifications: studentIds.length,
+    mentorNotifications: allocation.mentor_id ? 1 : 0
+  };
+};
+
+const syncOptionalMentorCacheTable = async (client, tableName, allocation) => {
+  if (!await tableExistsForClient(client, tableName)) {
+    return { table: tableName, updated: 0, skipped: true, reason: 'table_missing' };
+  }
+
+  const columns = await getTableColumns(client, tableName);
+  const mentorUpdates = [];
+  const values = [];
+
+  if (columns.has('mentor_id')) {
+    values.push(allocation.mentor_id);
+    mentorUpdates.push(`mentor_id = $${values.length}`);
+  }
+  if (columns.has('mentor_name')) {
+    values.push(allocation.mentor_name);
+    mentorUpdates.push(`mentor_name = $${values.length}`);
+  }
+  if (columns.has('mentor_email')) {
+    values.push(allocation.mentor_email);
+    mentorUpdates.push(`mentor_email = $${values.length}`);
+  }
+  if (columns.has('updated_at')) {
+    mentorUpdates.push('updated_at = NOW()');
+  }
+
+  if (mentorUpdates.length === 0) {
+    return { table: tableName, updated: 0, skipped: true, reason: 'mentor_columns_missing' };
+  }
+
+  if (tableName === 'registration_form_submissions' && columns.has('form_id') && await tableExistsForClient(client, 'registration_forms')) {
+    const formColumns = await getTableColumns(client, 'registration_forms');
+    if (formColumns.has('semester') && formColumns.has('section')) {
+      const formFilters = [];
+      values.push(allocation.semester);
+      formFilters.push(`f.semester = $${values.length}`);
+      if (formColumns.has('academic_year')) {
+        values.push(allocation.academic_year);
+        formFilters.push(`${eligibleAcademicYearSql('f.academic_year')} AND f.academic_year = $${values.length}`);
+      }
+      values.push(allocation.section);
+      formFilters.push(`($${values.length} = 'ALL' OR UPPER(COALESCE(f.section, '')) = UPPER($${values.length}))`);
+      if (formColumns.has('subsection')) {
+        values.push(allocation.subsection);
+        formFilters.push(`($${values.length} = 'ALL' OR UPPER(COALESCE(f.subsection, '')) = UPPER($${values.length}))`);
+      }
+
+      const result = await client.query(`
+        UPDATE registration_form_submissions rfs
+        SET ${mentorUpdates.join(', ')}
+        FROM registration_forms f
+        WHERE f.id = rfs.form_id
+          AND ${formFilters.join(' AND ')}
+      `, values);
+
+      return { table: tableName, updated: result.rowCount || 0, skipped: false, via: 'registration_forms' };
+    }
+  }
+
+  const cohortFilters = [];
+  if (columns.has('semester')) {
+    values.push(allocation.semester);
+    cohortFilters.push(`semester = $${values.length}`);
+  }
+  if (columns.has('year')) {
+    values.push(allocation.year);
+    cohortFilters.push(`($${values.length}::int IS NULL OR year = $${values.length})`);
+  }
+  if (columns.has('academic_year')) {
+    values.push(allocation.academic_year);
+    cohortFilters.push(`${eligibleAcademicYearSql('academic_year')} AND academic_year = $${values.length}`);
+  }
+  if (columns.has('section')) {
+    values.push(allocation.section);
+    cohortFilters.push(`($${values.length} = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($${values.length}))`);
+  }
+  if (columns.has('subsection')) {
+    values.push(allocation.subsection);
+    cohortFilters.push(`($${values.length} = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($${values.length}))`);
+  }
+
+  if (cohortFilters.length === 0) {
+    return { table: tableName, updated: 0, skipped: true, reason: 'cohort_columns_missing' };
+  }
+
+  const result = await client.query(`
+    UPDATE ${quoteIdentifier(tableName)}
+    SET ${mentorUpdates.join(', ')}
+    WHERE ${cohortFilters.join(' AND ')}
+  `, values);
+
+  return { table: tableName, updated: result.rowCount || 0, skipped: false };
+};
+
 const syncMentorAllocationAssignments = async (client, allocation, previousAllocation = null) => {
+  let previousStudentClear = { rowCount: 0 };
+  let previousProjectClear = { rowCount: 0 };
+  if (previousAllocation) {
+    previousStudentClear = await client.query(`
+      UPDATE students
+      SET mentor_id = NULL,
+          mentor_name = NULL,
+          mentor_email = NULL,
+          updated_at = NOW()
+      WHERE mentor_id = $1
+        AND semester = $2
+        AND ${eligibleAcademicYearSql('academic_year')}
+        AND COALESCE(status, 'active') = 'active'
+        AND ($3::int IS NULL OR COALESCE(year, CEIL(semester::numeric / 2)::int) = $3)
+        AND ($4::text IS NULL OR $4 = '' OR COALESCE(academic_year, '') = '' OR academic_year = $4)
+        AND ($5 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($5))
+        AND ($6 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($6))
+    `, [
+      previousAllocation.mentor_id,
+      previousAllocation.semester,
+      previousAllocation.year,
+      previousAllocation.academic_year,
+      previousAllocation.section,
+      previousAllocation.subsection
+    ]);
+
+    previousProjectClear = await client.query(`
+      UPDATE projects
+      SET mentor_id = NULL,
+          updated_at = NOW()
+      WHERE mentor_id = $1
+        AND semester = $2
+        AND ${eligibleAcademicYearSql('academic_year')}
+        AND ($3::int IS NULL OR CEIL(semester::numeric / 2)::int = $3)
+        AND ($4::text IS NULL OR $4 = '' OR COALESCE(academic_year, '') = '' OR academic_year = $4)
+        AND ($5 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($5))
+        AND ($6 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($6))
+    `, [
+      previousAllocation.mentor_id,
+      previousAllocation.semester,
+      previousAllocation.year,
+      previousAllocation.academic_year,
+      previousAllocation.section,
+      previousAllocation.subsection
+    ]);
+  }
+
   const studentUpdate = await client.query(`
     UPDATE students
     SET mentor_id = $1,
@@ -220,13 +508,19 @@ const syncMentorAllocationAssignments = async (client, allocation, previousAlloc
         mentor_email = $3,
         updated_at = NOW()
     WHERE semester = $4
-      AND ($5 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($5))
-      AND ($6 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($6))
+      AND ${eligibleAcademicYearSql('academic_year')}
+      AND COALESCE(status, 'active') = 'active'
+      AND ($5::int IS NULL OR COALESCE(year, CEIL(semester::numeric / 2)::int) = $5)
+      AND ($6::text IS NULL OR $6 = '' OR COALESCE(academic_year, '') = '' OR academic_year = $6)
+      AND ($7 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($7))
+      AND ($8 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($8))
   `, [
     allocation.mentor_id,
     allocation.mentor_name,
     allocation.mentor_email,
     allocation.semester,
+    allocation.year,
+    allocation.academic_year,
     allocation.section,
     allocation.subsection
   ]);
@@ -235,17 +529,42 @@ const syncMentorAllocationAssignments = async (client, allocation, previousAlloc
     UPDATE projects
     SET mentor_id = $1,
         updated_at = NOW()
-    WHERE academic_year = $2
+    WHERE ${eligibleAcademicYearSql('academic_year')}
+      AND ($2::text IS NULL OR $2 = '' OR COALESCE(academic_year, '') = '' OR academic_year = $2)
       AND semester = $3
-      AND ($4 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($4))
-      AND ($5 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($5))
+      AND ($4::int IS NULL OR CEIL(semester::numeric / 2)::int = $4)
+      AND ($5 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($5))
+      AND ($6 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($6))
   `, [
     allocation.mentor_id,
     allocation.academic_year,
     allocation.semester,
+    allocation.year,
     allocation.section,
     allocation.subsection
   ]);
+
+  let registrationUpdate = { rowCount: 0 };
+  if (await tableExistsForClient(client, 'project_registrations')) {
+    registrationUpdate = await client.query(`
+      UPDATE project_registrations
+      SET mentor_id = $1,
+          updated_at = NOW()
+      WHERE semester = $2
+        AND ${eligibleAcademicYearSql('academic_year')}
+        AND ($3::int IS NULL OR CEIL(semester::numeric / 2)::int = $3)
+        AND ($4::text IS NULL OR $4 = '' OR COALESCE(academic_year, '') = '' OR academic_year = $4)
+        AND ($5 = 'ALL' OR UPPER(COALESCE(section, '')) = UPPER($5))
+        AND ($6 = 'ALL' OR UPPER(COALESCE(subsection, '')) = UPPER($6))
+    `, [
+      allocation.mentor_id,
+      allocation.semester,
+      allocation.year,
+      allocation.academic_year,
+      allocation.section,
+      allocation.subsection
+    ]);
+  }
 
   const assignmentUpdate = await client.query(`
     UPDATE mentor_assignments ma
@@ -253,21 +572,86 @@ const syncMentorAllocationAssignments = async (client, allocation, previousAlloc
         mentor_user_id = $1,
         allocation_id = $2,
         updated_at = NOW()
-    WHERE ma.academic_year = $3
-      AND ($4 = 'ALL' OR UPPER(COALESCE(ma.section, '')) = UPPER($4))
-      AND ($5 = 'ALL' OR UPPER(COALESCE(ma.subsection, '')) = UPPER($5))
+    WHERE ($3::text IS NULL OR $3 = '' OR COALESCE(ma.academic_year, '') = '' OR ma.academic_year = $3)
+      AND ($4::int IS NULL OR ma.academic_year IS NULL OR ma.academic_year = '' OR $4 = CEIL(COALESCE((SELECT p.semester FROM projects p WHERE p.id = ma.project_id LIMIT 1), 0)::numeric / 2)::int)
+      AND ($5 = 'ALL' OR UPPER(COALESCE(ma.section, '')) = UPPER($5))
+      AND ($6 = 'ALL' OR UPPER(COALESCE(ma.subsection, '')) = UPPER($6))
   `, [
     allocation.mentor_id,
     allocation.id,
+    allocation.academic_year,
+    allocation.year,
+    allocation.section,
+    allocation.subsection
+  ]);
+
+  const optionalCacheTables = [
+    'teams',
+    'submissions',
+    'project_groups',
+    'project_form_submissions',
+    'registration_form_submissions',
+    'document_submissions',
+    'milestone_submissions',
+    'final_submissions'
+  ];
+  const optionalCacheUpdates = [];
+  for (const tableName of optionalCacheTables) {
+    optionalCacheUpdates.push(await syncOptionalMentorCacheTable(client, tableName, allocation));
+  }
+
+  const syncedStudents = await client.query(`
+    SELECT s.user_id,
+           COALESCE(s.full_name, u.full_name) AS full_name,
+           COALESCE(s.email, u.email) AS email,
+           s.roll_number,
+           s.year,
+           s.academic_year,
+           s.semester,
+           s.section,
+           s.subsection,
+           s.mentor_id,
+           s.mentor_name,
+           s.mentor_email,
+           s.updated_at
+    FROM students s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.semester = $1
+      AND ($2::int IS NULL OR COALESCE(s.year, CEIL(s.semester::numeric / 2)::int) = $2)
+      AND ${eligibleAcademicYearSql('s.academic_year')}
+      AND COALESCE(s.status, 'active') = 'active'
+      AND ($3::text IS NULL OR $3 = '' OR COALESCE(s.academic_year, '') = '' OR s.academic_year = $3)
+      AND ($4 = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER($4))
+      AND ($5 = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER($5))
+    ORDER BY COALESCE(s.full_name, u.full_name) ASC
+  `, [
+    allocation.semester,
+    allocation.year,
     allocation.academic_year,
     allocation.section,
     allocation.subsection
   ]);
 
+  const notificationResult = await insertMentorAllocationNotifications(client, allocation, syncedStudents.rows);
+
   const syncResult = {
     studentsUpdated: studentUpdate.rowCount || 0,
     projectsUpdated: projectUpdate.rowCount || 0,
+    projectRegistrationsUpdated: registrationUpdate.rowCount || 0,
     mentorAssignmentsUpdated: assignmentUpdate.rowCount || 0,
+    notificationsInserted: notificationResult.inserted,
+    studentNotificationsInserted: notificationResult.studentNotifications,
+    mentorNotificationsInserted: notificationResult.mentorNotifications,
+    oldStudentsCleared: previousStudentClear.rowCount || 0,
+    oldProjectsCleared: previousProjectClear.rowCount || 0,
+    cachedTables: optionalCacheUpdates,
+    teamsUpdated: optionalCacheUpdates
+      .filter((item) => ['teams', 'project_groups'].includes(item.table))
+      .reduce((sum, item) => sum + (item.updated || 0), 0),
+    submissionsUpdated: optionalCacheUpdates
+      .filter((item) => item.table.includes('submissions') || item.table === 'project_form_submissions')
+      .reduce((sum, item) => sum + (item.updated || 0), 0),
+    updatedStudents: syncedStudents.rows,
     oldMentor: previousAllocation
       ? {
           id: previousAllocation.mentor_id,
@@ -284,10 +668,20 @@ const syncMentorAllocationAssignments = async (client, allocation, previousAlloc
 
   console.log('[MENTOR_ALLOCATION_SYNC]', {
     allocationId: allocation.id,
-    year: allocation.academic_year,
+    year: allocation.year || allocation.academic_year,
     semester: allocation.semester,
     section: allocation.section,
     subsection: allocation.subsection,
+    sqlResult: {
+      studentsRowCount: studentUpdate.rowCount || 0,
+      projectsRowCount: projectUpdate.rowCount || 0,
+      projectRegistrationsRowCount: registrationUpdate.rowCount || 0,
+      mentorAssignmentsRowCount: assignmentUpdate.rowCount || 0,
+      oldStudentsClearedRowCount: previousStudentClear.rowCount || 0,
+      oldProjectsClearedRowCount: previousProjectClear.rowCount || 0,
+      notificationsInserted: notificationResult.inserted,
+      cachedTableResults: optionalCacheUpdates
+    },
     ...syncResult
   });
 
@@ -1477,6 +1871,8 @@ exports.getMentorAllocations = async (req, res) => {
       LEFT JOIN users hod ON hod.id = ma.created_by_hod
       LEFT JOIN students s
         ON s.semester = ma.semester
+       AND (ma.year IS NULL OR COALESCE(s.year, CEIL(s.semester::numeric / 2)::int) = ma.year)
+       AND (ma.academic_year = '' OR COALESCE(s.academic_year, '') = '' OR s.academic_year = ma.academic_year)
        AND (ma.section = 'ALL' OR UPPER(COALESCE(s.section, '')) = UPPER(ma.section))
        AND (ma.subsection = 'ALL' OR UPPER(COALESCE(s.subsection, '')) = UPPER(ma.subsection))
       GROUP BY ma.id, hod.full_name
@@ -1497,10 +1893,14 @@ exports.createMentorAllocation = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const payload = normalizeMentorAllocationPayload(req.body);
+    console.log('[MENTOR_ALLOCATION_CREATE_BODY]', req.body);
     console.log('[MENTOR_ALLOCATION_CREATE] payload:', payload);
 
     if (!payload.year || Number.isNaN(payload.semester) || !payload.section || !payload.subsection || Number.isNaN(payload.mentorId)) {
       return res.status(400).json({ message: 'Academic year, semester, section, subsection, and mentor are required.' });
+    }
+    if (!isEligibleAcademicYear(payload.academicYear)) {
+      return res.status(400).json({ message: 'Academic year must be 2025-26 or newer.' });
     }
 
     await client.query('BEGIN');
@@ -1514,7 +1914,7 @@ exports.createMentorAllocation = async (req, res) => {
         AND UPPER(section) = UPPER($3)
         AND UPPER(subsection) = UPPER($4)
       LIMIT 1
-    `, [payload.year, payload.semester, payload.section, payload.subsection]);
+    `, [payload.academicYear || '', payload.semester, payload.section, payload.subsection]);
 
     if (duplicate.rows.length > 0) {
       await client.query('ROLLBACK');
@@ -1529,11 +1929,12 @@ exports.createMentorAllocation = async (req, res) => {
 
     const result = await client.query(`
       INSERT INTO mentor_allocations
-      (academic_year, semester, section, subsection, mentor_id, mentor_name, mentor_email, created_by_hod)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      (year, academic_year, semester, section, subsection, mentor_id, mentor_name, mentor_email, created_by_hod)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
-      payload.year,
+      payload.yearLevel,
+      payload.academicYear || '',
       payload.semester,
       payload.section,
       payload.subsection,
@@ -1542,9 +1943,24 @@ exports.createMentorAllocation = async (req, res) => {
       mentor.email,
       req.user.id
     ]);
+    console.log('[MENTOR_ALLOCATION_CREATE_RESULT]', result.rows[0]);
 
     const sync = await syncMentorAllocationAssignments(client, result.rows[0]);
+    console.log('[MENTOR_ALLOCATION_CREATE_STUDENT_UPDATE_RESULT]', {
+      studentsUpdated: sync.studentsUpdated,
+      updatedStudents: sync.updatedStudents,
+      notificationsInserted: sync.notificationsInserted
+    });
     await client.query('COMMIT');
+    console.log('[MENTOR_ALLOCATION_CREATE_SUCCESS]', {
+      allocationId: result.rows[0].id,
+      mentorName: mentor.full_name,
+      affectedStudentsCount: sync.studentsUpdated,
+      year: result.rows[0].year || result.rows[0].academic_year,
+      semester: result.rows[0].semester,
+      section: result.rows[0].section,
+      subsection: result.rows[0].subsection
+    });
 
     res.status(201).json({
       success: true,
@@ -1574,6 +1990,7 @@ exports.updateMentorAllocation = async (req, res) => {
   try {
     const allocationId = parseInt(req.params.id, 10);
     const payload = normalizeMentorAllocationPayload(req.body);
+    console.log('[MENTOR_ALLOCATION_UPDATE_BODY]', req.body);
     console.log('[MENTOR_ALLOCATION_UPDATE] params:', req.params, 'payload:', payload);
 
     if (Number.isNaN(allocationId)) {
@@ -1582,6 +1999,9 @@ exports.updateMentorAllocation = async (req, res) => {
 
     if (!payload.year || Number.isNaN(payload.semester) || !payload.section || !payload.subsection || Number.isNaN(payload.mentorId)) {
       return res.status(400).json({ message: 'Academic year, semester, section, subsection, and mentor are required.' });
+    }
+    if (!isEligibleAcademicYear(payload.academicYear)) {
+      return res.status(400).json({ message: 'Academic year must be 2025-26 or newer.' });
     }
 
     await client.query('BEGIN');
@@ -1602,7 +2022,7 @@ exports.updateMentorAllocation = async (req, res) => {
         AND UPPER(section) = UPPER($3)
         AND UPPER(subsection) = UPPER($4)
       LIMIT 1
-    `, [payload.year, payload.semester, payload.section, payload.subsection, allocationId]);
+    `, [payload.academicYear || '', payload.semester, payload.section, payload.subsection, allocationId]);
 
     if (duplicate.rows.length > 0) {
       await client.query('ROLLBACK');
@@ -1617,18 +2037,20 @@ exports.updateMentorAllocation = async (req, res) => {
 
     const result = await client.query(`
       UPDATE mentor_allocations
-      SET academic_year = $1,
-          semester = $2,
-          section = $3,
-          subsection = $4,
-          mentor_id = $5,
-          mentor_name = $6,
-          mentor_email = $7,
+      SET year = $1,
+          academic_year = $2,
+          semester = $3,
+          section = $4,
+          subsection = $5,
+          mentor_id = $6,
+          mentor_name = $7,
+          mentor_email = $8,
           updated_at = NOW()
-      WHERE id = $8
+      WHERE id = $9
       RETURNING *
     `, [
-      payload.year,
+      payload.yearLevel,
+      payload.academicYear || '',
       payload.semester,
       payload.section,
       payload.subsection,
@@ -1637,9 +2059,25 @@ exports.updateMentorAllocation = async (req, res) => {
       mentor.email,
       allocationId
     ]);
+    console.log('[MENTOR_ALLOCATION_UPDATE_RESULT]', result.rows[0]);
 
     const sync = await syncMentorAllocationAssignments(client, result.rows[0], existing.rows[0]);
+    console.log('[MENTOR_ALLOCATION_UPDATE_STUDENT_UPDATE_RESULT]', {
+      studentsUpdated: sync.studentsUpdated,
+      updatedStudents: sync.updatedStudents,
+      notificationsInserted: sync.notificationsInserted
+    });
     await client.query('COMMIT');
+    console.log('[MENTOR_ALLOCATION_UPDATE_SUCCESS]', {
+      allocationId: result.rows[0].id,
+      mentorName: mentor.full_name,
+      affectedStudentsCount: sync.studentsUpdated,
+      year: result.rows[0].year || result.rows[0].academic_year,
+      semester: result.rows[0].semester,
+      section: result.rows[0].section,
+      subsection: result.rows[0].subsection,
+      oldMentorId: existing.rows[0].mentor_id
+    });
 
     res.json({
       success: true,
