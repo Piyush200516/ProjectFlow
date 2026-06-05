@@ -484,3 +484,159 @@ MIT License
 ## Maintainer
 
 Piyush Mishra
+
+---
+
+## 📚 Database Architecture Overview
+
+The **ProjectFlow Edu App** uses **PostgreSQL (Neon‑compatible)** with **Prisma ORM**. All core domain data lives in a set of normalized tables that enforce referential integrity, role‑based access, and auditability.
+
+---
+
+### 1️⃣ PostgreSQL Production Tables
+| Table | Purpose |
+|-------|---------|
+| `users` | Central authentication & role store |
+| `students` | Student profile (roll, branch, semester, academic year) |
+| `mentors` | Mentor profile (department, specialization, max projects) |
+| `branches` | Lookup for academic branches |
+| `academic_years` | Defined academic years (2026‑27, 2027‑28, 2028‑29) |
+| `student_academic_years` | Junction linking students to one or more academic years |
+| `departments` | Department lookup for mentors |
+| `projects` | Core project entity, status workflow |
+| `project_members` | Many‑to‑many linking users to projects with role |
+| `mentor_allocations` | Historical mentor ↔ project assignments |
+| `milestones` | Project milestones |
+| `tasks` | Project tasks, assignee linkage |
+| `project_documents` | Files attached to a project |
+| `project_document_versions` | Versioned storage of documents |
+| `submissions` | Final project submissions with grading/feedback |
+| `notifications` | In‑app notification payloads |
+| `files` | Generic file store (profile images, avatars, etc.) |
+| `teams` (optional) | Permanent team groups |
+| `team_members` (optional) | Team ↔ user linkage |
+| `audit_logs` | System‑wide activity audit |
+| `login_attempts` | Brute‑force tracking |
+| `user_sessions` | JWT refresh‑session tracking |
+| `refresh_tokens` | Revocable refresh token store |
+| `password_reset_tokens` | Secure password‑reset flow |
+| `email_verification_tokens` | Email verification lifecycle |
+
+---
+
+### 2️⃣ Authentication Tables & Flow
+* **Tables**: `users`, `user_sessions`, `refresh_tokens`, `password_reset_tokens`, `email_verification_tokens`, `login_attempts`, `audit_logs`.
+* **Flow**:
+  1. User registers → password hashed with **bcrypt** → entry in `users`.
+  2. Login generates **JWT access token** (15 min) and **refresh token** (30 days). Refresh token hash stored in `refresh_tokens` and linked via `user_sessions`.
+  3. Tokens are stored in **HTTP‑only cookies**; middleware validates `Authorization: Bearer <access>`.
+  4. Role‑based access (`UserRole` enum) controls route guards (Student, Mentor, HOD, Admin, Super Admin).
+  5. **Forgot password** creates a one‑time token stored in `password_reset_tokens` (hashed, 30 min expiry) and emailed via Nodemailer.
+  6. **Email verification** follows the same pattern with `email_verification_tokens`.
+  7. All auth events (logins, failures, lockouts) are recorded in `audit_logs` and `login_attempts`.
+
+---
+
+### 3️⃣ Mentor Allocation Workflow
+* **Primary tables**: `projects`, `mentors`, `mentor_allocations`, `project_members`.
+* When a HOD approves a project, the system:
+  1. Checks mentor capacity (`max_projects`).
+  2. Inserts a row into `mentor_allocations` (current timestamp).  
+  3. Updates `projects.mentor_id`.
+  4. Adds the mentor as a `project_member` with role `mentor`.
+* Allocation history remains immutable for reporting and fairness audits.
+
+---
+
+### 4️⃣ Team & Project Workflow
+* **Team creation** uses `teams` + `team_members` (optional).
+* **Project registration** (`POST /api/student/projects`):
+  * Creates a `projects` row (status `IDEA`).
+  * Inserts the creator as a `project_member` (role `owner`).
+  * Team members are added via `project_members`.
+* **Milestones** and **tasks** are linked to a project; tasks may be assigned to any user (`assignee_id`).
+* **Submission** (`POST /api/student/projects/:id/submit`):
+  * Persists the current `project_document_version` as a `submissions` entry.
+  * Stores evaluator `score`, `feedback`, and status (`PENDING`, `REVIEWED`, `ACCEPTED`, `REJECTED`).
+
+---
+
+### 5️⃣ Notification System
+* **Table**: `notifications` – payload includes `type`, `title`, `body`, optional `data` JSON, and `read_at` timestamp.
+* **Triggers** (expressed in service layer):
+  * Project assignment → mentor notification.
+  * Milestone due → student notification.\n  * Submission review → student notification.
+* Real‑time delivery uses **Socket.IO** rooms keyed by user ID; unread count is derived from `read_at IS NULL`.
+
+---
+
+### 6️⃣ File Upload & Storage
+* Generic `files` table stores metadata (`name`, `mime_type`, `storage_key`, `uploader_id`).
+* Project documents are a specialised subset (`project_documents` + versioning).
+* Profile images reference `files.id` via `users.profile_image` (optional).
+* All files are stored in **S3/Cloudinary**; only the storage key lives in the DB.
+
+---
+
+### 7️⃣ Academic Year System
+* **Lookup**: `academic_years` (pre‑seeded with 2026‑27, 2027‑28, 2028‑29).
+* **Active flag** determines which year is currently open for new registrations.
+* `student_academic_years` enables students to belong to multiple years (e.g., repeats) and supports historic queries.
+
+---
+
+### 8️⃣ Activity & Audit Tables
+* `audit_logs` – records **who**, **what**, **when**, and **context** for all privileged actions.
+* `login_attempts` – tracks success/failure, IP, and lockout counters.
+* `user_sessions` – tracks active refresh‑token sessions with revocation support.
+
+---
+
+### 9️⃣ Relationships & ER Summary
+* **One‑to‑many**: `users → projects` (creator), `users → mentor_allocations`, `users → notifications`.
+* **Many‑to‑many** via join tables: `project_members`, `team_members`, `student_academic_years`.
+* **One‑to‑one**: `users ↔ student_profile`, `users ↔ mentor_profile`.
+* **One‑to‑many**: `projects → milestones`, `projects → tasks`, `projects → documents`, `projects → submissions`.
+* **Historical**: `mentor_allocations` preserves past mentor ↔ project links.
+
+---
+
+### 🔧 Planned Future Tables
+| Table | Purpose |
+|-------|---------|
+| `mentor_feedback` | Star rating & comments from students to mentors |
+| `analytics_events` | Event‑sourced analytics (page views, API usage) |
+| `archived_students` | Partitioned archive for graduated/alumni data |
+| `project_progress` | Weekly health‑score snapshots |
+| `event_management` | Campus‑wide events, registrations |
+
+---
+
+### 🚀 Migration Commands
+```bash
+# Apply Prisma migrations (first time)
+npx prisma migrate deploy          # for production
+# Generate client after schema change
+npx prisma generate
+# Seed lookup tables
+node scripts/seed-lookup.js       # populates branches, departments, academic_years
+```
+
+---
+
+### 🛠️ Prisma / PostgreSQL Setup
+1. **Create Neon database** and set `DATABASE_URL` env variable.
+2. Run `npm install && npx prisma migrate dev` locally to apply migrations.
+3. For CI/CD, use `npx prisma migrate deploy`.
+4. Enable **Row‑Level Security** (optional) for `students` and `projects` if multi‑tenant isolation is needed.
+5. Verify indexes with `EXPLAIN ANALYZE` on heavy queries (e.g., dashboard feeds).
+
+---
+
+*All sections above are automatically generated from the current code‑base. Adjustments can be made by editing the respective Prisma models and re‑running migrations.*
+
+---
+
+## Maintainer
+
+Piyush Mishra
