@@ -106,3 +106,54 @@ You can now navigate the repository and see that the backend is fully documented
 ---
 
 *All sections above are generated from the current code‑base and the inferred requirements. Adjustments can be made by editing the Prisma models, adding the missing tables to `schema.prisma`, and re‑running `npx prisma migrate dev`. The README will stay in sync as long as the documentation block is refreshed after schema changes.*
+## 🏫 HOD Module Architecture
+
+### HOD Tables
+
+| Table | Purpose | Primary Key | Foreign Keys | Key Columns |
+|------|---------|--------------|--------------|-------------|
+| **Hods** | Stores HOD authentication and department management data. | `id` (UUID) | — | `full_name`, `email`, `password`, `department`, `designation`, `mobile_number`, `profile_image`, `is_active`, `created_at`, `updated_at` |
+| **hod_mentor_management** | Tracks mentor assignments performed by HODs. | `id` (UUID) | `hod_id → Hods.id`, `mentor_id → MentorProfile.id` | `action_type`, `created_at` |
+| **hod_student_approvals** | Stores student registration approval history. | `id` (UUID) | `hod_id → Hods.id`, `student_id → User.id` | `approval_status`, `remarks`, `approved_at` |
+| **hod_submission_reviews** | Stores HOD review actions for project submissions. | `id` (UUID) | `hod_id → Hods.id`, `submission_id → ProjectFile.id` | `status`, `feedback`, `reviewed_at` |
+
+### Relationships
+
+| Parent Table | Child Table | Relationship |
+|--------------|-------------|--------------|
+| **Hods** | **MentorProfile** | One‑to‑Many (HOD manages many mentors) |
+| **Hods** | **MentorAllocation** | One‑to‑Many |
+| **Hods** | **hod_mentor_management** | One‑to‑Many |
+| **Hods** | **hod_student_approvals** | One‑to‑Many |
+| **Hods** | **hod_submission_reviews** | One‑to‑Many |
+| **Hods** | **Team** | One‑to‑Many (monitoring) |
+
+### Authentication Flow
+
+1. **Login** – HOD submits email & password → JWT issued (`/hod/login`).
+2. **Protected Routes** – Middleware checks `role === 'HOD'`.
+3. **Role‑Based Authorization** – Only HOD can access mentor‑management, student‑approval, and submission‑review endpoints.
+4. **Permissions** – HOD can create/modify `MentorAllocation` and trigger related `Notification`s.
+
+### HOD Workflow
+
+1. **HOD login** – receives JWT.
+2. **Assign mentors** – POST to `/hod/assign-mentor` → creates `hod_mentor_management` entry & updates `MentorAllocation`.
+3. **Student approvals** – POST to `/hod/approve-student` → inserts into `hod_student_approvals`; updates `User` status.
+4. **Monitor teams** – GET `/hod/teams` returns teams with progress metrics.
+5. **Review submissions** – POST to `/hod/review-submission` → writes `hod_submission_reviews`, updates submission status, sends `Notification`.
+6. **Notifications** – Automatic creation of notifications for mentors, students, and admins on each action.
+
+### ER Diagram (textual)
+
+```
+Hods 1---* MentorProfile
+Hods 1---* MentorAllocation
+Hods 1---* hod_mentor_management
+Hods 1---* hod_student_approvals
+Hods 1---* hod_submission_reviews
+Hods 1---* Team
+```
+
+These additions complete the HOD module documentation and keep the database architecture consistent and ready for implementation.
+
