@@ -1,13 +1,12 @@
-# 📚 ProjectFlow Edu App Documentation
+# ProjectFlow Edu App Documentation
 
 ## Project Overview
 
-**ProjectFlow Edu App** is an academic project‑management platform that enables seamless collaboration between **students**, **mentors**, and **heads of department (HODs)**. The system allows:
-- Students to create, manage, and submit project work.
-- Mentors to allocate teams, monitor progress, and provide feedback.
-- HODs to oversee mentor allocations, approve student registrations, and review project submissions.
+**ProjectFlow Edu App** is an academic project‑management platform that enables seamless collaboration between **students**, **mentors**, and **heads of department (HODs)**. It digitises the entire lifecycle of semester‑long capstone projects, from team formation to final grading, with real‑time notifications and audit logging.
 
-It digitalises the entire lifecycle of semester‑long capstone projects, from team formation to final grading, with real‑time notifications and audit logging.
+- **Students** create, join teams, submit project forms and files, and track submission status.
+- **Mentors** are allocated to teams, monitor progress, create tasks, and review submissions.
+- **HODs** oversee mentor allocations, approve student registrations, review and approve submissions, and manage academic years.
 
 ## Main Features
 
@@ -15,9 +14,9 @@ It digitalises the entire lifecycle of semester‑long capstone projects, from t
 - Registration & JWT login
 - Profile & academic profile management (branch, department, academic year)
 - Team creation & joining
-- Dynamic project form submission (customizable JSON schemas)
+- Dynamic project form submission (JSON schema driven)
 - File uploads (reports, designs, etc.)
-- Submission tracking and status view
+- Submission tracking & status view
 - Mentor information view
 - Real‑time notifications
 
@@ -25,7 +24,7 @@ It digitalises the entire lifecycle of semester‑long capstone projects, from t
 - Secure login
 - Dashboard of assigned students and teams
 - Team progress monitoring
-- Review and feedback on project submissions
+- Review & feedback on project submissions
 - Task creation & status updates
 - Notification handling
 
@@ -33,7 +32,7 @@ It digitalises the entire lifecycle of semester‑long capstone projects, from t
 - HOD authentication & role‑based access
 - Mentor allocation to teams (via **MentorAllocation**)
 - Student registration approval workflow
-- Submission review and approval
+- Submission review & approval
 - Team monitoring & analytics dashboard
 - Management of academic years, branches, and departments
 
@@ -42,13 +41,13 @@ It digitalises the entire lifecycle of semester‑long capstone projects, from t
 ### Frontend
 - **React.js** with functional components & hooks
 - **Vite** for fast development builds
-- **Tailwind CSS** for utility‑first styling (dark mode ready)
-- **Material UI** components for complex UI elements
+- **Tailwind CSS** (utility‑first styling, dark mode ready)
+- **Material UI** for complex UI components
 - **Axios** for HTTP API calls
 - **React Router** for SPA navigation
 
 ### Backend
-- **Node.js** (v18+) runtime
+- **Node.js** (v18+)
 - **Express.js** for RESTful API routing
 - **JWT** for stateless authentication
 - **bcrypt** for password hashing
@@ -62,44 +61,124 @@ It digitalises the entire lifecycle of semester‑long capstone projects, from t
 - **SQL migrations** generated via `prisma migrate dev`
 
 ### Authentication & Security
-- **Access & Refresh Tokens** (short‑lived access, long‑lived refresh)
-- **Role‑Based Access Control (RBAC)** – `Student`, `Mentor`, `HOD`
-- **Rate limiting & input validation** in middleware
+- Access & Refresh tokens
+- Role‑Based Access Control (RBAC) – `Student`, `Mentor`, `HOD`
+- Rate limiting & input validation middleware
 
 ### File Upload System
-- **Multer** middleware stores temporary files
+- **Multer** stores temporary files
 - **Cloudinary** (or local storage) for permanent asset hosting
 - Metadata persisted in `ProjectFile` and generic `Upload` tables
 
 ### DevOps / Deployment
 - **GitHub** for source control & CI/CD workflows
-- **Render**/**Railway** (or Netlify for frontend) for production hosting
+- **Render / Railway** (or Netlify for frontend) for production hosting
 - Dockerfile (Node base) for containerised deployments
 - Environment variables for DB URL, JWT secret, Cloudinary keys, etc.
 
 ## System Architecture
 
-```
+```text
 [Frontend React SPA] ⇄ (REST/JSON over HTTPS) ⇄ [Express Backend] ⇄ [PostgreSQL via Prisma]
 ```
-- **Authentication Flow**: User posts credentials → `/auth/login` → returns JWT access & refresh tokens → stored client‑side (httpOnly cookie or local storage) → subsequent API calls validated by `authMiddleware`.
-- **Mentor Allocation Flow**: HOD creates a **Team**, then posts to `/hod/assign-mentor` → creates `hod_mentor_management` entry and updates `MentorAllocation` → notifications sent to mentor & team.
-- **Project Submission Flow**: Student fills a dynamic **ProjectForm**, submits via `/student/submit-form` → creates `ProjectFormSubmission` → Mentor reviews → HOD may approve via `/hod/review-submission`.
 
-All flows are event‑driven; changes trigger rows in the **Notification** table, which the frontend polls or receives via WebSocket.
+- **Authentication Flow** – `/auth/login` returns JWT access & refresh tokens; protected routes validate tokens via `authMiddleware`.
+- **Mentor Allocation Flow** – HOD creates a **Team**, posts to `/hod/assign-mentor`; creates `hod_mentor_management` entry and updates `MentorAllocation`; notifications sent to mentor & team.
+- **Project Submission Flow** – Student submits a dynamic **ProjectForm** via `/student/submit-form`; creates `ProjectFormSubmission`; Mentor reviews; HOD may approve via `/hod/review-submission`.
+- All flows generate rows in the **Notification** table, consumed by the frontend via polling or WebSocket.
 
-## Database Overview
+## Database Architecture
 
-| Domain | Core Tables | Additional Tables |
-|--------|-------------|-------------------|
-| Users & Auth | `User`, `UserSession`, `RefreshToken`, `PasswordResetToken`, `EmailVerificationToken`, `LoginAttempt`, `AuditLog` | `hods`, `hod_mentor_management`, `hod_student_approvals`, `hod_submission_reviews` |
-| Profiles | `StudentProfile`, `MentorProfile` | — |
-| Academic Structure | `Branch`, `Department`, `AcademicYear` | — |
-| Projects | `Project`, `ProjectMember`, `Milestone`, `Task`, `ProjectMessage`, `ProjectFile` | `Team`, `TeamMember`, `MentorAllocation`, `ProjectForm`, `ProjectFormSubmission` |
-| Notifications & Activity | `Notification`, `ActivityLog` | `Upload` |
-| Registrations | `RegistrationForm`, `RegistrationFormSubmission` | — |
+### 1. Authentication Tables
+| Table | Purpose | Primary Key | Important Columns |
+|-------|---------|-------------|-------------------|
+| **User** | Central identity for all actors | `id` (UUID) | `email`, `passwordHash`, `role` (`STUDENT`/`MENTOR`/`HOD`), `isEmailVerified`, `createdAt`, `updatedAt` |
+| **UserSession** | Refresh‑token tracking | `id` (UUID) | `userId → User.id`, `refreshToken`, `expiresAt`, `createdAt` |
+| **RefreshToken**, **PasswordResetToken**, **EmailVerificationToken**, **LoginAttempt** | One‑time security tokens | `id` (UUID) | `userId → User.id`, token fields, expiry, createdAt |
+| **Hods** | HOD authentication & department data | `id` (UUID) | `full_name`, `email`, `password`, `department`, `designation`, `mobile_number`, `profile_image`, `is_active`, `created_at`, `updated_at` |
 
-Relationships are visualised in the ER diagram below (textual):
+### 2. Academic Structure Tables
+| Table | Purpose | Primary Key | Important Columns |
+|-------|---------|-------------|-------------------|
+| **AcademicYear** | Active academic session | `id` (UUID) | `yearLabel` (e.g., `2026-27`), `startDate`, `endDate`, `isActive` |
+| **Branch** | Student/mentor branch classification | `id` (UUID) | `name`, `code` |
+| **Department** | Department hierarchy | `id` (UUID) | `name`, `code` |
+
+### 3. Profile Tables
+| Table | Purpose | Primary Key | Foreign Keys | Important Columns |
+|-------|---------|-------------|--------------|-------------------|
+| **StudentProfile** | Student‑specific details | `id` (UUID) | `userId → User.id` | `fullName`, `rollNumber`, `branchId`, `departmentId`, `academicYearId`, `createdAt`, `updatedAt` |
+| **MentorProfile** | Mentor‑specific details | `id` (UUID) | `userId → User.id` | `fullName`, `employeeId`, `departmentId`, `createdAt`, `updatedAt` |
+
+### 4. Team Management Tables
+| Table | Purpose | Primary Key | Foreign Keys | Important Columns |
+|-------|---------|-------------|--------------|-------------------|
+| **Team** | Logical grouping of students for a project | `id` (UUID) | `mentorId → MentorProfile.id` (optional), `projectId → Project.id` | `name`, `createdAt`, `updatedAt` |
+| **TeamMember** | Many‑to‑many link between Team and Student Users | `id` (UUID) | `teamId → Team.id`, `studentId → User.id` | `role` (`LEADER`/`DEVELOPER`), `joinedAt` |
+
+### 5. Mentor Allocation Tables
+| Table | Purpose | Primary Key | Foreign Keys | Important Columns |
+|-------|---------|-------------|--------------|-------------------|
+| **MentorAllocation** | Tracks which mentor is allocated to which team for a given academic year | `id` (UUID) | `mentorId → MentorProfile.id`, `teamId → Team.id`, `academicYearId → AcademicYear.id` | `allocationDate`, `status` |
+| **hod_mentor_management** | Records HOD‑initiated mentor assignment actions | `id` (UUID) | `hodId → Hods.id`, `mentorId → MentorProfile.id` | `action_type` (e.g., `ASSIGN`, `REMOVE`), `created_at` |
+
+### 6. Project Management Tables
+| Table | Purpose | Primary Key | Foreign Keys | Important Columns |
+|-------|---------|-------------|--------------|-------------------|
+| **Project** | Represents a capstone/semester project | `id` (UUID) | `mentorId → MentorProfile.id`, `departmentId`, `branchId`, `academicYearId` | `title`, `description`, `status`, `createdAt`, `updatedAt` |
+| **ProjectMember** | Student ↔ Project many‑to‑many link | `id` (UUID) | `projectId → Project.id`, `studentId → User.id` | `role` (`LEADER`/`DEVELOPER`), `joinedAt` |
+| **Milestone** | Project phases | `id` (UUID) | `projectId → Project.id` | `title`, `deadline`, `status`, `createdAt`, `updatedAt` |
+| **Task** | Individual tasks under a milestone | `id` (UUID) | `milestoneId → Milestone.id`, `assigneeId → User.id` (optional) | `title`, `description`, `status`, `dueDate`, `createdAt`, `updatedAt` |
+| **ProjectMessage** | Chat / communication within a project | `id` (UUID) | `projectId → Project.id`, `senderId → User.id` | `content`, `createdAt` |
+| **ProjectFile** | Metadata for uploaded project assets | `id` (UUID) | `projectId → Project.id`, `uploadedBy → User.id` | `fileName`, `fileUrl`, `fileType`, `size`, `createdAt` |
+| **ProjectForm** | Definition of a custom project submission form (JSON schema) | `id` (UUID) | `createdBy → User.id` | `title`, `description`, `formSchema` (JSON), `isActive`, `createdAt` |
+| **ProjectFormSubmission** | Stores user‑filled form data for a specific project submission | `id` (UUID) | `FormId → ProjectForm.id`, `projectId → Project.id`, `studentId → User.id` | `submissionData` (JSON), `submittedAt`, `status` |
+
+### 7. Registration & Approval Tables
+| Table | Purpose | Primary Key | Foreign Keys | Important Columns |
+|-------|---------|-------------|--------------|-------------------|
+| **RegistrationForm** | HOD‑level registration of new student batches | `id` (UUID) | `createdBy → User.id` | `batchYear`, `branchId`, `departmentId`, `isPublished`, `createdAt` |
+| **RegistrationFormSubmission** | Individual student registration data per batch | `id` (UUID) | `registrationFormId → RegistrationForm.id`, `studentId → User.id` | `submittedData` (JSON), `submittedAt` |
+| **hod_student_approvals** | History of HOD student approval actions | `id` (UUID) | `hodId → Hods.id`, `studentId → User.id` | `approval_status`, `remarks`, `approved_at` |
+| **hod_submission_reviews** | HOD review actions for project submissions | `id` (UUID) | `hodId → Hods.id`, `submissionId → ProjectFile.id` | `status`, `feedback`, `reviewed_at` |
+
+### 8. Notification & Upload Tables
+| Table | Purpose | Primary Key | Foreign Keys | Important Columns |
+|-------|---------|-------------|--------------|-------------------|
+| **Notification** | System‑wide notifications (assignment, deadline, review) | `id` (UUID) | `userId → User.id` | `type`, `payload` (JSON), `read` (boolean), `createdAt` |
+| **Upload** | Generic file metadata for any module (profile pictures, documents) | `id` (UUID) | `uploadedBy → User.id` | `fileName`, `fileUrl`, `mimeType`, `size`, `context` (enum), `createdAt` |
+
+### 9. Activity & Audit Tables
+| Table | Purpose | Primary Key | Foreign Keys | Important Columns |
+|-------|---------|-------------|--------------|-------------------|
+| **ActivityLog** | Fine‑grained user activity tracking (page visits, button clicks) | `id` (UUID) | `userId → User.id` | `action`, `metadata` (JSON), `timestamp` |
+| **AuditLog** | Immutable audit trail of critical actions | `id` (UUID) | `userId → User.id` (optional) | `action`, `resource`, `resourceId`, `ip`, `userAgent`, `createdAt` |
+
+### 10. Future Planned Tables (Roadmap)
+- **mentor_feedback** – Structured feedback from mentors on student work.
+- **attendance** – Attendance records for labs / meetings.
+- **analytics_reports** – Pre‑computed analytics for dashboards.
+- **archived_students** – Historical student records after graduation.
+- **project_progress** – Snapshots of project milestone progress over time.
+- **submission_history** – Versioned history of project submissions.
+- **event_management** – Hackathon / seminar event data.
+
+## Relationships & ER Summary
+
+**Key Relationships**
+- One **User** → one **StudentProfile** / one **MentorProfile** (polymorphic).
+- One **Hod** → many **MentorProfile** (manages mentors).
+- One **Hod** → many **MentorAllocation**, **hod_mentor_management**, **hod_student_approvals**, **hod_submission_reviews**, **Team**.
+- One **Team** → many **TeamMember** (students).
+- One **Team** → many **MentorAllocation** (each allocation ties a mentor to a team for a specific academic year).
+- One **Project** → many **ProjectMember**, **Milestone**, **ProjectFile**, **ProjectMessage**.
+- One **ProjectForm** → many **ProjectFormSubmission**.
+- One **RegistrationForm** → many **RegistrationFormSubmission**.
+- One **AcademicYear** → many **Project**, **MentorAllocation**, **RegistrationForm** (scoped data).
+- One **Notification** belongs to a **User**.
+- One **Upload** belongs to a **User**.
+
+**Textual ER Diagram**
 ```
 User 1---* StudentProfile
 User 1---* MentorProfile
@@ -114,66 +193,63 @@ Team *---1 MentorAllocation
 Project 1---* ProjectMember
 Project 1---* Milestone
 Milestone 1---* Task
-Project 1---* ProjectForm
+Project 1---* ProjectFile
+Project 1---* ProjectMessage
 ProjectForm 1---* ProjectFormSubmission
+RegistrationForm 1---* RegistrationFormSubmission
+User 1---* Notification
+User 1---* Upload
+User 1---* ActivityLog
+User 1---* AuditLog
+AcademicYear 1---* Project
+AcademicYear 1---* MentorAllocation
+AcademicYear 1---* RegistrationForm
 ```
 
-## User Roles
+## Mentor Allocation Workflow
+1. **HOD login** → JWT.
+2. **Create Team** via `/hod/create-team` (stores in `Team`).
+3. **Assign Mentor** via `/hod/assign-mentor` → creates `hod_mentor_management` record and a `MentorAllocation` row linking the selected mentor, team, and current `AcademicYear`.
+4. **Notification** created for the mentor and team members.
+5. **Student dashboard** queries `TeamMember` & `MentorAllocation` to display assigned mentor.
+6. **Mentor dashboard** lists teams where `MentorAllocation.mentorId = currentMentorId`.
 
-- **Student** – accesses student portal, creates/joins teams, submits projects.
-- **Mentor** – manages assigned teams, reviews submissions.
-- **HOD** – oversees the entire ecosystem, performs mentor allocation, approves students and submissions.
+## Project & Submission Workflow
+1. **Student creates/joins Team** → `TeamMember` rows.
+2. **Student fills ProjectForm** → `ProjectFormSubmission`.
+3. **Mentor reviews** → updates `ProjectFormSubmission.status` and may add comments (stored in `ProjectMessage`).
+4. **HOD final approval** via `/hod/review-submission` → creates `hod_submission_reviews` entry, updates `ProjectFile` status, and triggers a `Notification`.
 
-*No generic admin role exists; HODs hold administrative privileges.
+## File Upload System
+- **Multer** handles multipart uploads.
+- Files are stored in Cloudinary (or local storage) and the URL plus metadata are saved in **ProjectFile** (project‑specific) or **Upload** (generic).
+- `Upload.context` enum distinguishes purpose (`PROFILE_PIC`, `PROJECT_DOC`, `SUBMISSION_ASSET`).
 
-## Authentication Flow
+## Migration & Prisma Commands
+```bash
+# Install dependencies
+npm install
 
-1. **Login** (`POST /auth/login`) – verifies email/password with bcrypt, issues **access token** (15 min) and **refresh token** (7 days).
-2. **Protected Routes** – `authMiddleware` checks `Authorization: Bearer <token>`; validates token signature & expiry.
-3. **Role Validation** – `roleMiddleware('HOD')`, `roleMiddleware('Mentor')`, etc., ensure only authorized roles can hit specific endpoints.
-4. **Token Refresh** – `POST /auth/refresh` exchanges a valid refresh token for a new access token.
-5. **Logout** – revokes refresh token by deleting its row in `UserSession`.
-
-## Academic Year System
-
-The `AcademicYear` table stores active sessions. Currently configured active years are:
-- **2026‑27**
-- **2027‑28**
-- **2028‑29**
-
-Only the `isActive` flag set to `true` is considered by the `yearFilter` middleware, which automatically scopes queries for students, mentors, and HODs.
-
-## Future Enhancements
-
-- **Analytics Dashboard** with project performance metrics.
-- **Attendance Module** for lab/meeting check‑ins.
-- **AI‑driven project recommendations** based on student skill profiles.
-- **Advanced Reporting** (PDF export, export to LMS).
-- **Real‑time Chat** between mentors and students.
-- **Event Management** for hackathons, seminars.
-- **Granular RBAC** with permission groups.
+# Generate Prisma client & apply migrations
+docker compose up -d db   # if using Docker PostgreSQL
+npx prisma generate
+npx prisma migrate dev   # creates/updates all tables defined below
+```
 
 ## Setup & Running
-
-### Prerequisites
-- **Node.js** (>=18)
-- **npm** or **yarn**
-- **PostgreSQL** instance (Neon URL recommended)
-- **Cloudinary** account (optional for file storage)
-
 ### Backend
 ```bash
 cd backend
 cp .env.example .env   # set DATABASE_URL, JWT_SECRET, CLOUDINARY_*, etc.
 npm install
 npx prisma migrate dev   # creates tables
-npm run dev               # starts Express server on http://localhost:5000
+npm run dev               # starts Express server (http://localhost:5000)
 ```
 ### Frontend
 ```bash
 cd frontend
 npm install
-npm run dev               # Vite dev server on http://localhost:3000
+npm run dev               # Vite dev server (http://localhost:3000)
 ```
 ### Docker (optional)
 ```bash
@@ -183,55 +259,5 @@ docker compose up --build
 ---
 
 *All sections above are generated from the current code‑base and inferred requirements. Adjustments can be made by editing Prisma models, adding missing tables, and re‑running migrations.*
-
-## 🏫 HOD Module Architecture
-
-### HOD Tables
-
-| Table | Purpose | Primary Key | Foreign Keys | Key Columns |
-|------|---------|--------------|--------------|-------------|
-| **Hods** | Stores HOD authentication and department management data. | `id` (UUID) | — | `full_name`, `email`, `password`, `department`, `designation`, `mobile_number`, `profile_image`, `is_active`, `created_at`, `updated_at` |
-| **hod_mentor_management** | Tracks mentor assignments performed by HODs. | `id` (UUID) | `hod_id → Hods.id`, `mentor_id → MentorProfile.id` | `action_type`, `created_at` |
-| **hod_student_approvals** | Stores student registration approval history. | `id` (UUID) | `hod_id → Hods.id`, `student_id → User.id` | `approval_status`, `remarks`, `approved_at` |
-| **hod_submission_reviews** | Stores HOD review actions for project submissions. | `id` (UUID) | `hod_id → Hods.id`, `submission_id → ProjectFile.id` | `status`, `feedback`, `reviewed_at` |
-
-### Relationships
-
-| Parent Table | Child Table | Relationship |
-|--------------|-------------|--------------|
-| **Hods** | **MentorProfile** | One‑to‑Many (HOD manages many mentors) |
-| **Hods** | **MentorAllocation** | One‑to‑Many |
-| **Hods** | **hod_mentor_management** | One‑to‑Many |
-| **Hods** | **hod_student_approvals** | One‑to‑Many |
-| **Hods** | **hod_submission_reviews** | One‑to‑Many |
-| **Hods** | **Team** | One‑to‑Many (monitoring) |
-
-### Authentication Flow
-1. **Login** – HOD submits email & password → JWT issued (`/hod/login`).
-2. **Protected Routes** – Middleware checks `role === 'HOD'`.
-3. **Role‑Based Authorization** – Only HOD can access mentor‑management, student‑approval, and submission‑review endpoints.
-4. **Permissions** – HOD can create/modify `MentorAllocation` and trigger related `Notification`s.
-
-### HOD Workflow
-1. **HOD login** – receives JWT.
-2. **Assign mentors** – POST to `/hod/assign-mentor` creates `hod_mentor_management` entry & updates `MentorAllocation`.
-3. **Student approvals** – POST to `/hod/approve-student` inserts into `hod_student_approvals`; updates `User` status.
-4. **Monitor teams** – GET `/hod/teams` returns teams with progress metrics.
-5. **Review submissions** – POST to `/hod/review-submission` writes `hod_submission_reviews`, updates submission status, sends `Notification`.
-6. **Notifications** – Automatic creation of notifications for mentors, students, and admins on each action.
-
-### ER Diagram (textual)
-```
-Hods 1---* MentorProfile
-Hods 1---* MentorAllocation
-Hods 1---* hod_mentor_management
-Hods 1---* hod_student_approvals
-Hods 1---* hod_submission_reviews
-Hods 1---* Team
-```
-
-These additions complete the HOD module documentation and keep the database architecture consistent and ready for implementation.
-
----
 
 *End of README*
