@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const prisma = require('../config/prisma');
+
 const redis = require('../config/redis');
 
 const getBearerToken = (req) => {

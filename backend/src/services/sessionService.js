@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const redis = require('../config/redis');
-const prisma = require('../config/prisma');
+
 const { addDays, createOpaqueToken, sha256 } = require('../utils/cryptoTokens');
 
 const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || '15m';

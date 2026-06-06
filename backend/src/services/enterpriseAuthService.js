@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const prisma = require('../config/prisma');
+
 const redis = require('../config/redis');
 const { createSession, rotateSession, revokeSession } = require('./sessionService');
 const { writeAuditLog } = require('./auditService');

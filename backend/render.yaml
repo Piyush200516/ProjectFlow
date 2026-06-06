@@ -14,8 +14,7 @@ services:
         generateValue: true
       - key: FRONTEND_URL
         value: https://projectflow-portal.vercel.app
-      - key: DATABASE_URL
-        sync: false
+
     disk:
       name: uploads-storage
       mountPath: /public/uploads

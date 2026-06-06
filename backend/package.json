@@ -4,18 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/server.js",
-    "vercel-build": "npx prisma generate",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "start": "node src/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@prisma/client": "^7.8.0",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.76.8",
@@ -30,12 +25,10 @@
     "multer": "^2.1.1",
     "mysql2": "^3.22.3",
     "nodemailer": "^8.0.9",
-    "pg": "^8.20.0",
     "serverless-http": "^4.0.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14",
-    "prisma": "^7.8.0"
+    "nodemon": "^3.1.14"
   }
 }
