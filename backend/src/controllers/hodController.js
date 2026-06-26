@@ -267,7 +267,7 @@ const getMentorById = async (client, mentorId) => {
 };
 
 const tableExistsForClient = async (client, tableName) => {
-  const result = await client.query('SELECT to_regclass($1) AS table_name', [`public.${tableName}`]);
+  const result = await client.query('SELECT to_regclass($1)::text AS table_name', [`public.${tableName}`]);
   return Boolean(result.rows[0]?.table_name);
 };
 

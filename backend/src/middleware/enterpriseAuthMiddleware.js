@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 
+const prisma = require('../config/prisma');
 const redis = require('../config/redis');
 
 const getBearerToken = (req) => {
@@ -37,7 +38,10 @@ const requireAuth = async (req, res, next) => {
       return res.status(401).json({ message: 'Session invalid' });
     }
 
-    req.user = user;
+    req.user = {
+      ...user,
+      role: String(user.role || '').toUpperCase(),
+    };
     req.sessionId = payload.sessionId;
     return next();
   } catch (error) {
@@ -46,8 +50,9 @@ const requireAuth = async (req, res, next) => {
 };
 
 const requireRoles = (...roles) => {
+  const allowedRoles = roles.map((role) => String(role || '').toUpperCase());
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user || !allowedRoles.includes(String(req.user.role || '').toUpperCase())) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
     return next();

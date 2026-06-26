@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const redis = require('../config/redis');
+const prisma = require('../config/prisma');
 
 const { addDays, createOpaqueToken, sha256 } = require('../utils/cryptoTokens');
 
@@ -18,7 +19,7 @@ const signAccessToken = (user, sessionId) => {
     {
       sub: String(user.id),
       sessionId,
-      role: user.role,
+      role: String(user.role || '').toUpperCase(),
       email: user.email,
     },
     getJwtSecret(),

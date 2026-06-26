@@ -1,0 +1,1092 @@
+generator client {
+  provider = "prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  STUDENT @map("student")
+  MENTOR @map("mentor")
+  HOD @map("hod")
+  ADMIN @map("admin")
+  SUPER_ADMIN @map("super_admin")
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model Department {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  code      String?  @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branches Branch[]
+
+  @@map("departments")
+}
+
+model Branch {
+  id           Int          @id @default(autoincrement())
+  name         String       @unique
+  code         String?      @unique
+  departmentId Int?         @map("department_id")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  students   StudentProfile[] @relation("StudentBranch")
+  projects   Project[] @relation("ProjectBranch")
+  registrationForms RegistrationForm[] @relation("RegistrationFormBranch")
+  projectForms ProjectForm[] @relation("ProjectFormBranch")
+  projectRegistrations ProjectRegistration[]
+  projectTeamMembers ProjectTeamMember[]
+
+  @@index([departmentId])
+  @@map("branches")
+}
+
+model Role {
+  id          Int             @id @default(autoincrement())
+  name        String          @unique
+  description String?
+  isSystem    Boolean         @default(false) @map("is_system")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          Int             @id @default(autoincrement())
+  name        String          @unique
+  description String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       Int      @map("role_id")
+  permissionId Int      @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id               Int        @id @default(autoincrement())
+  email            String     @unique
+  passwordHash     String     @map("password_hash")
+  role             UserRole   @default(STUDENT)
+  fullName         String     @map("full_name")
+  profileImage     String?    @map("profile_image")
+  mobileNumber     String?    @map("mobile_number")
+  isActive         Boolean    @default(true) @map("is_active")
+  emailVerifiedAt  DateTime?  @map("email_verified_at")
+  lockedUntil      DateTime?  @map("locked_until")
+  failedLoginCount Int        @default(0) @map("failed_login_count")
+  lastLogin        DateTime?  @map("last_login")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  studentProfile          StudentProfile?
+  mentorProfile           MentorProfile?
+  sessions                UserSession[]
+  loginAttempts           LoginAttempt[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  auditLogs               AuditLog[] @relation("AuditActor")
+  studentsMentored        StudentProfile[] @relation("StudentMentor")
+  projectsCreated         Project[] @relation("ProjectCreatedBy")
+  projectsMentored        Project[] @relation("ProjectMentor")
+  teamInvitationsSent     TeamInvitation[] @relation("TeamInvitationInviter")
+  projectRegistrationsCreated ProjectRegistration[] @relation("ProjectRegistrationCreator")
+  projectRegistrationsMentored ProjectRegistration[] @relation("ProjectRegistrationMentor")
+  projectTeamMembersAsUser ProjectTeamMember[] @relation("ProjectTeamMemberUser")
+  projectTeamMembersAsStudentUser ProjectTeamMember[] @relation("ProjectTeamMemberStudentUser")
+  projectRegistrationMembers ProjectRegistrationMember[]
+  mentorAllocationsMentor MentorAllocation[] @relation("MentorAllocationMentor")
+  mentorAllocationsCreated MentorAllocation[] @relation("MentorAllocationHod")
+  mentorAssignmentsMentor MentorAssignment[] @relation("MentorAssignmentMentor")
+  mentorAssignmentsMentorUser MentorAssignment[] @relation("MentorAssignmentMentorUser")
+  mentorAssignmentsAssigned MentorAssignment[] @relation("MentorAssignmentAssignedBy")
+  mentorReviewsMentor     MentorReview[] @relation("MentorReviewMentor")
+  mentorReviewsMentorUser MentorReview[] @relation("MentorReviewMentorUser")
+  finalEvaluationsMentor  FinalEvaluation[] @relation("FinalEvaluationMentor")
+  finalEvaluationsHod     FinalEvaluation[] @relation("FinalEvaluationHod")
+  projectMilestonesCreated ProjectMilestone[] @relation("ProjectMilestoneCreator")
+  milestoneSubmissionsSubmitted MilestoneSubmission[] @relation("MilestoneSubmissionSubmitter")
+  documentTemplatesMentor DocumentTemplate[] @relation("DocumentTemplateMentor")
+  documentTemplatesMentorUser DocumentTemplate[] @relation("DocumentTemplateMentorUser")
+  documentTemplatesCreated DocumentTemplate[] @relation("DocumentTemplateCreator")
+  documentVersionsUploaded DocumentVersion[] @relation("DocumentVersionUploader")
+  studentContributions    StudentContribution[] @relation("StudentContributionStudent")
+  studentScores           StudentScore[] @relation("StudentScoreStudent")
+  milestoneScoresStudent  MilestoneScore[] @relation("MilestoneScoreStudent")
+  notifications           Notification[]
+  meetingLogsMentor       MeetingLog[] @relation("MeetingLogMentor")
+  calendarEventsCreated   CalendarEvent[] @relation("CalendarEventCreator")
+  activityLogsActor       ActivityLog[] @relation("ActivityLogActor")
+  documentsUploaded       Document[] @relation("DocumentUploader")
+  tasksCreated            Task[] @relation("TaskCreator")
+  projectFormsCreated      ProjectForm[] @relation("ProjectFormCreator")
+  submissionDeadlinesCreated SubmissionDeadline[] @relation("SubmissionDeadlineCreator")
+  documentAssignmentsCreated DocumentAssignment[] @relation("DocumentAssignmentCreator")
+
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model StudentProfile {
+  userId           Int       @id @map("user_id")
+  fullName         String?   @map("full_name")
+  email            String?   @unique
+  rollNumber       String    @unique @map("roll_number")
+  branchId         Int?      @map("branch_id")
+  branchName       String?   @map("branch_name")
+  branch           String?   
+  department       String?
+  year             Int?
+  semester         Int
+  section          String?
+  subsection       String?
+  mentorId         Int?      @map("mentor_id")
+  mentorName       String?   @map("mentor_name")
+  mentorEmail      String?   @map("mentor_email")
+  profileLocked    Boolean   @default(false) @map("profile_locked")
+  profileUpdatedAt DateTime? @map("profile_updated_at")
+  mobileNumber     String?   @map("mobile_number")
+  profilePhoto     String?   @map("profile_photo")
+  isActive         Boolean   @default(true) @map("is_active")
+  universityEmail  String?   @map("university_email")
+  profileImage     String?   @map("profile_image")
+  academicYear     String?   @map("academic_year")
+  currentScore     Float?    @map("current_score")
+  contributionScore Float?   @map("contribution_score")
+  timelinessScore  Float?    @map("timeliness_score")
+  status           String?   @default("active")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchRelation Branch? @relation("StudentBranch", fields: [branchId], references: [id], onDelete: SetNull)
+  mentor User?   @relation("StudentMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  projectMembers ProjectMember[]
+  teamInvitationsReceived TeamInvitation[] @relation("TeamInvitationStudent")
+  registrationFormSubmissions RegistrationFormSubmission[] @relation("RegistrationFormSubmissionLeader")
+  projectTeamMembers ProjectTeamMember[]
+  projectRegistrationMembers ProjectRegistrationMember[]
+  projectFormSubmissions ProjectFormSubmission[]
+  teamMembers TeamMember[]
+  documentSubmissions DocumentSubmission[]
+  marks Marks[]
+
+  @@index([branchId, semester, section, subsection])
+  @@index([mentorId])
+  @@index([rollNumber])
+  @@index([email])
+  @@map("students")
+}
+
+model MentorProfile {
+  userId         Int       @id @map("user_id")
+  department     String?
+  designation    String?
+  specialization String?
+  maxProjects    Int       @default(8) @map("max_projects")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([department])
+  @@map("mentors")
+}
+
+model UserSession {
+  id               String   @id @default(cuid())
+  userId           Int      @map("user_id")
+  refreshTokenHash String   @unique @map("refresh_token_hash")
+  userAgent        String?  @map("user_agent")
+  ipAddress        String?  @map("ip_address")
+  isRevoked        Boolean  @default(false) @map("is_revoked")
+  expiresAt        DateTime @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRevoked])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  userId    Int?     @map("user_id")
+  email     String
+  ipAddress String?  @map("ip_address")
+  success   Boolean
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("login_attempts")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    Int      @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    Int      @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@map("email_verification_tokens")
+}
+
+model AuditLog {
+  id         String        @id @default(cuid())
+  actorId    Int?         @map("actor_id")
+  action     String
+  entityType String        @map("entity_type")
+  entityId   String?       @map("entity_id")
+  severity   AuditSeverity @default(INFO)
+  ipAddress  String?       @map("ip_address")
+  userAgent  String?       @map("user_agent")
+  metadata   Json?
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model Project {
+  id               Int       @id @default(autoincrement())
+  registrationId   Int?      @map("registration_id")
+  title            String
+  type             String?
+  teamName         String?   @map("team_name")
+  description      String?
+  problemStatement String?   @map("problem_statement")
+  abstract         String?
+  techStack        Json?     @map("tech_stack")
+  githubLink       String?   @map("github_link")
+  startDate        DateTime? @map("start_date")
+  endDate          DateTime? @map("end_date")
+  status           String    @default("pending")
+  progressPercent  Float?    @map("progress_percent")
+  branchId         Int?      @map("branch_id")
+  branch           String?
+  academicYear     String?   @map("academic_year")
+  semester         Int?
+  section          String?
+  subsection       String?
+  createdById      Int?      @map("created_by")
+  mentorId         Int?      @map("mentor_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  registration ProjectRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  branchRelation Branch?            @relation("ProjectBranch", fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy    User?                @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  mentor       User?                @relation("ProjectMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([branchId, academicYear, semester, section, subsection])
+  @@index([createdById])
+  @@index([mentorId])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id          Int       @id @default(autoincrement())
+  projectId   Int       @map("project_id")
+  registrationId Int?   @map("registration_id")
+  studentId   Int       @map("student_id")
+  role        String    @default("Member")
+  isLeader    Boolean   @default(false) @map("is_leader")
+  joinedAt    DateTime  @default(now()) @map("joined_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  registration ProjectRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  student      StudentProfile @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+
+  @@unique([projectId, studentId])
+  @@index([registrationId])
+  @@map("project_members")
+}
+
+model TeamInvitation {
+  inviteId          Int       @id @default(autoincrement()) @map("invite_id")
+  projectId         Int       @map("project_id")
+  inviterId         Int       @map("inviter_id")
+  invitedStudentId  Int       @map("invited_student_id")
+  status            String    @default("Pending")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviter        User           @relation("TeamInvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitedStudent StudentProfile @relation("TeamInvitationStudent", fields: [invitedStudentId], references: [userId], onDelete: Cascade)
+
+  @@unique([projectId, invitedStudentId])
+  @@index([inviterId, status])
+  @@map("team_invitations")
+}
+
+model RegistrationForm {
+  id             Int       @id @default(autoincrement())
+  title          String
+  instructions   String?
+  branch         String?
+  branchId       Int?      @map("branch_id")
+  academicYear   String?   @map("academic_year")
+  semester       Int?
+  section        String?
+  subsection     String?
+  teamSizeMin    Int       @default(1) @map("team_size_min")
+  teamSizeMax    Int       @default(4) @map("team_size_max")
+  projectType    String?   @map("project_type")
+  startDate      DateTime? @map("start_date")
+  deadline       DateTime?
+  status         String    @default("draft")
+  isPublished    Boolean   @default(false) @map("is_published")
+  createdById    Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  branchRelation Branch? @relation("RegistrationFormBranch", fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy User?  @relation("RegistrationFormCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([branchId, academicYear, semester, section, subsection])
+  @@index([status, isPublished])
+  @@map("registration_forms")
+}
+
+model RegistrationFormSubmission {
+  id              Int      @id @default(autoincrement())
+  formId          Int      @map("form_id")
+  projectTitle    String   @map("project_title")
+  projectDomain   String?  @map("project_domain")
+  problemStatement String? @map("problem_statement")
+  abstract        String?
+  techStack       Json?    @map("tech_stack")
+  leaderId        Int?     @map("leader_id")
+  teamMembers     Json?    @map("team_members")
+  status          String   @default("Pending")
+  remarks         String?
+  submittedAt     DateTime @default(now()) @map("submitted_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  form   RegistrationForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  leader StudentProfile?  @relation(fields: [leaderId], references: [userId], onDelete: SetNull)
+
+  @@index([formId, status])
+  @@index([leaderId])
+  @@map("registration_form_submissions")
+}
+
+model ProjectRegistration {
+  id                 Int      @id @default(autoincrement())
+  registrationFormId  Int?     @map("registration_form_id")
+  submissionId        Int?     @unique @map("submission_id")
+  title              String
+  projectDomain      String?  @map("project_domain")
+  problemStatement   String?  @map("problem_statement")
+  abstract           String?
+  techStack          Json?    @map("tech_stack")
+  teamName           String?  @map("team_name")
+  githubLink         String?  @map("github_link")
+  status             String   @default("Pending")
+  createdById        Int?     @map("created_by")
+  mentorId           Int?     @map("mentor_id")
+  branchId           Int?     @map("branch_id")
+  academicYear       String?  @map("academic_year")
+  semester           Int?
+  section            String?
+  subsection         String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  registrationForm RegistrationForm?        @relation(fields: [registrationFormId], references: [id], onDelete: SetNull)
+  submission       RegistrationFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  createdBy        User?                      @relation("ProjectRegistrationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  mentor           User?                      @relation("ProjectRegistrationMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  branch           Branch?                    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([registrationFormId, status])
+  @@index([branchId, academicYear, semester, section, subsection])
+  @@index([createdById])
+  @@index([mentorId])
+  @@map("project_registrations")
+}
+
+model ProjectTeamMember {
+  id                Int       @id @default(autoincrement())
+  submissionId      Int?      @map("submission_id")
+  projectRegistrationId Int?   @map("project_registration_id")
+  formId            Int?      @map("form_id")
+  userId            Int?      @map("user_id")
+  studentUserId     Int?      @map("student_user_id")
+  studentId         Int?      @map("student_id")
+  fullName          String?   @map("full_name")
+  email             String?
+  rollNumber        String?   @map("roll_number")
+  branchId          Int?      @map("branch_id")
+  branchName        String?   @map("branch_name")
+  academicYear      String?   @map("academic_year")
+  semester          Int?
+  section           String?
+  subsection        String?
+  role              String    @default("Member")
+  isLeader          Boolean   @default(false) @map("is_leader")
+  isTeamLeader      Boolean?  @map("is_team_leader")
+  joinedAt          DateTime? @map("joined_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  submission        RegistrationFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: SetNull)
+  form              RegistrationForm?           @relation(fields: [formId], references: [id], onDelete: SetNull)
+  user              User?                       @relation("ProjectTeamMemberUser", fields: [userId], references: [id], onDelete: SetNull)
+  studentUser       User?                       @relation("ProjectTeamMemberStudentUser", fields: [studentUserId], references: [id], onDelete: SetNull)
+  student           StudentProfile?             @relation(fields: [studentId], references: [userId], onDelete: SetNull)
+  branch            Branch?                     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([submissionId])
+  @@index([projectRegistrationId])
+  @@index([studentId, role])
+  @@map("project_team_members")
+}
+
+model ProjectRegistrationMember {
+  id            Int       @id @default(autoincrement())
+  registrationId Int?     @map("registration_id")
+  submissionId  Int?      @map("submission_id")
+  formId        Int?      @map("form_id")
+  userId        Int?      @map("user_id")
+  studentName   String?   @map("student_name")
+  studentEmail  String?   @map("student_email")
+  rollNumber    String?   @map("roll_number")
+  teamRole      String?   @map("team_role")
+  isLeader      Boolean   @default(false) @map("is_leader")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  registration ProjectRegistration?         @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  submission   RegistrationFormSubmission?  @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  form         RegistrationForm?            @relation(fields: [formId], references: [id], onDelete: SetNull)
+  user         User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([registrationId])
+  @@index([submissionId])
+  @@map("project_registration_members")
+}
+
+model MentorAllocation {
+  id             Int       @id @default(autoincrement())
+  year           Int?
+  academicYear   String?   @map("academic_year")
+  semester       Int?
+  section        String?
+  subsection     String?
+  mentorId       Int?      @map("mentor_id")
+  mentorName     String?   @map("mentor_name")
+  mentorEmail    String?   @map("mentor_email")
+  createdByHodId Int?      @map("created_by_hod")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  mentor       User? @relation("MentorAllocationMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  createdByHod User? @relation("MentorAllocationHod", fields: [createdByHodId], references: [id], onDelete: SetNull)
+
+  @@unique([academicYear, semester, section, subsection])
+  @@index([mentorId])
+  @@map("mentor_allocations")
+}
+
+model MentorAssignment {
+  id            Int       @id @default(autoincrement())
+  mentorId      Int?      @map("mentor_id")
+  mentorUserId  Int?      @map("mentor_user_id")
+  projectId     Int?      @map("project_id")
+  registrationId Int?     @map("registration_id")
+  submissionId  Int?      @map("submission_id")
+  assignedById  Int?      @map("assigned_by")
+  section       String?
+  subsection    String?
+  academicYear  String?   @map("academic_year")
+  branch        String?
+  domain        String?
+  allocationId  Int?      @map("allocation_id")
+  assignedAt    DateTime  @default(now()) @map("assigned_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  mentor       User? @relation("MentorAssignmentMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  mentorUser   User? @relation("MentorAssignmentMentorUser", fields: [mentorUserId], references: [id], onDelete: SetNull)
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  registration ProjectRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  submission   RegistrationFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  assignedBy   User? @relation("MentorAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  allocation   MentorAllocation? @relation(fields: [allocationId], references: [id], onDelete: SetNull)
+
+  @@index([mentorId, mentorUserId])
+  @@index([projectId])
+  @@index([registrationId])
+  @@map("mentor_assignments")
+}
+
+model MentorReview {
+  id                 Int       @id @default(autoincrement())
+  submissionId       Int?      @map("submission_id")
+  milestoneSubmissionId Int?    @map("milestone_submission_id")
+  projectRegistrationId Int?    @map("project_registration_id")
+  mentorId           Int?      @map("mentor_id")
+  mentorUserId       Int?      @map("mentor_user_id")
+  status             String?
+  remarks            String?
+  comments           String?
+  qualityMarks       Float?    @map("quality_marks")
+  feedback           String?
+  marks              Float?
+  reviewStatus       String?   @map("review_status")
+  reviewedAt         DateTime? @map("reviewed_at")
+  updatedAt          DateTime? @map("updated_at")
+
+  submission        RegistrationFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  milestoneSubmission MilestoneSubmission?      @relation(fields: [milestoneSubmissionId], references: [id], onDelete: SetNull)
+  projectRegistration ProjectRegistration?      @relation(fields: [projectRegistrationId], references: [id], onDelete: SetNull)
+  mentor            User?                        @relation("MentorReviewMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  mentorUser        User?                        @relation("MentorReviewMentorUser", fields: [mentorUserId], references: [id], onDelete: SetNull)
+
+  @@index([mentorId, mentorUserId])
+  @@index([projectRegistrationId])
+  @@index([submissionId])
+  @@map("mentor_reviews")
+}
+
+model FinalEvaluation {
+  id                 Int       @id @default(autoincrement())
+  projectRegistrationId Int    @map("project_registration_id")
+  mentorId           Int?      @map("mentor_id")
+  hodId              Int?      @map("hod_id")
+  vivaMarks          Float?    @map("viva_marks")
+  demoMarks          Float?    @map("demo_marks")
+  presentationMarks  Float?    @map("presentation_marks")
+  innovationMarks    Float?    @map("innovation_marks")
+  remarks            String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  projectRegistration ProjectRegistration @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  mentor             User?               @relation("FinalEvaluationMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  hod                User?               @relation("FinalEvaluationHod", fields: [hodId], references: [id], onDelete: SetNull)
+
+  @@index([projectRegistrationId])
+  @@map("final_evaluations")
+}
+
+model ProjectMilestone {
+  id                 Int       @id @default(autoincrement())
+  projectId          Int?      @map("project_id")
+  registrationFormId Int?      @map("registration_form_id")
+  projectRegistrationId Int?   @map("project_registration_id")
+  title              String
+  description        String?
+  documentType       String?   @map("document_type")
+  sequenceNo         Int?      @map("sequence_no")
+  sequenceOrder      Int?      @map("sequence_order")
+  deadline           DateTime?
+  status             String    @default("pending")
+  createdById        Int?      @map("created_by")
+  instructions       String?
+  maxMarks           Float?    @map("max_marks")
+  allowedFormats     Json?     @map("allowed_formats")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  project          Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  registrationForm RegistrationForm?     @relation(fields: [registrationFormId], references: [id], onDelete: Cascade)
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  createdBy        User?                @relation("ProjectMilestoneCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, sequenceOrder])
+  @@index([registrationFormId, sequenceNo])
+  @@index([projectRegistrationId])
+  @@index([deadline, status])
+  @@map("project_milestones")
+}
+
+model MilestoneSubmission {
+  id                 Int       @id @default(autoincrement())
+  milestoneId        Int?      @map("milestone_id")
+  projectMilestoneId  Int?      @map("project_milestone_id")
+  projectId          Int?      @map("project_id")
+  projectRegistrationId Int?    @map("project_registration_id")
+  submittedById      Int?      @map("submitted_by")
+  fileName           String?   @map("file_name")
+  filePath           String?   @map("file_path")
+  fileUrl            String?   @map("file_url")
+  mimeType           String?   @map("mime_type")
+  submissionNotes    String?   @map("submission_notes")
+  versionNo          Int?      @map("version_no")
+  status             String    @default("Submitted")
+  reviewStatus       String?   @map("review_status")
+  feedback           String?
+  marks              Float?
+  isLate             Boolean   @default(false) @map("is_late")
+  submittedAt        DateTime  @default(now()) @map("submitted_at")
+  remarks            String?
+  updatedAt          DateTime? @map("updated_at")
+
+  milestone         ProjectMilestone?   @relation("MilestoneSubmissionMilestone", fields: [milestoneId], references: [id], onDelete: Cascade)
+  projectMilestone  ProjectMilestone?   @relation("MilestoneSubmissionProjectMilestone", fields: [projectMilestoneId], references: [id], onDelete: Cascade)
+  project           Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: SetNull)
+  submittedBy      User?                @relation("MilestoneSubmissionSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+
+  @@index([milestoneId])
+  @@index([projectMilestoneId])
+  @@index([projectRegistrationId])
+  @@index([submittedById, submittedAt])
+  @@map("milestone_submissions")
+}
+
+model DocumentTemplate {
+  id                 Int       @id @default(autoincrement())
+  projectMilestoneId Int?      @map("project_milestone_id")
+  projectRegistrationId Int?   @map("project_registration_id")
+  mentorId           Int?      @map("mentor_id")
+  mentorUserId       Int?      @map("mentor_user_id")
+  createdById        Int?      @map("created_by")
+  documentName       String?   @map("document_name")
+  documentType       String?   @map("document_type")
+  templateName       String?   @map("template_name")
+  title              String?
+  description        String?
+  fileName           String?   @map("file_name")
+  filePath           String?   @map("file_path")
+  fileType           String?   @map("file_type")
+  mimeType           String?   @map("mime_type")
+  deadline           DateTime?
+  maxMarks           Float?    @map("max_marks")
+  instructions       String?
+  allowedFormats     Json?     @map("allowed_formats")
+  isPublished        Boolean   @default(false) @map("is_published")
+  updatedAt          DateTime? @map("updated_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  projectMilestone   ProjectMilestone?   @relation(fields: [projectMilestoneId], references: [id], onDelete: Cascade)
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  mentor            User?                @relation("DocumentTemplateMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  mentorUser        User?                @relation("DocumentTemplateMentorUser", fields: [mentorUserId], references: [id], onDelete: SetNull)
+  createdBy         User?                @relation("DocumentTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectMilestoneId, isPublished])
+  @@index([projectRegistrationId])
+  @@index([mentorId, mentorUserId])
+  @@map("document_templates")
+}
+
+model DocumentVersion {
+  id                 Int       @id @default(autoincrement())
+  milestoneSubmissionId Int?    @map("milestone_submission_id")
+  submissionId       Int?      @map("submission_id")
+  versionNo          Int       @map("version_no")
+  fileName           String?   @map("file_name")
+  filePath           String?   @map("file_path")
+  mimeType           String?   @map("mime_type")
+  uploadedById       Int?      @map("uploaded_by")
+  uploadedAt         DateTime  @default(now()) @map("uploaded_at")
+  status             String?
+
+  milestoneSubmission MilestoneSubmission? @relation("DocumentVersionMilestoneSubmission", fields: [milestoneSubmissionId], references: [id], onDelete: Cascade)
+  submission        MilestoneSubmission?   @relation("DocumentVersionSubmission", fields: [submissionId], references: [id], onDelete: Cascade)
+  uploadedBy        User?                  @relation("DocumentVersionUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([milestoneSubmissionId, versionNo])
+  @@index([submissionId])
+  @@map("document_versions")
+}
+
+model StudentContribution {
+  id                 Int       @id @default(autoincrement())
+  projectRegistrationId Int?   @map("project_registration_id")
+  studentUserId      Int?      @map("student_user_id")
+  taskTitle          String?   @map("task_title")
+  contributionPercent Float?   @map("contribution_percent")
+  remarks            String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  student            User?                @relation("StudentContributionStudent", fields: [studentUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectRegistrationId, studentUserId])
+  @@map("student_contributions")
+}
+
+model ProjectScore {
+  id                 Int       @id @default(autoincrement())
+  projectRegistrationId Int?   @unique @map("project_registration_id")
+  projectId          Int?      @map("project_id")
+  maxMarks           Float?    @map("max_marks")
+  timelySubmissionMarks Float? @map("timely_submission_marks")
+  documentationMarks Float?    @map("documentation_marks")
+  mentorReviewMarks  Float?    @map("mentor_review_marks")
+  finalDemoMarks     Float?    @map("final_demo_marks")
+  innovationMarks    Float?    @map("innovation_marks")
+  totalMarks         Float?    @map("total_marks")
+  updatedAt          DateTime? @map("updated_at")
+
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  project             Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("project_scores")
+}
+
+model StudentScore {
+  id                 Int       @id @default(autoincrement())
+  projectRegistrationId Int?   @map("project_registration_id")
+  studentUserId      Int?      @map("student_user_id")
+  baseProjectMarks   Float?    @map("base_project_marks")
+  contributionPercent Float?   @map("contribution_percent")
+  contributionAdjustment Float? @map("contribution_adjustment")
+  timelinessScore    Float?    @map("timeliness_score")
+  finalMarks         Float?    @map("final_marks")
+  updatedAt          DateTime? @map("updated_at")
+
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  student            User?                @relation("StudentScoreStudent", fields: [studentUserId], references: [id], onDelete: SetNull)
+
+  @@unique([projectRegistrationId, studentUserId])
+  @@index([studentUserId])
+  @@map("student_scores")
+}
+
+model MilestoneScore {
+  id                 Int       @id @default(autoincrement())
+  milestoneSubmissionId Int?   @unique @map("milestone_submission_id")
+  milestoneId        Int?      @map("milestone_id")
+  projectRegistrationId Int?   @map("project_registration_id")
+  studentUserId      Int?      @map("student_user_id")
+  timelinessMarks    Float?    @map("timeliness_marks")
+  documentationMarks Float?    @map("documentation_marks")
+  mentorMarks        Float?    @map("mentor_marks")
+  totalMarks         Float?    @map("total_marks")
+  isLate             Boolean   @default(false) @map("is_late")
+  lateDays           Int?      @map("late_days")
+  updatedAt          DateTime? @map("updated_at")
+
+  milestoneSubmission MilestoneSubmission? @relation(fields: [milestoneSubmissionId], references: [id], onDelete: Cascade)
+  milestone         ProjectMilestone?      @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: SetNull)
+  student            User?                @relation("MilestoneScoreStudent", fields: [studentUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectRegistrationId])
+  @@index([studentUserId])
+  @@map("milestone_scores")
+}
+
+model Notification {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  title          String
+  message        String
+  type           String
+  referenceId    Int?      @map("reference_id")
+  referenceType  String?   @map("reference_type")
+  isRead         Boolean   @default(false) @map("is_read")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model MeetingLog {
+  id                 Int       @id @default(autoincrement())
+  projectRegistrationId Int?   @map("project_registration_id")
+  mentorId           Int?      @map("mentor_id")
+  meetingDate        DateTime  @map("meeting_date")
+  agenda             String?
+  remarks            String?
+  attendanceJson     Json?     @map("attendance_json")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  mentor              User?                @relation("MeetingLogMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+
+  @@index([projectRegistrationId, mentorId])
+  @@map("meeting_logs")
+}
+
+model CalendarEvent {
+  id                 Int       @id @default(autoincrement())
+  projectRegistrationId Int?   @map("project_registration_id")
+  projectId          Int?      @map("project_id")
+  title              String
+  eventType          String?   @map("event_type")
+  eventDate          DateTime  @map("event_date")
+  audience           String?
+  createdById        Int?      @map("created_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: Cascade)
+  project             Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy           User?                @relation("CalendarEventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectRegistrationId, projectId, eventDate])
+  @@map("calendar_events")
+}
+
+model ActivityLog {
+  id                 Int       @id @default(autoincrement())
+  actorId            Int?      @map("actor_id")
+  projectRegistrationId Int?   @map("project_registration_id")
+  action             String
+  details            Json?
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  actor              User?                @relation("ActivityLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  projectRegistration ProjectRegistration? @relation(fields: [projectRegistrationId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, projectRegistrationId, createdAt])
+  @@map("activity_logs")
+}
+
+model Document {
+  id            Int       @id @default(autoincrement())
+  projectId     Int?      @map("project_id")
+  uploadedById  Int?      @map("uploaded_by")
+  originalName  String?   @map("original_name")
+  filePath      String?   @map("file_path")
+  fileType      String?   @map("file_type")
+  fileSize      Int?      @map("file_size")
+  url           String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User?    @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("documents")
+}
+
+model Task {
+  id           Int       @id @default(autoincrement())
+  title        String
+  description  String?
+  status       String    @default("todo")
+  priority     String    @default("medium")
+  projectId    Int?      @map("project_id")
+  members      Json?
+  comments     Json?
+  attachments  Json?
+  createdById  Int?      @map("created_by")
+  dueDate      DateTime? @map("due_date")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status, priority])
+  @@index([createdById])
+  @@map("tasks")
+}
+
+model ProjectForm {
+  id             Int       @id @default(autoincrement())
+  title          String
+  description    String?
+  projectType    String?   @map("project_type")
+  branch         String?
+  branchId       Int?      @map("branch_id")
+  academicYear   String?   @map("academic_year")
+  semester       Int?
+  section        String?
+  subsection     String?
+  deadline       DateTime?
+  status         String    @default("draft")
+  isPublished    Boolean   @default(false) @map("is_published")
+  createdById    Int?      @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  branchRelation Branch? @relation("ProjectFormBranch", fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy User?  @relation("ProjectFormCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([branchId, academicYear, semester, section, subsection])
+  @@index([status, isPublished])
+  @@map("project_forms")
+}
+
+model ProjectFormSubmission {
+  id          Int       @id @default(autoincrement())
+  formId      Int       @map("form_id")
+  studentId   Int?      @map("student_id")
+  title       String
+  description String?
+  domain      String?
+  githubLink  String?   @map("github_link")
+  status      String    @default("Pending")
+  remarks     String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  form    ProjectForm   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  student StudentProfile? @relation(fields: [studentId], references: [userId], onDelete: SetNull)
+
+  @@index([formId, status])
+  @@index([studentId])
+  @@map("project_form_submissions")
+}
+
+model TeamMember {
+  id          Int       @id @default(autoincrement())
+  submissionId Int?     @map("submission_id")
+  studentId   Int?      @map("student_id")
+  projectId   Int?      @map("project_id")
+  role        String?   @default("Member")
+  isLeader    Boolean   @default(false) @map("is_leader")
+  joinedAt    DateTime  @default(now()) @map("joined_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  submission ProjectFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  student    StudentProfile?        @relation(fields: [studentId], references: [userId], onDelete: SetNull)
+  project    Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([submissionId, studentId])
+  @@map("team_members")
+}
+
+model SubmissionDeadline {
+  id            Int       @id @default(autoincrement())
+  templateId    Int?      @map("template_id")
+  projectType   String?   @map("project_type")
+  deadlineDate  DateTime? @map("deadline_date")
+  createdById   Int?      @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  template  DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdBy User?             @relation("SubmissionDeadlineCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([templateId, projectType])
+  @@index([deadlineDate])
+  @@map("submission_deadlines")
+}
+
+model DocumentAssignment {
+  id          Int       @id @default(autoincrement())
+  projectId   Int?      @map("project_id")
+  title       String
+  description String?
+  dueDate     DateTime? @map("due_date")
+  createdById Int?      @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("DocumentAssignmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("document_assignments")
+}
+
+model DocumentSubmission {
+  id           Int       @id @default(autoincrement())
+  submissionId Int?      @map("submission_id")
+  assignmentId Int?      @map("assignment_id")
+  projectId    Int?      @map("project_id")
+  studentId    Int?      @map("student_id")
+  templateId   Int?      @map("template_id")
+  documentType String?   @map("document_type")
+  fileName     String?   @map("file_name")
+  filePath     String?   @map("file_path")
+  status       String    @default("Submitted")
+  isLate       Boolean   @default(false) @map("is_late")
+  lateDays     Int?      @map("late_days")
+  marksAwarded Float?    @map("marks_awarded")
+  reviewStatus String?   @map("review_status")
+  comments     String?
+  submittedAt  DateTime  @default(now()) @map("submitted_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  submission ProjectFormSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  assignment DocumentAssignment?    @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  project    Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  student    StudentProfile?        @relation(fields: [studentId], references: [userId], onDelete: SetNull)
+  template   DocumentTemplate?      @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([submissionId, projectId, studentId])
+  @@map("document_submissions")
+}
+
+model Marks {
+  id                 Int       @id @default(autoincrement())
+  projectId          Int?      @map("project_id")
+  submissionId       Int?      @map("submission_id")
+  studentId          Int?      @map("student_id")
+  timelinessMarks    Float?    @map("timeliness_marks")
+  qualityMarks       Float?    @map("quality_marks")
+  totalMarks         Float?    @map("total_marks")
+  completeness       Float?
+  completionPercent  Float?    @map("completion_percent")
+  timelinessScore    Float?    @map("timeliness_score")
+  docCompletionScore Float?    @map("doc_completion_score")
+  contributionScore  Float?    @map("contribution_score")
+  githubScore        Float?    @map("github_score")
+  mentorReviewScore  Float?    @map("mentor_review_score")
+  totalScore         Float?    @map("total_score")
+  updatedAt          DateTime? @map("updated_at")
+
+  project    Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  submission DocumentSubmission?  @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  student    StudentProfile?      @relation(fields: [studentId], references: [userId], onDelete: SetNull)
+
+  @@unique([studentId, projectId])
+  @@index([submissionId])
+  @@map("marks")
+}

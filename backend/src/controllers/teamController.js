@@ -20,7 +20,7 @@ const ensureProjectMilestoneCompatibility = async () => {
 };
 
 const tableExists = async (tableName) => {
-  const result = await db.pool.query('SELECT to_regclass($1) as table_name', [tableName]);
+  const result = await db.pool.query('SELECT to_regclass($1)::text as table_name', [tableName]);
   return Boolean(result.rows[0]?.table_name);
 };
 

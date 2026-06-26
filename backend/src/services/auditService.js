@@ -1,5 +1,7 @@
 
 
+const prisma = require('../config/prisma');
+
 const writeAuditLog = async ({
   actorId = null,
   action,

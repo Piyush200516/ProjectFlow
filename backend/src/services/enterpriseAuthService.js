@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 
+const prisma = require('../config/prisma');
 const redis = require('../config/redis');
 const { createSession, rotateSession, revokeSession } = require('./sessionService');
 const { writeAuditLog } = require('./auditService');
@@ -15,7 +16,7 @@ const publicUser = (user) => ({
   id: user.id,
   email: user.email,
   fullName: user.fullName,
-  role: user.role,
+  role: String(user.role || '').toUpperCase(),
   isActive: user.isActive,
   emailVerifiedAt: user.emailVerifiedAt,
 });
@@ -26,7 +27,7 @@ const frontendUrl = () => (process.env.FRONTEND_URL || 'https://projectflow-auth
 
 const register = async ({ payload, req }) => {
   const email = normalizeEmail(payload.email);
-  const role = payload.role || 'STUDENT';
+  const role = String(payload.role || 'STUDENT').trim().toLowerCase();
 
   if (!email || !payload.password || !payload.fullName) {
     const error = new Error('fullName, email and password are required');
@@ -41,7 +42,7 @@ const register = async ({ payload, req }) => {
       passwordHash,
       fullName: payload.fullName.trim(),
       role,
-      studentProfile: role === 'STUDENT' && payload.rollNumber ? {
+      studentProfile: role === 'student' && payload.rollNumber ? {
         create: {
           rollNumber: payload.rollNumber,
           branchId: payload.branchId ? Number(payload.branchId) : null,
